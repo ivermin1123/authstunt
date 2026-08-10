@@ -1,0 +1,41 @@
+# Validated by the "goreleaser check" job in CI.
+version: 2
+
+project_name: authstunt
+
+builds:
+  - id: authstunt
+    main: ./cmd/authstunt
+    env:
+      - CGO_ENABLED=0
+    goos:
+      - linux
+      - darwin
+      - windows
+    goarch:
+      - amd64
+      - arm64
+    ldflags:
+      - -s -w
+      - -X main.version={{.Version}}
+      - -X main.commit={{.Commit}}
+      - -X main.date={{.Date}}
+
+archives:
+  - formats: [tar.gz]
+    format_overrides:
+      - goos: windows
+        formats: [zip]
+
+checksum:
+  name_template: checksums.txt
+
+snapshot:
+  version_template: "{{ incpatch .Version }}-next"
+
+release:
+  draft: true
+
+changelog:
+  use: github
+  sort: asc

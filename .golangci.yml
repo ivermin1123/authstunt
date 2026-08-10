@@ -1,0 +1,30 @@
+# Verified against the golangci-lint v2 schema with "golangci-lint config verify"
+# on 2026-08-10.
+version: "2"
+
+linters:
+  default: none
+  enable:
+    - errcheck
+    - govet
+    - staticcheck
+    - revive
+    - gosec
+    - misspell
+    - depguard
+  settings:
+    depguard:
+      rules:
+        yaml-ban:
+          deny:
+            - pkg: gopkg.in/yaml.v2
+              desc: "use github.com/goccy/go-yaml"
+            - pkg: gopkg.in/yaml.v3
+              desc: "archived upstream: use github.com/goccy/go-yaml"
+    misspell:
+      locale: US
+
+formatters:
+  enable:
+    - gofmt
+    - goimports
