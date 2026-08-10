@@ -29,6 +29,11 @@ jobs:
         with:
           go-version: "1.26.x"
       - run: go test -race ./...
+      # Benchmarks are reported, never gating: they exist so the storage
+      # choices stay falsifiable, not to fail a build on a noisy runner.
+      - name: benchmarks (reported, not gating)
+        continue-on-error: true
+        run: go test -run '^$' -bench . -benchtime 10x ./...
 
   build-matrix:
     runs-on: ubuntu-latest
