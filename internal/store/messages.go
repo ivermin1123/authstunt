@@ -56,7 +56,7 @@ func (s *Store) InsertMessage(ctx context.Context, m Message) (Message, error) {
 			_, err := tx.ExecContext(ctx,
 				`INSERT INTO message_recipients (message_id, addr, kind) VALUES (?, ?, ?)
 				 ON CONFLICT DO NOTHING`,
-				m.ID, r.Addr, r.Kind)
+				m.ID, NormalizeAddress(r.Addr), r.Kind)
 			if err != nil {
 				return fmt.Errorf("store: insert recipient: %w", err)
 			}
@@ -135,7 +135,7 @@ func (s *Store) ListMessages(ctx context.Context, f MessageFilter) ([]Message, e
 	if f.To != "" {
 		where = append(where, `EXISTS (SELECT 1 FROM message_recipients r
 			WHERE r.message_id = m.id AND r.kind = ? AND r.addr = ?)`)
-		args = append(args, RecipientEnvelope, f.To)
+		args = append(args, RecipientEnvelope, NormalizeAddress(f.To))
 	}
 
 	query := `SELECT ` + messageColumnsAliased + ` FROM messages m`

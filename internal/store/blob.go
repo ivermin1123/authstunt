@@ -28,8 +28,10 @@ var ErrBadRef = errors.New("store: invalid blob reference")
 const blobExt = ".blob"
 
 // BlobStore keeps large payloads out of the database: raw and HTML mail,
-// Playwright storage state. Every file is sealed, so a stolen data
-// directory yields no OTPs.
+// Playwright storage state. Every file is sealed, which protects a copy of
+// these files taken on its own, such as a backup that excludes the key.
+// It does not protect a copy of the whole data directory: the key lives in
+// there too, by design, so that headless CI works without a keychain.
 type BlobStore struct {
 	dir    string
 	sealer BlobSealer

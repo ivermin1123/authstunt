@@ -196,6 +196,106 @@ func TestListMessagesBeyondRecipientBatch(t *testing.T) {
 	}
 }
 
+// TestAllowlistKeepsDeclarationOrder locks the ordering contract: persona
+// emails are generated under the first pattern, so sorting would move new
+// personas to a different domain.
+func TestAllowlistKeepsDeclarationOrder(t *testing.T) {
+	ctx := t.Context()
+	s := openTestStore(t)
+	project := newProject(t, s)
+
+	// Declared order is deliberately not alphabetical order.
+	declared := []string{"*.zulu.test", "*.alpha.test", "*.mike.test"}
+	if err := s.SetAllowlist(ctx, project.ID, declared); err != nil {
+		t.Fatal(err)
+	}
+	got, err := s.Allowlist(ctx, project.ID)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(got) != len(declared) {
+		t.Fatalf("got %d patterns, want %d", len(got), len(declared))
+	}
+	for i, want := range declared {
+		if got[i] != want {
+			t.Fatalf("pattern %d = %q, want %q (declaration order lost)", i, got[i], want)
+		}
+	}
+}
+
+// TestAddressMatchingIsCaseInsensitive covers what SMTP will actually
+// deliver: the domain part is case-insensitive, so a target app sending to
+// User@Demo.Test must reach the persona that asked for the lowercase
+// address.
+func TestAddressMatchingIsCaseInsensitive(t *testing.T) {
+	ctx := t.Context()
+	s := openTestStore(t)
+	project := newProject(t, s)
+
+	persona, err := s.CreatePersona(ctx, store.Persona{
+		ProjectID: project.ID, Name: "mixed", Email: "Free-User@Demo.Test",
+		PasswordEnc: []byte("sealed"),
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if persona.Email != "Free-User@demo.test" {
+		t.Fatalf("stored email = %q, want the domain lowercased", persona.Email)
+	}
+	for _, lookup := range []string{"Free-User@Demo.Test", "free-user@demo.test"} {
+		got, err := s.PersonaByEmail(ctx, lookup)
+		if err != nil {
+			t.Fatalf("PersonaByEmail(%q): %v", lookup, err)
+		}
+		if got.ID != persona.ID {
+			t.Fatalf("PersonaByEmail(%q) found a different persona", lookup)
+		}
+	}
+
+	if _, err := s.InsertMessage(ctx, store.Message{
+		ProjectID: project.ID, FromAddr: "app@test", Subject: "Verify",
+		Recipients: []store.Recipient{{Addr: "Free-User@Demo.Test", Kind: store.RecipientEnvelope}},
+	}); err != nil {
+		t.Fatal(err)
+	}
+	for _, lookup := range []string{"free-user@demo.test", "FREE-USER@DEMO.TEST"} {
+		found, err := s.ListMessages(ctx, store.MessageFilter{ProjectID: project.ID, To: lookup})
+		if err != nil {
+			t.Fatal(err)
+		}
+		if len(found) != 1 {
+			t.Fatalf("to=%q matched %d messages, want 1", lookup, len(found))
+		}
+	}
+}
+
+// TestLedgerSurvivesProjectDeletion holds the audit trail to its promise:
+// an audit trail a delete can erase is not one.
+func TestLedgerSurvivesProjectDeletion(t *testing.T) {
+	ctx := t.Context()
+	s := openTestStore(t)
+	project := newProject(t, s)
+
+	if _, err := s.AppendLedger(ctx, store.LedgerEntry{
+		ProjectID: project.ID, Actor: store.ActorREST, Action: "secret.read", RunID: "run-9",
+	}); err != nil {
+		t.Fatal(err)
+	}
+	if err := s.DeleteProjectForTest(ctx, project.ID); err != nil {
+		t.Fatalf("delete project: %v", err)
+	}
+	if _, err := s.Project(ctx, project.ID); !errors.Is(err, store.ErrNotFound) {
+		t.Fatalf("project still present: %v", err)
+	}
+	entries, err := s.ListLedger(ctx, store.LedgerFilter{RunID: "run-9"})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(entries) != 1 || entries[0].Action != "secret.read" {
+		t.Fatalf("audit trail lost with the project: %d entries", len(entries))
+	}
+}
+
 // TestSetExtractionRejectsEmpty keeps the NULL result meaning "the
 // extractor panicked" rather than "someone passed an empty string".
 func TestSetExtractionRejectsEmpty(t *testing.T) {

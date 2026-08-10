@@ -402,9 +402,11 @@ func TestDeleteMessageReturnsBlobRefs(t *testing.T) {
 	}
 }
 
-// TestSensitiveColumnsSealedOnDisk is the check that matters for the
-// at-rest threat model: after the store closes, no file in the data
-// directory contains the OTP or the magic link in plaintext.
+// TestSensitiveColumnsSealedOnDisk proves the database and blob files
+// carry no plaintext OTP or magic link, which is what makes a backup that
+// excludes the key file safe to keep. It is deliberately not a claim about
+// the whole data directory: the key file lives there, so anyone holding
+// the directory holds the key.
 func TestSensitiveColumnsSealedOnDisk(t *testing.T) {
 	const otp = "483920"
 	const link = "https://app.test/verify?token=supersecrettoken"

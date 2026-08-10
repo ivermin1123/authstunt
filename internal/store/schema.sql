@@ -12,7 +12,7 @@ CREATE TABLE personas (
     id              TEXT PRIMARY KEY,
     project_id      TEXT NOT NULL REFERENCES projects (id) ON DELETE CASCADE,
     name            TEXT NOT NULL,
-    email           TEXT NOT NULL UNIQUE,
+    email           TEXT NOT NULL COLLATE NOCASE UNIQUE,
     password_enc    BLOB NOT NULL,
     role            TEXT NOT NULL DEFAULT '',
     traits_json     TEXT NOT NULL DEFAULT '{}',
@@ -73,7 +73,7 @@ CREATE INDEX messages_project_received ON messages (project_id, received_at DESC
 
 CREATE TABLE message_recipients (
     message_id TEXT NOT NULL REFERENCES messages (id) ON DELETE CASCADE,
-    addr       TEXT NOT NULL,
+    addr       TEXT NOT NULL COLLATE NOCASE,
     kind       TEXT NOT NULL CHECK (kind IN ('to', 'cc', 'bcc', 'envelope')),
     PRIMARY KEY (message_id, addr, kind)
 ) STRICT, WITHOUT ROWID;
@@ -81,9 +81,12 @@ CREATE TABLE message_recipients (
 -- Matching (list, wait, MCP) runs on kind='envelope' rows only.
 CREATE INDEX message_recipients_addr ON message_recipients (addr, kind);
 
+-- The ledger is append-only and deliberately carries no foreign key to
+-- projects: an audit trail that a delete can erase is not an audit trail.
+-- Rows for a removed project stay behind as orphans on purpose.
 CREATE TABLE ledger (
     id          INTEGER PRIMARY KEY,
-    project_id  TEXT NOT NULL REFERENCES projects (id) ON DELETE CASCADE,
+    project_id  TEXT NOT NULL,
     ts          TEXT NOT NULL,
     actor       TEXT NOT NULL
         CHECK (actor IN ('mcp', 'rest', 'fixture', 'ui', 'system')),
@@ -95,9 +98,14 @@ CREATE TABLE ledger (
 
 CREATE INDEX ledger_project_ts ON ledger (project_id, ts);
 CREATE INDEX ledger_run ON ledger (run_id) WHERE run_id <> '';
+CREATE INDEX ledger_persona_ts ON ledger (persona_id, ts) WHERE persona_id IS NOT NULL;
 
+-- ord preserves the order the patterns were declared in authstunt.yaml.
+-- Persona emails are generated under the first one, so the order carries
+-- meaning and cannot be recovered by sorting the patterns themselves.
 CREATE TABLE allowlist (
     project_id TEXT NOT NULL REFERENCES projects (id) ON DELETE CASCADE,
-    pattern    TEXT NOT NULL,
+    pattern    TEXT NOT NULL COLLATE NOCASE,
+    ord        INTEGER NOT NULL,
     PRIMARY KEY (project_id, pattern)
 ) STRICT, WITHOUT ROWID;

@@ -22,6 +22,7 @@ func (s *Store) CreatePersona(ctx context.Context, p Persona) (Persona, error) {
 	if p.SeedState == "" {
 		p.SeedState = SeedPending
 	}
+	p.Email = NormalizeAddress(p.Email)
 	now := s.Now()
 	p.CreatedAt, p.UpdatedAt = now, now
 
@@ -53,7 +54,7 @@ func (s *Store) PersonaByName(ctx context.Context, projectID, name string) (Pers
 // persona.
 func (s *Store) PersonaByEmail(ctx context.Context, email string) (Persona, error) {
 	return scanPersona(s.read.QueryRowContext(ctx,
-		`SELECT `+personaColumns+` FROM personas WHERE email = ?`, email))
+		`SELECT `+personaColumns+` FROM personas WHERE email = ?`, NormalizeAddress(email)))
 }
 
 // ListPersonas returns a project's personas ordered by name.

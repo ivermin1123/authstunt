@@ -21,6 +21,12 @@ func (s *Store) BumpSchemaVersionForTest(ctx context.Context, version int) error
 	return s.exec(ctx, fmt.Sprintf("PRAGMA user_version = %d", version))
 }
 
+// DeleteProjectForTest removes a project so tests can prove the ledger
+// outlives it. Real project deletion belongs to a later phase.
+func (s *Store) DeleteProjectForTest(ctx context.Context, id string) error {
+	return s.exec(ctx, `DELETE FROM projects WHERE id = ?`, id)
+}
+
 // CorruptBodyForTest replaces a message body with bytes that will never
 // authenticate, standing in for a row sealed under a key that is gone.
 func (s *Store) CorruptBodyForTest(ctx context.Context, id string) error {

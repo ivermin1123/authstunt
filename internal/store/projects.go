@@ -81,9 +81,10 @@ func (s *Store) SetAllowlist(ctx context.Context, projectID string, patterns []s
 		if _, err := tx.ExecContext(ctx, `DELETE FROM allowlist WHERE project_id = ?`, projectID); err != nil {
 			return fmt.Errorf("store: clear allowlist: %w", err)
 		}
-		for _, pattern := range patterns {
+		for i, pattern := range patterns {
 			_, err := tx.ExecContext(ctx,
-				`INSERT INTO allowlist (project_id, pattern) VALUES (?, ?)`, projectID, pattern)
+				`INSERT INTO allowlist (project_id, pattern, ord) VALUES (?, ?, ?)`,
+				projectID, pattern, i)
 			if err != nil {
 				return fmt.Errorf("store: insert allowlist: %w", err)
 			}
@@ -92,12 +93,13 @@ func (s *Store) SetAllowlist(ctx context.Context, projectID string, patterns []s
 	})
 }
 
-// Allowlist returns a project's patterns in insertion-independent order:
-// the first pattern is the one persona emails are generated under, so
-// order is stable and sorted.
+// Allowlist returns a project's patterns in the order they were declared
+// in authstunt.yaml. The order is load bearing: persona emails are
+// generated under the first pattern, so sorting them here would silently
+// move new personas to a different domain.
 func (s *Store) Allowlist(ctx context.Context, projectID string) ([]string, error) {
 	rows, err := s.read.QueryContext(ctx,
-		`SELECT pattern FROM allowlist WHERE project_id = ? ORDER BY pattern`, projectID)
+		`SELECT pattern FROM allowlist WHERE project_id = ? ORDER BY ord`, projectID)
 	if err != nil {
 		return nil, fmt.Errorf("store: allowlist: %w", err)
 	}
