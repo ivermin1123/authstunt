@@ -1,0 +1,17 @@
+# Binaries and build output
+/authstunt
+/dist/
+web/dist/
+node_modules/
+
+# Data and secrets
+*.db
+*.db-wal
+*.db-shm
+.authstunt/
+*.key
+.env
+.env.*
+
+# OS and editor noise
+.DS_Store
