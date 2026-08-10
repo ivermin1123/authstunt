@@ -8,6 +8,7 @@ import (
 	"net/url"
 	"os"
 	"path/filepath"
+	"strings"
 	"time"
 
 	_ "github.com/ncruces/go-sqlite3/driver" // registers the "sqlite3" driver
@@ -97,6 +98,9 @@ func Open(ctx context.Context, dataDir string, sealer BlobSealer, opts Options) 
 }
 
 func (s *Store) init(ctx context.Context, dataDir string, sealer BlobSealer) error {
+	if err := waitForConnection(ctx, s.write); err != nil {
+		return err
+	}
 	// The write handle runs the migration, so a fresh database is fully
 	// built before any reader touches it.
 	if err := migrate(ctx, s.write); err != nil {
@@ -131,6 +135,36 @@ func openDB(path, txlock string) (*sql.DB, error) {
 	return db, nil
 }
 
+// waitForConnection opens the first connection, retrying while the file
+// is locked.
+//
+// Switching a fresh database into WAL needs brief exclusive access, and
+// busy_timeout does not cover that switch: two processes opening the same
+// new data directory at once (a fixture starting the server while `ensure`
+// runs, say) would otherwise see one of them fail outright, with an error
+// that names the pragma rather than the race.
+func waitForConnection(ctx context.Context, db *sql.DB) error {
+	const attempts = 10
+	var err error
+	for i := range attempts {
+		if err = db.PingContext(ctx); err == nil {
+			return nil
+		}
+		if ctx.Err() != nil {
+			return fmt.Errorf("store: connect: %w", ctx.Err())
+		}
+		if !strings.Contains(err.Error(), "database is locked") {
+			return fmt.Errorf("store: connect: %w", err)
+		}
+		select {
+		case <-ctx.Done():
+			return fmt.Errorf("store: connect: %w", ctx.Err())
+		case <-time.After(time.Duration(i+1) * 50 * time.Millisecond):
+		}
+	}
+	return fmt.Errorf("store: another process is still initializing this data directory: %w", err)
+}
+
 // Close shuts the handles down, writers first.
 func (s *Store) Close() error {
 	var errs []error
@@ -155,6 +189,11 @@ func (s *Store) DataDir() string { return s.dataDir }
 func (s *Store) Now() time.Time { return s.now().UTC().Truncate(time.Millisecond) }
 
 // tx runs fn inside a write transaction on the write executor.
+//
+// fn must issue its statements on the tx it is handed. Calling any other
+// store method from inside fn would ask the write handle for a second
+// connection, and there is only one, so it would block until the context
+// expires.
 func (s *Store) tx(ctx context.Context, fn func(*sql.Tx) error) error {
 	tx, err := s.write.BeginTx(ctx, nil)
 	if err != nil {
@@ -213,12 +252,21 @@ func (s *Store) ReadPragmas(ctx context.Context) (Pragmas, error) {
 	return p, nil
 }
 
+// timestampLayout is deliberately fixed width. Timestamps live in TEXT
+// columns, so SQLite orders and compares them byte by byte: RFC3339Nano
+// drops trailing zeros, which makes "12:00:00Z" sort after "12:00:00.5Z"
+// because 'Z' outranks '.'. That would reverse the inbox order and let a
+// `since` cursor skip messages permanently. Zeros in the layout force
+// every value to the same width, so byte order matches time order.
+const timestampLayout = "2006-01-02T15:04:05.000000000Z07:00"
+
 // timestamp renders a time the way every column in the schema stores it.
 func timestamp(t time.Time) string {
-	return t.UTC().Format(time.RFC3339Nano)
+	return t.UTC().Format(timestampLayout)
 }
 
 func parseTimestamp(s string) (time.Time, error) {
+	// RFC3339Nano parses both the fixed-width form and the trimmed form.
 	t, err := time.Parse(time.RFC3339Nano, s)
 	if err != nil {
 		return time.Time{}, fmt.Errorf("store: bad timestamp %q: %w", s, err)

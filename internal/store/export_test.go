@@ -20,3 +20,19 @@ func (s *Store) DeletePersonaForTest(ctx context.Context, id string) error {
 func (s *Store) BumpSchemaVersionForTest(ctx context.Context, version int) error {
 	return s.exec(ctx, fmt.Sprintf("PRAGMA user_version = %d", version))
 }
+
+// CorruptBodyForTest replaces a message body with bytes that will never
+// authenticate, standing in for a row sealed under a key that is gone.
+func (s *Store) CorruptBodyForTest(ctx context.Context, id string) error {
+	return s.exec(ctx, `UPDATE messages SET text_body = ? WHERE id = ?`,
+		[]byte("not a sealed container"), id)
+}
+
+// RawTimestampForTest returns the received_at text exactly as stored, so
+// a test can assert the on-disk ordering property rather than the parsed
+// value.
+func (s *Store) RawTimestampForTest(ctx context.Context, id string) (string, error) {
+	var ts string
+	err := s.read.QueryRowContext(ctx, `SELECT received_at FROM messages WHERE id = ?`, id).Scan(&ts)
+	return ts, err
+}

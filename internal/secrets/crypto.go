@@ -60,7 +60,7 @@ func Open(k *Key, container []byte) ([]byte, error) {
 		return nil, ErrTampered
 	}
 	if container[0] != containerVersion {
-		return nil, fmt.Errorf("secrets: unknown container version %d", container[0])
+		return nil, fmt.Errorf("%w: unknown container version %d", ErrTampered, container[0])
 	}
 	if string(container[1:1+keyIDSize]) != string(k.ID[:]) {
 		return nil, ErrKeyMismatch

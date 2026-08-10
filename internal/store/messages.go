@@ -69,8 +69,27 @@ func (s *Store) InsertMessage(ctx context.Context, m Message) (Message, error) {
 	return m, nil
 }
 
-// Message returns one message with its recipients attached.
+// Message returns one message with its recipients attached, and reports
+// ErrNotFound for a quarantined one.
+//
+// Quarantine is invisible to everything except the dashboard, and that
+// includes single-message reads: /api/messages/{id}, /otp, and /links all
+// land here. Making the safe behavior the default one keeps the rule from
+// depending on each handler remembering to check a flag.
 func (s *Store) Message(ctx context.Context, id string) (Message, error) {
+	m, err := s.MessageIncludingQuarantined(ctx, id)
+	if err != nil {
+		return Message{}, err
+	}
+	if m.Quarantined {
+		return Message{}, ErrNotFound
+	}
+	return m, nil
+}
+
+// MessageIncludingQuarantined returns a message whether or not it is
+// quarantined. Only the dashboard may call it.
+func (s *Store) MessageIncludingQuarantined(ctx context.Context, id string) (Message, error) {
 	m, err := s.scanMessage(s.read.QueryRowContext(ctx,
 		`SELECT `+messageColumns+` FROM messages WHERE id = ?`, id))
 	if err != nil {
@@ -155,19 +174,35 @@ func (s *Store) ListMessages(ctx context.Context, f MessageFilter) ([]Message, e
 	return out, nil
 }
 
-// attachRecipients fills in the recipients for a page of messages with
-// one query. Querying per message would put a round trip per row on the
+// recipientBatch bounds how many ids go into one IN clause. SQLite
+// rejects a statement with more than 32766 bound variables, and an
+// unbounded listing would hit that; batching keeps the query planner on
+// the covering index either way.
+const recipientBatch = 500
+
+// attachRecipients fills in the recipients for a page of messages in
+// batches. Querying per message would put a round trip per row on the
 // inbox, the hottest read path in the product.
 func (s *Store) attachRecipients(ctx context.Context, messages []Message) error {
-	if len(messages) == 0 {
-		return nil
-	}
-	args := make([]any, len(messages))
 	byID := make(map[string]int, len(messages))
 	for i, m := range messages {
-		args[i] = m.ID
 		byID[m.ID] = i
 	}
+	for start := 0; start < len(messages); start += recipientBatch {
+		end := min(start+recipientBatch, len(messages))
+		batch := messages[start:end]
+		args := make([]any, len(batch))
+		for i, m := range batch {
+			args[i] = m.ID
+		}
+		if err := s.attachRecipientBatch(ctx, args, byID, messages); err != nil {
+			return err
+		}
+	}
+	return nil
+}
+
+func (s *Store) attachRecipientBatch(ctx context.Context, args []any, byID map[string]int, messages []Message) error {
 	placeholders := strings.TrimSuffix(strings.Repeat("?,", len(args)), ",")
 
 	// nolint:gosec // G202: `placeholders` is a run of "?" separators
@@ -198,15 +233,32 @@ func (s *Store) attachRecipients(ctx context.Context, messages []Message) error 
 
 // DeleteMessage removes a message; recipients cascade. Blob cleanup is
 // the caller's job, which is why the refs come back.
+//
+// The refs are read without decrypting anything. Retention has to be able
+// to remove a message whose body no longer opens, and reading both rows
+// inside one write transaction also keeps the lookup and the delete from
+// disagreeing about what was there.
 func (s *Store) DeleteMessage(ctx context.Context, id string) (rawRef, htmlRef string, err error) {
-	m, err := s.Message(ctx, id)
+	err = s.tx(ctx, func(tx *sql.Tx) error {
+		var raw, html sql.NullString
+		err := tx.QueryRowContext(ctx,
+			`SELECT raw_ref, html_ref FROM messages WHERE id = ?`, id).Scan(&raw, &html)
+		if err != nil {
+			if errors.Is(err, sql.ErrNoRows) {
+				return ErrNotFound
+			}
+			return fmt.Errorf("store: message refs: %w", err)
+		}
+		rawRef, htmlRef = scanString(raw), scanString(html)
+		if _, err := tx.ExecContext(ctx, `DELETE FROM messages WHERE id = ?`, id); err != nil {
+			return fmt.Errorf("store: delete message: %w", err)
+		}
+		return nil
+	})
 	if err != nil {
 		return "", "", err
 	}
-	if err := s.exec(ctx, `DELETE FROM messages WHERE id = ?`, id); err != nil {
-		return "", "", err
-	}
-	return m.RawRef, m.HTMLRef, nil
+	return rawRef, htmlRef, nil
 }
 
 func (s *Store) recipients(ctx context.Context, messageID string) ([]Recipient, error) {
@@ -236,13 +288,15 @@ func (s *Store) recipients(ctx context.Context, messageID string) ([]Recipient, 
 // it. A message whose extractor panicked keeps a NULL result, which is
 // how the API reports `extracted: null`.
 func (s *Store) SetExtraction(ctx context.Context, messageID, extractedJSON string) error {
-	var sealed any
-	if extractedJSON != "" {
-		blob, err := s.sealer.Seal([]byte(extractedJSON))
-		if err != nil {
-			return fmt.Errorf("store: seal extraction: %w", err)
-		}
-		sealed = blob
+	if extractedJSON == "" {
+		// A NULL result means the extractor panicked on this message.
+		// Reaching that state by passing an empty string would let a
+		// caller erase a real result by accident.
+		return errors.New("store: empty extraction: leave the column NULL at insert instead")
+	}
+	sealed, err := s.sealer.Seal([]byte(extractedJSON))
+	if err != nil {
+		return fmt.Errorf("store: seal extraction: %w", err)
 	}
 	res, err := s.write.ExecContext(ctx,
 		`UPDATE messages SET extracted_json = ? WHERE id = ?`, sealed, messageID)

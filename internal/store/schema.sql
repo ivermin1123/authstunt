@@ -24,8 +24,6 @@ CREATE TABLE personas (
     UNIQUE (project_id, name)
 ) STRICT;
 
-CREATE INDEX personas_project ON personas (project_id);
-
 CREATE TABLE persona_relations (
     project_id   TEXT NOT NULL REFERENCES projects (id) ON DELETE CASCADE,
     from_persona TEXT NOT NULL REFERENCES personas (id) ON DELETE CASCADE,
