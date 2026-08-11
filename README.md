@@ -17,7 +17,7 @@ Status: P0 (foundation). Not usable yet.
 ## Layout
 
 - `cmd/authstunt` - main binary
-- `internal/*` - server internals (smtp, extract, api, mcp, store, secrets, flows, personas, ledger, sse)
+- `internal/*` - server internals (smtp, extract, api, mcp, store, secrets, flows, personas, ledger, sse, fsutil)
 - `web/` - dashboard (P1)
 - `packages/` - `@authstunt/playwright` and `@authstunt/client` (P2)
 - `examples/demo-app` - demo target app for integration tests (P1)
@@ -26,5 +26,6 @@ Status: P0 (foundation). Not usable yet.
 ## Development
 
 Requires Go 1.26+. `go build ./...` builds, `go test -race ./...` tests,
-`golangci-lint run` lints. CI runs all three plus a cross-platform build
-matrix and a goreleaser config check.
+`golangci-lint run` lints. CI runs all three, repeats the tests on Windows
+(where the key file is protected by an ACL rather than mode bits), and adds a
+cross-platform build matrix and a goreleaser config check.

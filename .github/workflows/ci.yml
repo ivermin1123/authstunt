@@ -35,6 +35,19 @@ jobs:
         continue-on-error: true
         run: go test -run '^$' -bench . -benchtime 10x ./...
 
+  # The POSIX key-file permission test skips on Windows, where mode bits
+  # grant nobody anything. Only a Windows runner executes the DACL
+  # assertion that replaces it, so without this job the key file's
+  # protection on Windows is untested.
+  test-windows:
+    runs-on: windows-latest
+    steps:
+      - uses: actions/checkout@v7
+      - uses: actions/setup-go@v7
+        with:
+          go-version: "1.26.x"
+      - run: go test -race ./...
+
   build-matrix:
     runs-on: ubuntu-latest
     strategy:
