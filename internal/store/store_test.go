@@ -4,6 +4,7 @@ import (
 	"bytes"
 	"errors"
 	"fmt"
+	"log/slog"
 	"os"
 	"path/filepath"
 	"strings"
@@ -17,12 +18,25 @@ import (
 
 func openTestStore(t *testing.T) *store.Store {
 	t.Helper()
+	s, _ := openTestStoreWithLogs(t)
+	return s
+}
+
+// openTestStoreWithLogs also hands back the store's log output, for the
+// tests that assert a read path reported something it could not fix.
+// Keeping every test store on its own logger also keeps the expected
+// warnings out of the test run's output.
+func openTestStoreWithLogs(t *testing.T) (*store.Store, *logBuffer) {
+	t.Helper()
 	dir := t.TempDir()
 	key, err := secrets.LoadOrCreateKey(filepath.Join(dir, "keys"), "test")
 	if err != nil {
 		t.Fatalf("key: %v", err)
 	}
-	s, err := store.Open(t.Context(), dir, key, store.Options{})
+	logs := &logBuffer{}
+	s, err := store.Open(t.Context(), dir, key, store.Options{
+		Logger: slog.New(slog.NewTextHandler(logs, nil)),
+	})
 	if err != nil {
 		t.Fatalf("open: %v", err)
 	}
@@ -31,7 +45,26 @@ func openTestStore(t *testing.T) *store.Store {
 			t.Errorf("close: %v", err)
 		}
 	})
-	return s
+	return s, logs
+}
+
+// logBuffer collects log output. Reads run concurrently in some tests, so
+// the writes are serialized.
+type logBuffer struct {
+	mu  sync.Mutex
+	buf bytes.Buffer
+}
+
+func (b *logBuffer) Write(p []byte) (int, error) {
+	b.mu.Lock()
+	defer b.mu.Unlock()
+	return b.buf.Write(p)
+}
+
+func (b *logBuffer) String() string {
+	b.mu.Lock()
+	defer b.mu.Unlock()
+	return b.buf.String()
 }
 
 func newProject(t *testing.T, s *store.Store) store.Project {
@@ -76,8 +109,8 @@ func TestPragmasActive(t *testing.T) {
 	if p.BusyTimeout != 5000 {
 		t.Errorf("busy_timeout = %d, want 5000", p.BusyTimeout)
 	}
-	if p.UserVersion != 1 {
-		t.Errorf("user_version = %d, want 1", p.UserVersion)
+	if p.UserVersion != store.SchemaVersion {
+		t.Errorf("user_version = %d, want %d", p.UserVersion, store.SchemaVersion)
 	}
 }
 
@@ -129,8 +162,8 @@ func TestMigrationIsIdempotentAcrossReopen(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if p.UserVersion != 1 {
-		t.Fatalf("user_version = %d after reopen, want 1", p.UserVersion)
+	if p.UserVersion != store.SchemaVersion {
+		t.Fatalf("user_version = %d after reopen, want %d", p.UserVersion, store.SchemaVersion)
 	}
 }
 

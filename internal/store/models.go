@@ -25,6 +25,16 @@ const (
 	ChannelSMS   = "sms"
 )
 
+// Extraction states a message moves through, per design 4.2 item 6. A row
+// is committed pending, and exactly one terminal state follows: success,
+// or failed with a NULL extraction. Startup recovery scans pending rows
+// only, so a failed row is never retried forever.
+const (
+	ExtractionPending = "pending"
+	ExtractionSuccess = "success"
+	ExtractionFailed  = "failed"
+)
+
 // Ledger actors.
 const (
 	ActorMCP     = "mcp"
@@ -109,6 +119,17 @@ type Message struct {
 	Quarantined   bool
 	ReceivedAt    time.Time
 	Recipients    []Recipient
+	// ExtractionState is owned by the store: InsertMessage derives it from
+	// the payload and SetExtraction or FailExtraction move it on. Setting
+	// it on the way in has no effect, because a state that disagreed with
+	// the stored extraction would send recovery after a message that has
+	// already been extracted, or leave one waiting forever.
+	ExtractionState string
+	// Unreadable marks a row whose sealed body or extraction failed
+	// authentication, per design 4.2 item 8. In a listing the metadata is
+	// still returned with both payloads omitted; a by-id read fails with
+	// ErrUnreadableMessage instead.
+	Unreadable bool
 }
 
 // LedgerEntry is one audit event. Every secret read writes one.

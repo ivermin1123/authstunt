@@ -5,6 +5,7 @@ import (
 	"database/sql"
 	"errors"
 	"fmt"
+	"log/slog"
 	"net/url"
 	"os"
 	"path/filepath"
@@ -16,6 +17,17 @@ import (
 
 // ErrNotFound is returned by every lookup that finds no row.
 var ErrNotFound = errors.New("store: not found")
+
+// ErrUnreadableMessage is returned by a by-id message read whose sealed
+// body or extraction failed authentication (design 4.2 item 8). The REST
+// layer maps it to 500 with error code "unreadable_message"; listings
+// degrade to metadata with Unreadable set instead of failing the page.
+var ErrUnreadableMessage = errors.New("store: message payload failed authentication")
+
+// ErrExtractionSettled is returned when a message is asked to leave the
+// pending extraction state twice. A message is extracted exactly once, so
+// the second attempt is a bug in the caller, not a state to overwrite.
+var ErrExtractionSettled = errors.New("store: extraction already settled")
 
 // busyTimeout is how long a connection waits on a locked database before
 // giving up. Writes are already serialized, so this only absorbs the
@@ -39,6 +51,7 @@ type Store struct {
 	sealer  BlobSealer
 	dataDir string
 	now     func() time.Time
+	log     *slog.Logger
 }
 
 // Options configures Open. The zero value is valid.
@@ -48,11 +61,23 @@ type Options struct {
 	Now func() time.Time
 	// MaxReadConns caps the reader pool. Defaults to 8.
 	MaxReadConns int
+	// Logger receives the events a read path can only report, never fix:
+	// today that is a row whose sealed payload no longer authenticates.
+	// Defaults to slog.Default().
+	Logger *slog.Logger
 }
 
 // Open prepares dataDir and returns a ready Store: directories created,
 // PRAGMAs applied, schema migrated forward.
 func Open(ctx context.Context, dataDir string, sealer BlobSealer, opts Options) (*Store, error) {
+	return open(ctx, dataDir, sealer, opts, len(migrations))
+}
+
+// open is Open with the schema target spelled out. Production always
+// migrates all the way; the migration tests stop short so they can seed a
+// database as an older binary left it and then upgrade it through this
+// same path.
+func open(ctx context.Context, dataDir string, sealer BlobSealer, opts Options, target int) (*Store, error) {
 	if sealer == nil {
 		return nil, errors.New("store: a sealer is required: the store holds credentials")
 	}
@@ -61,6 +86,9 @@ func Open(ctx context.Context, dataDir string, sealer BlobSealer, opts Options) 
 	}
 	if opts.MaxReadConns <= 0 {
 		opts.MaxReadConns = 8
+	}
+	if opts.Logger == nil {
+		opts.Logger = slog.Default()
 	}
 	if err := os.MkdirAll(dataDir, 0o700); err != nil {
 		return nil, fmt.Errorf("store: data dir: %w", err)
@@ -89,21 +117,28 @@ func Open(ctx context.Context, dataDir string, sealer BlobSealer, opts Options) 
 	}
 	read.SetMaxOpenConns(opts.MaxReadConns)
 
-	s := &Store{write: write, read: read, sealer: sealer, dataDir: dataDir, now: opts.Now}
-	if err := s.init(ctx, dataDir, sealer); err != nil {
+	s := &Store{
+		write:   write,
+		read:    read,
+		sealer:  sealer,
+		dataDir: dataDir,
+		now:     opts.Now,
+		log:     opts.Logger,
+	}
+	if err := s.init(ctx, dataDir, sealer, target); err != nil {
 		_ = s.Close()
 		return nil, err
 	}
 	return s, nil
 }
 
-func (s *Store) init(ctx context.Context, dataDir string, sealer BlobSealer) error {
+func (s *Store) init(ctx context.Context, dataDir string, sealer BlobSealer, target int) error {
 	if err := waitForConnection(ctx, s.write); err != nil {
 		return err
 	}
 	// The write handle runs the migration, so a fresh database is fully
 	// built before any reader touches it.
-	if err := migrate(ctx, s.write); err != nil {
+	if err := migrateTo(ctx, s.write, target); err != nil {
 		return err
 	}
 	blobs, err := newBlobStore(filepath.Join(dataDir, "blobs"), sealer)

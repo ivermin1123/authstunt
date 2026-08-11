@@ -10,12 +10,13 @@ import (
 )
 
 const messageColumns = `id, project_id, from_addr, subject, channel, raw_ref, html_ref,
-	text_body, extracted_json, quarantined, received_at`
+	text_body, extracted_json, quarantined, received_at, extraction_state`
 
 // messageColumnsAliased is the same list qualified for the listing query,
 // which joins against message_recipients.
 const messageColumnsAliased = `m.id, m.project_id, m.from_addr, m.subject, m.channel,
-	m.raw_ref, m.html_ref, m.text_body, m.extracted_json, m.quarantined, m.received_at`
+	m.raw_ref, m.html_ref, m.text_body, m.extracted_json, m.quarantined, m.received_at,
+	m.extraction_state`
 
 // InsertMessage writes a message and its recipients atomically: a message
 // row without its envelope recipients would be invisible to every
@@ -35,20 +36,27 @@ func (s *Store) InsertMessage(ctx context.Context, m Message) (Message, error) {
 		return Message{}, fmt.Errorf("store: seal body: %w", err)
 	}
 	var sealedExtraction any
+	// The state is derived from the payload, never taken from the caller:
+	// mail arrives with nothing extracted yet and SMTP acks it in that
+	// state, while a fixture that supplies a result has nothing left to
+	// extract. Deriving it keeps the column and the payload from ever
+	// disagreeing.
+	m.ExtractionState = ExtractionPending
 	if m.ExtractedJSON != "" {
 		sealed, err := s.sealer.Seal([]byte(m.ExtractedJSON))
 		if err != nil {
 			return Message{}, fmt.Errorf("store: seal extraction: %w", err)
 		}
 		sealedExtraction = sealed
+		m.ExtractionState = ExtractionSuccess
 	}
 
 	err = s.tx(ctx, func(tx *sql.Tx) error {
 		_, err := tx.ExecContext(ctx, `INSERT INTO messages (`+messageColumns+`)
-			VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+			VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
 			m.ID, m.ProjectID, m.FromAddr, m.Subject, m.Channel,
 			nullString(m.RawRef), nullString(m.HTMLRef), sealedBody,
-			sealedExtraction, m.Quarantined, timestamp(m.ReceivedAt))
+			sealedExtraction, m.Quarantined, timestamp(m.ReceivedAt), m.ExtractionState)
 		if err != nil {
 			return fmt.Errorf("store: insert message: %w", err)
 		}
@@ -76,27 +84,52 @@ func (s *Store) InsertMessage(ctx context.Context, m Message) (Message, error) {
 // includes single-message reads: /api/messages/{id}, /otp, and /links all
 // land here. Making the safe behavior the default one keeps the rule from
 // depending on each handler remembering to check a flag.
+// A row whose payload no longer opens reports ErrUnreadableMessage, per
+// design 4.2 item 8. Quarantine is checked first: a quarantined message
+// must stay invisible whatever shape its payload is in.
 func (s *Store) Message(ctx context.Context, id string) (Message, error) {
-	m, err := s.MessageIncludingQuarantined(ctx, id)
+	m, err := s.message(ctx, id)
 	if err != nil {
 		return Message{}, err
 	}
 	if m.Quarantined {
 		return Message{}, ErrNotFound
 	}
-	return m, nil
+	return unreadableGuard(m)
 }
 
 // MessageIncludingQuarantined returns a message whether or not it is
 // quarantined. Only the dashboard may call it.
 func (s *Store) MessageIncludingQuarantined(ctx context.Context, id string) (Message, error) {
-	m, err := s.scanMessage(s.read.QueryRowContext(ctx,
+	m, err := s.message(ctx, id)
+	if err != nil {
+		return Message{}, err
+	}
+	return unreadableGuard(m)
+}
+
+// message reads one row with its recipients. An unreadable payload comes
+// back marked rather than as an error, because the two callers above
+// differ in what they do about it.
+func (s *Store) message(ctx context.Context, id string) (Message, error) {
+	m, err := s.scanMessage(ctx, s.read.QueryRowContext(ctx,
 		`SELECT `+messageColumns+` FROM messages WHERE id = ?`, id))
 	if err != nil {
 		return Message{}, err
 	}
 	if m.Recipients, err = s.recipients(ctx, m.ID); err != nil {
 		return Message{}, err
+	}
+	return m, nil
+}
+
+// unreadableGuard turns the listing's degraded marker into the by-id
+// error. A single-message read has no partial answer to give: /otp and
+// /links exist to hand back a credential from the body, and metadata
+// alone would let a caller mistake "cannot be read" for "no code in it".
+func unreadableGuard(m Message) (Message, error) {
+	if m.Unreadable {
+		return Message{}, fmt.Errorf("%w: message %s", ErrUnreadableMessage, m.ID)
 	}
 	return m, nil
 }
@@ -108,9 +141,16 @@ type MessageFilter struct {
 	// recipients never appear in headers.
 	To string
 	// Since is exclusive, so a caller polling with the timestamp of its
-	// last result never sees that result twice.
+	// last result never sees that result twice. It is an independent lower
+	// bound and is never folded into Cursor (design 4.2 item 5): the two
+	// answer different questions, "how far back does this caller care"
+	// versus "where did the last page stop".
 	Since time.Time
-	Limit int
+	// Cursor continues a previous page. Traversal is newest-first, so the
+	// next page holds the rows whose (received_at, id) pair sorts strictly
+	// below it.
+	Cursor MessageCursor
+	Limit  int
 	// IncludeQuarantined is for the dashboard alone. List, wait, and MCP
 	// leave it false, and quarantined mail stays invisible to them.
 	IncludeQuarantined bool
@@ -131,6 +171,14 @@ func (s *Store) ListMessages(ctx context.Context, f MessageFilter) ([]Message, e
 	if !f.Since.IsZero() {
 		where = append(where, "m.received_at > ?")
 		args = append(args, timestamp(f.Since))
+	}
+	if !f.Cursor.IsZero() {
+		// Row-value comparison, which SQLite evaluates as the strict
+		// lexicographic order of the pair. Spelling it as
+		// "received_at < ? OR (received_at = ? AND id < ?)" is the same
+		// order but invites the off-by-one where the tie case is dropped.
+		where = append(where, "(m.received_at, m.id) < (?, ?)")
+		args = append(args, timestamp(f.Cursor.ReceivedAt), f.Cursor.ID)
 	}
 	if f.To != "" {
 		where = append(where, `EXISTS (SELECT 1 FROM message_recipients r
@@ -159,7 +207,7 @@ func (s *Store) ListMessages(ctx context.Context, f MessageFilter) ([]Message, e
 
 	var out []Message
 	for rows.Next() {
-		m, err := s.scanMessageRow(rows)
+		m, err := s.scanMessageRow(ctx, rows)
 		if err != nil {
 			return nil, err
 		}
@@ -167,6 +215,47 @@ func (s *Store) ListMessages(ctx context.Context, f MessageFilter) ([]Message, e
 	}
 	if err := rows.Err(); err != nil {
 		return nil, fmt.Errorf("store: list messages: %w", err)
+	}
+	if err := s.attachRecipients(ctx, out); err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
+// ListPendingExtractions returns the messages whose extraction never
+// reached a terminal state, oldest first, for the startup recovery pass of
+// design 4.2 item 6.
+//
+// Only pending rows come back. A failed row is terminal on purpose: mail
+// that made the extractor panic once will panic on it again, and retrying
+// it at every boot would turn one bad message into a permanent startup
+// cost. Oldest first because recovery publishes as it goes, and an inbox
+// that fills in backwards reads as if history were arriving now.
+func (s *Store) ListPendingExtractions(ctx context.Context, limit int) ([]Message, error) {
+	query := `SELECT ` + messageColumnsAliased + ` FROM messages m
+		WHERE m.extraction_state = ? ORDER BY m.received_at, m.id`
+	args := []any{ExtractionPending}
+	if limit > 0 {
+		query += " LIMIT ?"
+		args = append(args, limit)
+	}
+
+	rows, err := s.read.QueryContext(ctx, query, args...)
+	if err != nil {
+		return nil, fmt.Errorf("store: list pending extractions: %w", err)
+	}
+	defer func() { _ = rows.Close() }()
+
+	var out []Message
+	for rows.Next() {
+		m, err := s.scanMessageRow(ctx, rows)
+		if err != nil {
+			return nil, err
+		}
+		out = append(out, m)
+	}
+	if err := rows.Err(); err != nil {
+		return nil, fmt.Errorf("store: list pending extractions: %w", err)
 	}
 	if err := s.attachRecipients(ctx, out); err != nil {
 		return nil, err
@@ -284,43 +373,94 @@ func (s *Store) recipients(ctx context.Context, messageID string) ([]Recipient, 
 	return out, nil
 }
 
-// SetExtraction records the extraction result once the pipeline has run
-// it. A message whose extractor panicked keeps a NULL result, which is
-// how the API reports `extracted: null`.
+// SetExtraction commits the success terminal state: the result is sealed
+// into the row and the message leaves the pending state for good.
+//
+// The message must be pending. Extraction runs once per message, and a
+// second result would mean either two extractors raced over one message or
+// a recovery pass picked up mail that had already been handled - both are
+// bugs the caller needs to hear about, not overwrite.
 func (s *Store) SetExtraction(ctx context.Context, messageID, extractedJSON string) error {
 	if extractedJSON == "" {
-		// A NULL result means the extractor panicked on this message.
-		// Reaching that state by passing an empty string would let a
+		// An empty result is not "no result": FailExtraction is how a
+		// message reaches `extracted: null`. Accepting "" here would let a
 		// caller erase a real result by accident.
-		return errors.New("store: empty extraction: leave the column NULL at insert instead")
+		return errors.New("store: empty extraction: call FailExtraction instead")
 	}
 	sealed, err := s.sealer.Seal([]byte(extractedJSON))
 	if err != nil {
 		return fmt.Errorf("store: seal extraction: %w", err)
 	}
-	res, err := s.write.ExecContext(ctx,
-		`UPDATE messages SET extracted_json = ? WHERE id = ?`, sealed, messageID)
-	if err != nil {
-		return fmt.Errorf("store: set extraction: %w", err)
-	}
-	return expectOne(res, "message")
+	return s.settleExtraction(ctx, messageID, ExtractionSuccess,
+		`UPDATE messages SET extracted_json = ?, extraction_state = ?
+		 WHERE id = ? AND extraction_state = ?`,
+		sealed, ExtractionSuccess, messageID, ExtractionPending)
 }
 
-func (s *Store) scanMessage(row *sql.Row) (Message, error) {
-	m, err := s.scanMessageRow(row)
+// FailExtraction commits the failed terminal state: the extraction stays
+// NULL, which is how the API reports `extracted: null`, and recovery never
+// looks at the row again.
+//
+// The caller writes the ledger error event; this layer only records that
+// the message is settled.
+func (s *Store) FailExtraction(ctx context.Context, messageID string) error {
+	return s.settleExtraction(ctx, messageID, ExtractionFailed,
+		`UPDATE messages SET extraction_state = ?
+		 WHERE id = ? AND extraction_state = ?`,
+		ExtractionFailed, messageID, ExtractionPending)
+}
+
+// settleExtraction runs a guarded pending-to-terminal update and explains
+// which of the two reasons made it match nothing.
+func (s *Store) settleExtraction(ctx context.Context, messageID, target, query string, args ...any) error {
+	res, err := s.write.ExecContext(ctx, query, args...)
+	if err != nil {
+		return fmt.Errorf("store: settle extraction as %s: %w", target, err)
+	}
+	affected, err := res.RowsAffected()
+	if err != nil {
+		return fmt.Errorf("store: settle extraction as %s: %w", target, err)
+	}
+	if affected == 1 {
+		return nil
+	}
+	// The guard swallows both "no such message" and "already settled", so
+	// read the state back to say which one happened. This runs on the
+	// error path only.
+	var state string
+	err = s.read.QueryRowContext(ctx,
+		`SELECT extraction_state FROM messages WHERE id = ?`, messageID).Scan(&state)
+	if errors.Is(err, sql.ErrNoRows) {
+		return ErrNotFound
+	}
+	if err != nil {
+		return fmt.Errorf("store: settle extraction as %s: %w", target, err)
+	}
+	return fmt.Errorf("%w: message %s is already %s", ErrExtractionSettled, messageID, state)
+}
+
+func (s *Store) scanMessage(ctx context.Context, row *sql.Row) (Message, error) {
+	m, err := s.scanMessageRow(ctx, row)
 	if errors.Is(err, sql.ErrNoRows) {
 		return Message{}, ErrNotFound
 	}
 	return m, err
 }
 
-func (s *Store) scanMessageRow(row rowScanner) (Message, error) {
+// scanMessageRow reads one row. A sealed payload that fails
+// authentication marks the message Unreadable and drops both payloads
+// instead of failing: one row sealed under a key that is gone must not
+// take the whole inbox down with it. The condition is logged, never
+// written to the ledger - the ledger records what actors did, and a read
+// that could not decrypt is not an act.
+func (s *Store) scanMessageRow(ctx context.Context, row rowScanner) (Message, error) {
 	var m Message
 	var rawRef, htmlRef sql.NullString
 	var sealedBody, sealedExtraction []byte
 	var received string
 	err := row.Scan(&m.ID, &m.ProjectID, &m.FromAddr, &m.Subject, &m.Channel,
-		&rawRef, &htmlRef, &sealedBody, &sealedExtraction, &m.Quarantined, &received)
+		&rawRef, &htmlRef, &sealedBody, &sealedExtraction, &m.Quarantined, &received,
+		&m.ExtractionState)
 	if err != nil {
 		if errors.Is(err, sql.ErrNoRows) {
 			return Message{}, err
@@ -329,15 +469,25 @@ func (s *Store) scanMessageRow(row rowScanner) (Message, error) {
 	}
 	body, err := s.sealer.Open(sealedBody)
 	if err != nil {
-		return Message{}, fmt.Errorf("store: open body of %s: %w", m.ID, err)
+		s.logUnreadable(ctx, m.ID, "body", err)
+		m.Unreadable = true
+	} else {
+		m.TextBody = string(body)
 	}
-	m.TextBody = string(body)
 	if sealedExtraction != nil {
 		extraction, err := s.sealer.Open(sealedExtraction)
 		if err != nil {
-			return Message{}, fmt.Errorf("store: open extraction of %s: %w", m.ID, err)
+			s.logUnreadable(ctx, m.ID, "extraction", err)
+			m.Unreadable = true
+		} else {
+			m.ExtractedJSON = string(extraction)
 		}
-		m.ExtractedJSON = string(extraction)
+	}
+	if m.Unreadable {
+		// Either payload failing hides both: a body that opens next to an
+		// extraction that does not is still a row whose contents cannot be
+		// trusted to belong together.
+		m.TextBody, m.ExtractedJSON = "", ""
 	}
 	m.RawRef = scanString(rawRef)
 	m.HTMLRef = scanString(htmlRef)
@@ -345,4 +495,11 @@ func (s *Store) scanMessageRow(row rowScanner) (Message, error) {
 		return Message{}, err
 	}
 	return m, nil
+}
+
+func (s *Store) logUnreadable(ctx context.Context, messageID, field string, err error) {
+	// The error text can name the key id and the container length; it
+	// never carries plaintext, so it is safe to log.
+	s.log.WarnContext(ctx, "store: sealed message payload failed authentication",
+		"message_id", messageID, "field", field, "error", err)
 }

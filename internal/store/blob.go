@@ -7,6 +7,8 @@ import (
 	"os"
 	"path/filepath"
 	"strings"
+
+	"github.com/ivermin1123/authstunt/internal/fsutil"
 )
 
 // BlobSealer is the encryption boundary the blob store depends on;
@@ -26,6 +28,10 @@ var ErrNoSealer = errors.New("store: blob store opened without a sealer")
 var ErrBadRef = errors.New("store: invalid blob reference")
 
 const blobExt = ".blob"
+
+// syncDir is a variable so the durability test can prove Put calls it;
+// production always runs fsutil.SyncDir.
+var syncDir = fsutil.SyncDir
 
 // BlobStore keeps large payloads out of the database: raw and HTML mail,
 // Playwright storage state. Every file is sealed, which protects a copy of
@@ -86,6 +92,13 @@ func (b *BlobStore) Put(data []byte) (string, error) {
 	}
 	if err = os.Rename(tmpName, path); err != nil {
 		return "", fmt.Errorf("store: publish blob: %w", err)
+	}
+	// The row that references this blob commits after Put returns, and
+	// SMTP answers 250 after that. Without syncing the directory the name
+	// can be the one thing missing after a crash, leaving a committed
+	// message pointing at a blob that no longer has a name.
+	if err = syncDir(b.dir); err != nil {
+		return "", err
 	}
 	return ref, nil
 }

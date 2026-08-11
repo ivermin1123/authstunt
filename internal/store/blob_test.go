@@ -153,3 +153,39 @@ func TestBlobFilePermissions(t *testing.T) {
 		t.Fatalf("blob mode %o, want 600", perm)
 	}
 }
+
+// TestBlobPutSyncsPublishedDirectory proves the durability step that
+// leaves no trace to inspect afterwards. The row that references a blob
+// commits after Put returns and SMTP acks after that, so a rename the
+// filesystem has not recorded yet would leave a committed message
+// pointing at a nameless file.
+func TestBlobPutSyncsPublishedDirectory(t *testing.T) {
+	s := openTestStore(t)
+	var synced []string
+	restore := store.SetSyncDirForTest(func(dir string) error {
+		synced = append(synced, dir)
+		return nil
+	})
+	defer restore()
+
+	if _, err := s.Blobs.Put([]byte("raw mime")); err != nil {
+		t.Fatal(err)
+	}
+	blobs := filepath.Join(s.DataDir(), "blobs")
+	if len(synced) != 1 || synced[0] != blobs {
+		t.Fatalf("Put synced %v, want exactly [%s]", synced, blobs)
+	}
+}
+
+// TestBlobPutFailsWhenSyncFails keeps the sync from becoming decorative:
+// a blob whose directory entry could not be flushed must not be reported
+// as stored.
+func TestBlobPutFailsWhenSyncFails(t *testing.T) {
+	s := openTestStore(t)
+	restore := store.SetSyncDirForTest(func(string) error { return errors.New("disk is gone") })
+	defer restore()
+
+	if _, err := s.Blobs.Put([]byte("raw mime")); err == nil {
+		t.Fatal("Put reported success after the directory sync failed")
+	}
+}
