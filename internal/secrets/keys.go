@@ -170,7 +170,13 @@ func createKey(path, keysDir string) (*Key, error) {
 	// nolint:gosec // path is validated by safeProjectID; see LoadOrCreateKey.
 	f, err := os.OpenFile(path, os.O_WRONLY|os.O_CREATE|os.O_EXCL, 0o600)
 	if err != nil {
-		if errors.Is(err, fs.ErrExist) {
+		// Platforms disagree on how O_EXCL reports a path that is already
+		// taken: POSIX answers EEXIST whatever stands there, Windows
+		// answers "is a directory" for a directory. Deciding on the path
+		// itself rather than on the error keeps one refusal reason on both,
+		// so a directory planted at the key path is reported as unsafe
+		// instead of as whichever syscall noticed it first.
+		if _, statErr := os.Lstat(path); statErr == nil {
 			return awaitKey(path)
 		}
 		return nil, fmt.Errorf("secrets: create key: %w", err)

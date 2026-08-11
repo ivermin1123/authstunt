@@ -7,6 +7,7 @@ import (
 	"log/slog"
 	"os"
 	"path/filepath"
+	"runtime"
 	"strings"
 	"sync"
 	"testing"
@@ -15,6 +16,19 @@ import (
 	"github.com/ivermin1123/authstunt/internal/secrets"
 	"github.com/ivermin1123/authstunt/internal/store"
 )
+
+// skipOnWindows guards assertions on POSIX mode bits. Windows derives the
+// mode Stat reports from the file attributes rather than from an ACL, so it
+// answers 0666 for a file created 0600 and 0777 for a directory created
+// 0700; the mode there says nothing about who can read the path (design
+// item 14). Confidentiality on Windows rests on the key file DACL, which
+// internal/secrets asserts directly.
+func skipOnWindows(t *testing.T, why string) {
+	t.Helper()
+	if runtime.GOOS == "windows" {
+		t.Skip(why)
+	}
+}
 
 func openTestStore(t *testing.T) *store.Store {
 	t.Helper()
@@ -641,6 +655,7 @@ func TestOpenRejectsNewerSchema(t *testing.T) {
 }
 
 func TestDataDirPermissions(t *testing.T) {
+	skipOnWindows(t, "POSIX mode bits; Windows reports 777 for a directory created 0700")
 	s := openTestStore(t)
 	for _, dir := range []string{s.DataDir(), filepath.Join(s.DataDir(), "blobs")} {
 		info, err := os.Stat(dir)

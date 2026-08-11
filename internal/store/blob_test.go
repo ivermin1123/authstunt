@@ -140,6 +140,7 @@ func TestBlobRefsListsOnlyBlobs(t *testing.T) {
 }
 
 func TestBlobFilePermissions(t *testing.T) {
+	skipOnWindows(t, "POSIX mode bits; Windows reports 666 for a file created 0600")
 	s := openTestStore(t)
 	ref, err := s.Blobs.Put([]byte("x"))
 	if err != nil {
