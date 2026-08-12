@@ -1,0 +1,14 @@
+{
+  "note": "The accented twin of fixture 16. Same result, which is what folding buys.",
+  "subject": "",
+  "text": "Mã xác thực của bạn là 728194. Mã có hiệu lực trong 10 phút.",
+  "html": "",
+  "want": {
+    "otp_best": "728194",
+    "otp_candidates": [
+      "728194"
+    ],
+    "links": [],
+    "verify_link_best": ""
+  }
+}

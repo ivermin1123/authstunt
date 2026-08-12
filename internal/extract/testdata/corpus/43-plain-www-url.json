@@ -1,0 +1,25 @@
+{
+  "note": "A spelled-out URL without a scheme is still a link a reader would follow, so it is reported, inert, because design 3.18 allows nothing but http and https to be acted on. The same host written with its scheme is one link, not two.",
+  "subject": "",
+  "text": "Xac thuc tai www.app.test/verify?t=w1 hoac https://www.app.test/verify?t=w2 - ma xac thuc cua ban la 553311.",
+  "html": "",
+  "want": {
+    "otp_best": "553311",
+    "otp_candidates": [
+      "553311"
+    ],
+    "links": [
+      {
+        "url": "www.app.test/verify?t=w1",
+        "kind": "verify",
+        "actionable": false
+      },
+      {
+        "url": "https://www.app.test/verify?t=w2",
+        "kind": "verify",
+        "actionable": true
+      }
+    ],
+    "verify_link_best": "https://www.app.test/verify?t=w2"
+  }
+}

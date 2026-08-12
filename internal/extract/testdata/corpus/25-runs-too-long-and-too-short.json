@@ -1,0 +1,14 @@
+{
+  "note": "Thirteen digits is an order number and three digits is not an OTP; taking any eight digits out of the long run would invent a code.",
+  "subject": "",
+  "text": "Order 1234567890123 ref 123 code 556677.",
+  "html": "",
+  "want": {
+    "otp_best": "556677",
+    "otp_candidates": [
+      "556677"
+    ],
+    "links": [],
+    "verify_link_best": ""
+  }
+}

@@ -1,0 +1,14 @@
+{
+  "note": "Four digits is a legal OTP length. pin is only a keyword as a whole word.",
+  "subject": "",
+  "text": "Your PIN is 4821.",
+  "html": "",
+  "want": {
+    "otp_best": "4821",
+    "otp_candidates": [
+      "4821"
+    ],
+    "links": [],
+    "verify_link_best": ""
+  }
+}

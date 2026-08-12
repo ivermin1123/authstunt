@@ -1,0 +1,14 @@
+{
+  "note": "Login-code phrasing, whose accented form contains d-with-stroke.",
+  "subject": "",
+  "text": "Ma dang nhap Acme cua ban: 915772",
+  "html": "",
+  "want": {
+    "otp_best": "915772",
+    "otp_candidates": [
+      "915772"
+    ],
+    "links": [],
+    "verify_link_best": ""
+  }
+}

@@ -1,0 +1,23 @@
+{
+  "note": "A hostile link ahead of the real one. The scheme filter has to apply before the pick, not after it, or the first verify link wins and it is the javascript one.",
+  "subject": "",
+  "text": "",
+  "html": "<a href=\"javascript:void(0)\">Verify now</a><a href=\"https://app.test/verify?t=cc\">Verify your email</a>",
+  "want": {
+    "otp_best": "",
+    "otp_candidates": [],
+    "links": [
+      {
+        "url": "javascript:void(0)",
+        "kind": "verify",
+        "actionable": false
+      },
+      {
+        "url": "https://app.test/verify?t=cc",
+        "kind": "verify",
+        "actionable": true
+      }
+    ],
+    "verify_link_best": "https://app.test/verify?t=cc"
+  }
+}

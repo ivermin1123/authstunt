@@ -1,0 +1,14 @@
+{
+  "note": "Plain-text only mail, hyphenated context word.",
+  "subject": "",
+  "text": "Hi, your one-time passcode is 305914.\nDo not share it with anyone.",
+  "html": "",
+  "want": {
+    "otp_best": "305914",
+    "otp_candidates": [
+      "305914"
+    ],
+    "links": [],
+    "verify_link_best": ""
+  }
+}

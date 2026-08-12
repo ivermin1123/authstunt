@@ -1,0 +1,18 @@
+{
+  "note": "Supabase confirm-signup link. type=signup on a /verify path is a verify link.",
+  "subject": "Confirm your signup",
+  "text": "",
+  "html": "<a href=\"https://xyz.supabase.co/auth/v1/verify?token=pkce_ab&type=signup\">Confirm your mail</a>",
+  "want": {
+    "otp_best": "",
+    "otp_candidates": [],
+    "links": [
+      {
+        "url": "https://xyz.supabase.co/auth/v1/verify?token=pkce_ab&type=signup",
+        "kind": "verify",
+        "actionable": true
+      }
+    ],
+    "verify_link_best": "https://xyz.supabase.co/auth/v1/verify?token=pkce_ab&type=signup"
+  }
+}

@@ -1,0 +1,15 @@
+{
+  "note": "Both numbers sit right after the word code, so the tie breaks on position and the ranking stays deterministic.",
+  "subject": "",
+  "text": "Your login code is 553311. If you did not request it, your old code 889900 is now invalid.",
+  "html": "",
+  "want": {
+    "otp_best": "553311",
+    "otp_candidates": [
+      "553311",
+      "889900"
+    ],
+    "links": [],
+    "verify_link_best": ""
+  }
+}

@@ -1,0 +1,14 @@
+{
+  "note": "The second common Vietnamese phrasing.",
+  "subject": "",
+  "text": "Ma xac nhan dang ky: 640233",
+  "html": "",
+  "want": {
+    "otp_best": "640233",
+    "otp_candidates": [
+      "640233"
+    ],
+    "links": [],
+    "verify_link_best": ""
+  }
+}

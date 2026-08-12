@@ -1,0 +1,14 @@
+{
+  "note": "Clerk-style numeric code mail, the most common shape there is.",
+  "subject": "Verification code",
+  "text": "Your verification code is 482913. It expires in 10 minutes.",
+  "html": "",
+  "want": {
+    "otp_best": "482913",
+    "otp_candidates": [
+      "482913"
+    ],
+    "links": [],
+    "verify_link_best": ""
+  }
+}

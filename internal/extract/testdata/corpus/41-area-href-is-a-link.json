@@ -1,0 +1,18 @@
+{
+  "note": "Brief 6.3 says every href. An image map is the other element a mail template clicks through, and reading href only from anchors dropped it silently.",
+  "subject": "",
+  "text": "",
+  "html": "<p>Tap the banner:</p><img src=\"https://cdn.test/banner.png\" usemap=\"#m\"><map name=\"m\"><area shape=\"rect\" coords=\"0,0,600,120\" href=\"https://app.test/verify?t=area1\" alt=\"Verify now\"></map>",
+  "want": {
+    "otp_best": "",
+    "otp_candidates": [],
+    "links": [
+      {
+        "url": "https://app.test/verify?t=area1",
+        "kind": "verify",
+        "actionable": true
+      }
+    ],
+    "verify_link_best": "https://app.test/verify?t=area1"
+  }
+}

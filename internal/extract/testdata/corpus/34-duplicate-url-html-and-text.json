@@ -1,0 +1,18 @@
+{
+  "note": "Templates print the link twice, once as a button and once spelled out for clients that do not render HTML. A person sees one link and so does this.",
+  "subject": "",
+  "text": "If the button does not work: https://app.test/verify?t=zz",
+  "html": "<a href=\"https://app.test/verify?t=zz\">Confirm your email</a>",
+  "want": {
+    "otp_best": "",
+    "otp_candidates": [],
+    "links": [
+      {
+        "url": "https://app.test/verify?t=zz",
+        "kind": "verify",
+        "actionable": true
+      }
+    ],
+    "verify_link_best": "https://app.test/verify?t=zz"
+  }
+}

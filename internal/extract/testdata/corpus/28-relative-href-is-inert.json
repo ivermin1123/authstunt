@@ -1,0 +1,18 @@
+{
+  "note": "A relative href has no base URL here, so it is recorded and not offered as something to open.",
+  "subject": "",
+  "text": "",
+  "html": "<a href=\"/verify?t=bb\">Verify</a>",
+  "want": {
+    "otp_best": "",
+    "otp_candidates": [],
+    "links": [
+      {
+        "url": "/verify?t=bb",
+        "kind": "verify",
+        "actionable": false
+      }
+    ],
+    "verify_link_best": ""
+  }
+}

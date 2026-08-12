@@ -1,0 +1,14 @@
+{
+  "note": "Vietnamese without diacritics, the way it is typed on a keyboard.",
+  "subject": "",
+  "text": "Ma xac thuc cua ban la 728194. Ma co hieu luc trong 10 phut.",
+  "html": "",
+  "want": {
+    "otp_best": "728194",
+    "otp_candidates": [
+      "728194"
+    ],
+    "links": [],
+    "verify_link_best": ""
+  }
+}

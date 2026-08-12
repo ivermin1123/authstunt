@@ -1,0 +1,18 @@
+{
+  "note": "Firebase action link, camel-cased mode parameter.",
+  "subject": "Verify your email",
+  "text": "",
+  "html": "<a href=\"https://app.test/__/auth/action?mode=verifyEmail&oobCode=AbCdEf\">Verify your email address</a>",
+  "want": {
+    "otp_best": "",
+    "otp_candidates": [],
+    "links": [
+      {
+        "url": "https://app.test/__/auth/action?mode=verifyEmail&oobCode=AbCdEf",
+        "kind": "verify",
+        "actionable": true
+      }
+    ],
+    "verify_link_best": "https://app.test/__/auth/action?mode=verifyEmail&oobCode=AbCdEf"
+  }
+}

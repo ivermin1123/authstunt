@@ -1,0 +1,18 @@
+{
+  "note": "Accented Vietnamese inside an HTML anchor: the anchor text is the only classification signal, because the URL is opaque.",
+  "subject": "Xác thực email của bạn",
+  "text": "",
+  "html": "<a href=\"https://app.test/t/9k2m\">Xác thực email</a>",
+  "want": {
+    "otp_best": "",
+    "otp_candidates": [],
+    "links": [
+      {
+        "url": "https://app.test/t/9k2m",
+        "kind": "verify",
+        "actionable": true
+      }
+    ],
+    "verify_link_best": "https://app.test/t/9k2m"
+  }
+}

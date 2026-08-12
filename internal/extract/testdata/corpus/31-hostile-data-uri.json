@@ -1,0 +1,18 @@
+{
+  "note": "data: is not on the allowlist either. The allowlist is positive, so a new scheme is inert without anyone having to think of it first.",
+  "subject": "",
+  "text": "",
+  "html": "<a href=\"data:text/html;base64,PHNjcmlwdD4=\">Confirm</a>",
+  "want": {
+    "otp_best": "",
+    "otp_candidates": [],
+    "links": [
+      {
+        "url": "data:text/html;base64,PHNjcmlwdD4=",
+        "kind": "verify",
+        "actionable": false
+      }
+    ],
+    "verify_link_best": ""
+  }
+}

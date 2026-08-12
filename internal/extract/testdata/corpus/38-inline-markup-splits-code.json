@@ -1,0 +1,14 @@
+{
+  "note": "Styled digits: a template that bolds part of the code hands the tokenizer three text pieces for one number. Inline markup carries no visual break, so a reader sees 915430 and so must the scan.",
+  "subject": "Your Acme code",
+  "text": "",
+  "html": "<p>Your verification code is <strong>915</strong>430, valid for 10 minutes.</p>",
+  "want": {
+    "otp_best": "915430",
+    "otp_candidates": [
+      "915430"
+    ],
+    "links": [],
+    "verify_link_best": ""
+  }
+}

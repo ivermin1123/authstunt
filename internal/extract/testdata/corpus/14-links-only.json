@@ -1,0 +1,18 @@
+{
+  "note": "A mail with a link and no code reports no code rather than guessing.",
+  "subject": "Confirm your address",
+  "text": "",
+  "html": "<a href=\"https://app.test/confirm?t=qq\">Confirm</a>",
+  "want": {
+    "otp_best": "",
+    "otp_candidates": [],
+    "links": [
+      {
+        "url": "https://app.test/confirm?t=qq",
+        "kind": "verify",
+        "actionable": true
+      }
+    ],
+    "verify_link_best": "https://app.test/confirm?t=qq"
+  }
+}

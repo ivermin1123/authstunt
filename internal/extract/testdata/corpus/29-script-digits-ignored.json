@@ -1,0 +1,14 @@
+{
+  "note": "A number inside a script tag is not visible to a reader and must not become a candidate code.",
+  "subject": "",
+  "text": "",
+  "html": "<script>var timeout = 123456;</script><p>Your code is 778899</p>",
+  "want": {
+    "otp_best": "778899",
+    "otp_candidates": [
+      "778899"
+    ],
+    "links": [],
+    "verify_link_best": ""
+  }
+}

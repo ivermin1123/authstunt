@@ -1,0 +1,14 @@
+{
+  "note": "An SMS arrives with Text alone and runs the same extraction (Brief 6.3).",
+  "subject": "",
+  "text": "ACME: ma xac thuc cua ban la 902144",
+  "html": "",
+  "want": {
+    "otp_best": "902144",
+    "otp_candidates": [
+      "902144"
+    ],
+    "links": [],
+    "verify_link_best": ""
+  }
+}

@@ -1,0 +1,14 @@
+{
+  "note": "The code is in the subject and the context word follows it, so proximity has to work in both directions and the leading-word bonus must not apply.",
+  "subject": "482913 is your Acme verification code",
+  "text": "Enter it to continue.",
+  "html": "",
+  "want": {
+    "otp_best": "482913",
+    "otp_candidates": [
+      "482913"
+    ],
+    "links": [],
+    "verify_link_best": ""
+  }
+}

@@ -1,0 +1,15 @@
+{
+  "note": "The copyright year is a candidate and must never be the best one.",
+  "subject": "",
+  "text": "Your verification code is 662041.\n(c) 2026 Acme Inc.",
+  "html": "",
+  "want": {
+    "otp_best": "662041",
+    "otp_candidates": [
+      "662041",
+      "2026"
+    ],
+    "links": [],
+    "verify_link_best": ""
+  }
+}

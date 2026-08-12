@@ -1,0 +1,14 @@
+{
+  "note": "The most common template shape of all: the code alone in its own element. The tokenizer hands adjacent text over as separate pieces, so without a separator this reads as \"Your verification code is915430\" and the code stops looking standalone.",
+  "subject": "Your Acme code",
+  "text": "",
+  "html": "<p>Your verification code is</p><h1 style=\"font-size:32px\">915430</h1><p>It expires in 10 minutes.</p>",
+  "want": {
+    "otp_best": "915430",
+    "otp_candidates": [
+      "915430"
+    ],
+    "links": [],
+    "verify_link_best": ""
+  }
+}

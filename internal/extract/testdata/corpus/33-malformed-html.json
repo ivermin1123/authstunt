@@ -1,0 +1,25 @@
+{
+  "note": "Unquoted attribute, nested anchors, unclosed tags: what mail templates actually look like. The tokenizer keeps going and every href survives. The space before the first anchor is load bearing and belongs to the sample rather than to the engine: an anchor is inline, so the code has to be separated by something a reader can see.",
+  "subject": "",
+  "text": "",
+  "html": "<p>Your code is 220044 <a href=https://app.test/verify?t=1>Verify<a href=\"https://app.test/other\">More<p>unclosed",
+  "want": {
+    "otp_best": "220044",
+    "otp_candidates": [
+      "220044"
+    ],
+    "links": [
+      {
+        "url": "https://app.test/verify?t=1",
+        "kind": "verify",
+        "actionable": true
+      },
+      {
+        "url": "https://app.test/other",
+        "kind": "other",
+        "actionable": true
+      }
+    ],
+    "verify_link_best": "https://app.test/verify?t=1"
+  }
+}

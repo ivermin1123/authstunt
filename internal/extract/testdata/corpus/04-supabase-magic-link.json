@@ -1,0 +1,18 @@
+{
+  "note": "Supabase magic link lives on the same /verify path as confirm-signup, so the magiclink signal has to outrank the word verify in the URL.",
+  "subject": "Your magic link",
+  "text": "",
+  "html": "<a href=\"https://xyz.supabase.co/auth/v1/verify?token=pkce_cd&type=magiclink\">Log in</a>",
+  "want": {
+    "otp_best": "",
+    "otp_candidates": [],
+    "links": [
+      {
+        "url": "https://xyz.supabase.co/auth/v1/verify?token=pkce_cd&type=magiclink",
+        "kind": "magic",
+        "actionable": true
+      }
+    ],
+    "verify_link_best": "https://xyz.supabase.co/auth/v1/verify?token=pkce_cd&type=magiclink"
+  }
+}

@@ -1,0 +1,14 @@
+{
+  "note": "The inverse of fixture 38: a span around part of an order reference must not manufacture a standalone number. A reader sees abc123456, which is not a code, and 704192, which is.",
+  "subject": "",
+  "text": "",
+  "html": "<p>Order ref abc<span>123456</span> shipped. Your code is 704192.</p>",
+  "want": {
+    "otp_best": "704192",
+    "otp_candidates": [
+      "704192"
+    ],
+    "links": [],
+    "verify_link_best": ""
+  }
+}

@@ -1,0 +1,18 @@
+{
+  "note": "The named negative proof: a javascript: href is reported so an operator can see it, and is never actionable or best.",
+  "subject": "Verify your email",
+  "text": "",
+  "html": "<a href=\"javascript:alert(document.cookie)\">Verify your email</a>",
+  "want": {
+    "otp_best": "",
+    "otp_candidates": [],
+    "links": [
+      {
+        "url": "javascript:alert(document.cookie)",
+        "kind": "verify",
+        "actionable": false
+      }
+    ],
+    "verify_link_best": ""
+  }
+}

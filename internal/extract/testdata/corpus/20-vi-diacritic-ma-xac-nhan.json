@@ -1,0 +1,14 @@
+{
+  "note": "Accented twin of 17, and it carries d-with-stroke in dang ky.",
+  "subject": "",
+  "text": "Mã xác nhận đăng ký: 640233",
+  "html": "",
+  "want": {
+    "otp_best": "640233",
+    "otp_candidates": [
+      "640233"
+    ],
+    "links": [],
+    "verify_link_best": ""
+  }
+}

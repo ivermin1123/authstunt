@@ -1,0 +1,15 @@
+{
+  "note": "The same accented text as fixture 19, re-encoded to NFD by the test. Real mail arrives in both forms and they look identical on screen, so this is the proof that normalization happens before matching.",
+  "subject": "",
+  "text": "Mã xác thực của bạn là 728194. Mã có hiệu lực trong 10 phút.",
+  "html": "",
+  "want": {
+    "otp_best": "728194",
+    "otp_candidates": [
+      "728194"
+    ],
+    "links": [],
+    "verify_link_best": ""
+  },
+  "nfd": true
+}

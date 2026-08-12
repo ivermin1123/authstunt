@@ -1,0 +1,14 @@
+{
+  "note": "Eight digits is the upper bound of the accepted range.",
+  "subject": "",
+  "text": "Security code: 48291307",
+  "html": "",
+  "want": {
+    "otp_best": "48291307",
+    "otp_candidates": [
+      "48291307"
+    ],
+    "links": [],
+    "verify_link_best": ""
+  }
+}

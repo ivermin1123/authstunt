@@ -1,0 +1,18 @@
+{
+  "note": "Recovery link, also on /verify. Reset must beat verify, and a reset link must never be offered as verify_link_best.",
+  "subject": "Reset your password",
+  "text": "",
+  "html": "<a href=\"https://xyz.supabase.co/auth/v1/verify?token=pkce_ef&type=recovery\">Reset password</a>",
+  "want": {
+    "otp_best": "",
+    "otp_candidates": [],
+    "links": [
+      {
+        "url": "https://xyz.supabase.co/auth/v1/verify?token=pkce_ef&type=recovery",
+        "kind": "reset",
+        "actionable": true
+      }
+    ],
+    "verify_link_best": ""
+  }
+}

@@ -1,0 +1,18 @@
+{
+  "note": "A path segment that happens to be six digits is not a code. Without the URL exclusion this mail would report 482913 as the OTP.",
+  "subject": "",
+  "text": "Confirm here: https://app.test/c/482913 - thanks.",
+  "html": "",
+  "want": {
+    "otp_best": "",
+    "otp_candidates": [],
+    "links": [
+      {
+        "url": "https://app.test/c/482913",
+        "kind": "verify",
+        "actionable": true
+      }
+    ],
+    "verify_link_best": "https://app.test/c/482913"
+  }
+}

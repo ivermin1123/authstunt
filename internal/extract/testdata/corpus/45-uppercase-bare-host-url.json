@@ -1,0 +1,18 @@
+{
+  "note": "A scheme-less host printed in capitals is the same link. It is reported with the casing the message used, inert like every scheme-less URL, and its digits stay out of the OTP scan: the link list and the OTP exclusion have to agree about WWW. exactly as they do about www.",
+  "subject": "",
+  "text": "Truy cap WWW.APP.TEST/verify?t=123456 de xac thuc tai khoan.",
+  "html": "",
+  "want": {
+    "otp_best": "",
+    "otp_candidates": [],
+    "links": [
+      {
+        "url": "WWW.APP.TEST/verify?t=123456",
+        "kind": "verify",
+        "actionable": false
+      }
+    ],
+    "verify_link_best": ""
+  }
+}

@@ -1,0 +1,20 @@
+{
+  "note": "Plenty of templates carry both, and both have to come out.",
+  "subject": "Your Acme code",
+  "text": "Your verification code is 771122, or use this link: https://app.test/verify?t=dd",
+  "html": "<p>Your verification code is 771122</p><a href=\"https://app.test/verify?t=dd\">Verify</a>",
+  "want": {
+    "otp_best": "771122",
+    "otp_candidates": [
+      "771122"
+    ],
+    "links": [
+      {
+        "url": "https://app.test/verify?t=dd",
+        "kind": "verify",
+        "actionable": true
+      }
+    ],
+    "verify_link_best": "https://app.test/verify?t=dd"
+  }
+}

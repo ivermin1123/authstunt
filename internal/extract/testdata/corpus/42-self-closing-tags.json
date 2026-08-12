@@ -1,0 +1,18 @@
+{
+  "note": "XHTML-style slashes on elements that are not void. HTML5 ignores the self-closing flag there, so the anchor stays open over the text that follows it and the script swallows the rest of the document, exactly as a mail client renders it: the href is still reported and the hidden digits are not a code.",
+  "subject": "",
+  "text": "",
+  "html": "<a href=\"https://app.test/t/sc9\"/>Confirm your email<script src=\"https://cdn.test/s.js\"/>Hidden code 481920",
+  "want": {
+    "otp_best": "",
+    "otp_candidates": [],
+    "links": [
+      {
+        "url": "https://app.test/t/sc9",
+        "kind": "verify",
+        "actionable": true
+      }
+    ],
+    "verify_link_best": "https://app.test/t/sc9"
+  }
+}

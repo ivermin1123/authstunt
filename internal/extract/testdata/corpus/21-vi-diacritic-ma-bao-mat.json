@@ -1,0 +1,14 @@
+{
+  "note": "A third accented phrasing, security-code wording.",
+  "subject": "",
+  "text": "Mã bảo mật của bạn là 331207",
+  "html": "",
+  "want": {
+    "otp_best": "331207",
+    "otp_candidates": [
+      "331207"
+    ],
+    "links": [],
+    "verify_link_best": ""
+  }
+}

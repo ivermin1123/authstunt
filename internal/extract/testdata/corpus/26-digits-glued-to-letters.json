@@ -1,0 +1,14 @@
+{
+  "note": "Digits welded to a word are part of that word, not a standalone code.",
+  "subject": "",
+  "text": "Your code is abc123456 and x9876543 - neither is a code. Real code: 447788.",
+  "html": "",
+  "want": {
+    "otp_best": "447788",
+    "otp_candidates": [
+      "447788"
+    ],
+    "links": [],
+    "verify_link_best": ""
+  }
+}

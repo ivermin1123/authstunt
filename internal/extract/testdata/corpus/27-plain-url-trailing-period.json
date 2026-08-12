@@ -1,0 +1,18 @@
+{
+  "note": "The sentence-ending period belongs to the sentence, not to the URL.",
+  "subject": "",
+  "text": "Verify here: https://app.test/verify?t=aa.",
+  "html": "",
+  "want": {
+    "otp_best": "",
+    "otp_candidates": [],
+    "links": [
+      {
+        "url": "https://app.test/verify?t=aa",
+        "kind": "verify",
+        "actionable": true
+      }
+    ],
+    "verify_link_best": "https://app.test/verify?t=aa"
+  }
+}

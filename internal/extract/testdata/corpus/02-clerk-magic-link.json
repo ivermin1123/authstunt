@@ -1,0 +1,18 @@
+{
+  "note": "Clerk-style sign-in link: no code at all, and the link is the payload.",
+  "subject": "Sign in to Acme",
+  "text": "",
+  "html": "<p>Click to sign in:</p><a href=\"https://accounts.acme.test/sign-in?token=abcdef\">Sign in</a>",
+  "want": {
+    "otp_best": "",
+    "otp_candidates": [],
+    "links": [
+      {
+        "url": "https://accounts.acme.test/sign-in?token=abcdef",
+        "kind": "magic",
+        "actionable": true
+      }
+    ],
+    "verify_link_best": "https://accounts.acme.test/sign-in?token=abcdef"
+  }
+}

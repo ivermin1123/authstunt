@@ -1,0 +1,18 @@
+{
+  "note": "An anchor is inline: color and an underline are not whitespace, so a reader sees ref123456 as one token and it is not a code. The link itself is still reported.",
+  "subject": "",
+  "text": "",
+  "html": "<p>ref<a href=\"https://app.test/x\">123456</a></p>",
+  "want": {
+    "otp_best": "",
+    "otp_candidates": [],
+    "links": [
+      {
+        "url": "https://app.test/x",
+        "kind": "other",
+        "actionable": true
+      }
+    ],
+    "verify_link_best": ""
+  }
+}

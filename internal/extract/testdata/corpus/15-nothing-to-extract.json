@@ -1,0 +1,12 @@
+{
+  "note": "Neither a code nor a link. Both arrays must still be empty arrays, never null, so a consumer cannot tell 'none' apart from 'no field'.",
+  "subject": "Welcome to Acme",
+  "text": "Welcome to Acme. There is nothing to do here.",
+  "html": "",
+  "want": {
+    "otp_best": "",
+    "otp_candidates": [],
+    "links": [],
+    "verify_link_best": ""
+  }
+}
