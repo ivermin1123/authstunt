@@ -15,6 +15,7 @@ import (
 	"syscall"
 	"time"
 
+	"github.com/ivermin1123/authstunt/internal/personas"
 	"github.com/ivermin1123/authstunt/internal/secrets"
 	"github.com/ivermin1123/authstunt/internal/smtp"
 	"github.com/ivermin1123/authstunt/internal/sse"
@@ -50,10 +51,12 @@ func (d *domainList) Set(v string) error {
 }
 
 type serveOptions struct {
-	project    string
-	domains    domainList
-	dataDir    string
-	smtpListen string
+	project      string
+	domains      domainList
+	dataDir      string
+	smtpListen   string
+	seedURL      string
+	poolCooldown time.Duration
 }
 
 // runServe is the serve subcommand.
@@ -65,6 +68,10 @@ func runServe(args []string, stderr io.Writer) error {
 	fs.Var(&opts.domains, "domain", "allowlisted domain pattern, repeatable; a leading '*.' covers subdomains")
 	fs.StringVar(&opts.dataDir, "data-dir", "", "data directory (default ~/.authstunt/<project>)")
 	fs.StringVar(&opts.smtpListen, "smtp-listen", "127.0.0.1:1025", "SMTP listen address")
+	fs.StringVar(&opts.seedURL, "seed-url", "",
+		"absolute http or https URL the application exposes to seed a leased identity; leaving it unset skips seeding")
+	fs.DurationVar(&opts.poolCooldown, "pool-cooldown", personas.DefaultPoolCooldown,
+		"how long a released pooled identity is held back before it can be leased again")
 	if err := fs.Parse(args); err != nil {
 		return err
 	}
@@ -116,6 +123,23 @@ func serve(ctx context.Context, opts serveOptions, dataDir string, logger *slog.
 	project, allowlist, err := bootstrap(ctx, st, opts)
 	if err != nil {
 		return err
+	}
+
+	// The lease service is built before anything starts listening, so a
+	// bad --seed-url is a startup error rather than a surprise the first
+	// time a run asks for an identity.
+	leases, err := newLeaseService(st, project, allowlist, opts, logger)
+	if err != nil {
+		return err
+	}
+	// Sweeping at start is what makes the expiry contract safe after a
+	// crash: a process that died holding leases left identities locked,
+	// and nobody is coming to unlock them.
+	if runs, held, err := leases.Sweep(ctx); err != nil {
+		return fmt.Errorf("serve: %w", err)
+	} else if runs > 0 || held > 0 {
+		logger.Info("serve: swept expired work from a previous run",
+			"runs", runs, "leases", held)
 	}
 
 	generation, err := st.NextEventGeneration(ctx)
@@ -173,6 +197,31 @@ func serve(ctx context.Context, opts serveOptions, dataDir string, logger *slog.
 	}
 	ingest.Stop()
 	return serveErr
+}
+
+// newLeaseService wires the lease service, including the seed adapter
+// when one is configured.
+func newLeaseService(st *store.Store, project store.Project, allowlist []string,
+	opts serveOptions, logger *slog.Logger) (*personas.Service, error) {
+	cfg := personas.Config{
+		Store:        st,
+		ProjectID:    project.ID,
+		Allowlist:    allowlist,
+		PoolCooldown: opts.poolCooldown,
+		Logger:       logger,
+	}
+	if opts.seedURL != "" {
+		seeder, err := personas.NewHTTPSeeder(opts.seedURL, personas.DefaultSeedTimeout)
+		if err != nil {
+			return nil, fmt.Errorf("serve: %w", err)
+		}
+		cfg.Seeder = seeder
+	}
+	svc, err := personas.New(cfg)
+	if err != nil {
+		return nil, fmt.Errorf("serve: %w", err)
+	}
+	return svc, nil
 }
 
 // bootstrap applies design 4.2 item 2: create the project and its ordered

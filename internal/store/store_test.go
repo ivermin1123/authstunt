@@ -62,6 +62,31 @@ func openTestStoreWithLogs(t *testing.T) (*store.Store, *logBuffer) {
 	return s, logs
 }
 
+// openTestStoreWithClock is openTestStore with the clock injected, for
+// the tests about deadlines: a sweeper test that waited for real time to
+// pass would be slow and flaky in exchange for proving nothing extra.
+func openTestStoreWithClock(t *testing.T, now func() time.Time) *store.Store {
+	t.Helper()
+	dir := t.TempDir()
+	key, err := secrets.LoadOrCreateKey(filepath.Join(dir, "keys"), "test")
+	if err != nil {
+		t.Fatalf("key: %v", err)
+	}
+	s, err := store.Open(t.Context(), dir, key, store.Options{
+		Now:    now,
+		Logger: slog.New(slog.NewTextHandler(&logBuffer{}, nil)),
+	})
+	if err != nil {
+		t.Fatalf("open: %v", err)
+	}
+	t.Cleanup(func() {
+		if err := s.Close(); err != nil {
+			t.Errorf("close: %v", err)
+		}
+	})
+	return s
+}
+
 // logBuffer collects log output. Reads run concurrently in some tests, so
 // the writes are serialized.
 type logBuffer struct {

@@ -21,7 +21,25 @@ const messageColumnsAliased = `m.id, m.project_id, m.from_addr, m.subject, m.cha
 // InsertMessage writes a message and its recipients atomically: a message
 // row without its envelope recipients would be invisible to every
 // matcher, so the two must land together.
+// InsertMessage writes a message and its recipients atomically, using the
+// caller's transaction so a message can be committed together with the
+// ledger events that describe how it arrived.
 func (s *Store) InsertMessage(ctx context.Context, m Message) (Message, error) {
+	var out Message
+	err := s.WithTx(ctx, func(tx *Tx) error {
+		var err error
+		out, err = tx.InsertMessage(ctx, m)
+		return err
+	})
+	if err != nil {
+		return Message{}, err
+	}
+	return out, nil
+}
+
+// InsertMessage is the transactional implementation. See Store.InsertMessage.
+func (t *Tx) InsertMessage(ctx context.Context, m Message) (Message, error) {
+	s := t.s
 	if m.ID == "" {
 		m.ID = NewID()
 	}
@@ -51,28 +69,20 @@ func (s *Store) InsertMessage(ctx context.Context, m Message) (Message, error) {
 		m.ExtractionState = ExtractionSuccess
 	}
 
-	err = s.tx(ctx, func(tx *sql.Tx) error {
-		_, err := tx.ExecContext(ctx, `INSERT INTO messages (`+messageColumns+`)
-			VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
-			m.ID, m.ProjectID, m.FromAddr, m.Subject, m.Channel,
-			nullString(m.RawRef), nullString(m.HTMLRef), sealedBody,
-			sealedExtraction, m.Quarantined, timestamp(m.ReceivedAt), m.ExtractionState)
-		if err != nil {
-			return fmt.Errorf("store: insert message: %w", err)
+	if err := t.exec(ctx, `INSERT INTO messages (`+messageColumns+`)
+		VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+		m.ID, m.ProjectID, m.FromAddr, m.Subject, m.Channel,
+		nullString(m.RawRef), nullString(m.HTMLRef), sealedBody,
+		sealedExtraction, m.Quarantined, timestamp(m.ReceivedAt), m.ExtractionState); err != nil {
+		return Message{}, fmt.Errorf("store: insert message: %w", err)
+	}
+	for _, r := range m.Recipients {
+		if err := t.exec(ctx,
+			`INSERT INTO message_recipients (message_id, addr, kind) VALUES (?, ?, ?)
+			 ON CONFLICT DO NOTHING`,
+			m.ID, NormalizeAddress(r.Addr), r.Kind); err != nil {
+			return Message{}, fmt.Errorf("store: insert recipient: %w", err)
 		}
-		for _, r := range m.Recipients {
-			_, err := tx.ExecContext(ctx,
-				`INSERT INTO message_recipients (message_id, addr, kind) VALUES (?, ?, ?)
-				 ON CONFLICT DO NOTHING`,
-				m.ID, NormalizeAddress(r.Addr), r.Kind)
-			if err != nil {
-				return fmt.Errorf("store: insert recipient: %w", err)
-			}
-		}
-		return nil
-	})
-	if err != nil {
-		return Message{}, err
 	}
 	return m, nil
 }

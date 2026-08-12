@@ -13,13 +13,16 @@ var schemaV1 string
 //go:embed schema_v2.sql
 var schemaV2 string
 
+//go:embed schema_v3.sql
+var schemaV3 string
+
 // migrations are forward-only and applied in order. Never edit a shipped
 // entry: append a new one. The applied count lives in PRAGMA
 // user_version, which SQLite stores in the database header.
-var migrations = []string{schemaV1, schemaV2}
+var migrations = []string{schemaV1, schemaV2, schemaV3}
 
 // SchemaVersion is the schema version this binary writes.
-const SchemaVersion = 2
+const SchemaVersion = 3
 
 func migrate(ctx context.Context, db *sql.DB) error {
 	return migrateTo(ctx, db, len(migrations))

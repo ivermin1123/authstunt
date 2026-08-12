@@ -6,6 +6,7 @@ import (
 	"slices"
 	"strings"
 	"testing"
+	"time"
 
 	"github.com/ivermin1123/authstunt/internal/secrets"
 	"github.com/ivermin1123/authstunt/internal/store"
@@ -282,4 +283,114 @@ func openAt(t *testing.T, dir string, key *secrets.Key) *store.Store {
 		t.Fatalf("open: %v", err)
 	}
 	return s
+}
+
+// TestMigrateToV3AddsTheLeaseTablesOnAPopulatedDatabase upgrades a
+// database that already carries v1 rows, because a migration only tested
+// on an empty file is a migration tested on the case that cannot fail.
+func TestMigrateToV3AddsTheLeaseTablesOnAPopulatedDatabase(t *testing.T) {
+	ctx := t.Context()
+	dir, key := seedV1(t)
+	s := upgrade(t, dir, key)
+
+	pragmas, err := s.ReadPragmas(ctx)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if pragmas.UserVersion != 3 {
+		t.Fatalf("user_version = %d, want 3", pragmas.UserVersion)
+	}
+
+	// The v1 rows are still there. A migration that quietly dropped the
+	// data it was migrating would still pass a schema check.
+	names, err := s.QueryStringsForTest(ctx, `SELECT name FROM projects`)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(names) != 1 || names[0] != "legacy" {
+		t.Errorf("projects after upgrade = %v, want the v1 row", names)
+	}
+
+	// The new tables work end to end on the upgraded database, which is a
+	// stronger claim than their presence in sqlite_master.
+	run, _, err := s.CreateRun(ctx, store.NewRun{ProjectID: "proj0000000a", TTL: time.Minute})
+	if err != nil {
+		t.Fatalf("create run on an upgraded database: %v", err)
+	}
+	identity, err := s.CreateIdentity(ctx, store.NewIdentity{
+		ProjectID: "proj0000000a",
+		Addr:      "upgraded@demo.test",
+		Mode:      store.ModeEphemeral,
+	})
+	if err != nil {
+		t.Fatalf("create identity: %v", err)
+	}
+	err = s.WithTx(ctx, func(tx *store.Tx) error {
+		_, err := tx.AcquireLease(ctx, store.NewLease{
+			RunID: run.ID, IdentityID: identity.ID, TTL: time.Minute,
+		})
+		return err
+	})
+	if err != nil {
+		t.Fatalf("acquire on an upgraded database: %v", err)
+	}
+}
+
+// TestV3IndexesSurviveTheMigration checks the partial indexes by name.
+// Exclusivity is the partial index; an index recreated without its WHERE
+// clause would either be wrong or reject every second lease on any
+// identity, and both are silent until a user hits them.
+func TestV3IndexesSurviveTheMigration(t *testing.T) {
+	dir, key := seedV1(t)
+	s := upgrade(t, dir, key)
+
+	sqls, err := s.QueryStringsForTest(t.Context(),
+		`SELECT sql FROM sqlite_master WHERE type = 'index' AND name = ?`,
+		"leases_one_held_per_identity")
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(sqls) != 1 {
+		t.Fatalf("the exclusivity index is missing after the upgrade")
+	}
+	if !strings.Contains(sqls[0], "WHERE state = 'held'") {
+		t.Errorf("the exclusivity index lost its WHERE clause: %s", sqls[0])
+	}
+	if !strings.Contains(strings.ToUpper(sqls[0]), "UNIQUE") {
+		t.Errorf("the exclusivity index is not unique: %s", sqls[0])
+	}
+}
+
+// TestPersonaWithAPooledIdentityCannotBePruned pins the owner's amendment:
+// identities.persona_id carries no cascade, so deleting a persona an
+// identity still points at fails instead of taking the lease history with
+// it.
+func TestPersonaWithAPooledIdentityCannotBePruned(t *testing.T) {
+	ctx := t.Context()
+	s := openTestStore(t)
+	project := newProject(t, s)
+
+	persona, err := s.CreatePersona(ctx, store.Persona{
+		ProjectID:   project.ID,
+		Name:        "pooled-pro",
+		Email:       "pooled-pro@demo.test",
+		PasswordEnc: []byte("sealed"),
+		Role:        "pro",
+	})
+	if err != nil {
+		t.Fatalf("create persona: %v", err)
+	}
+	if _, err := s.CreateIdentity(ctx, store.NewIdentity{
+		ProjectID: project.ID,
+		PersonaID: persona.ID,
+		Addr:      "pooled-pro@demo.test",
+		Role:      "pro",
+		Mode:      store.ModePooled,
+	}); err != nil {
+		t.Fatalf("create identity: %v", err)
+	}
+
+	if err := s.DeletePersonaForTest(ctx, persona.ID); err == nil {
+		t.Fatal("a persona backing a pooled identity was deleted, taking its lease history with it")
+	}
 }

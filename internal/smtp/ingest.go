@@ -194,15 +194,22 @@ func (i *Ingest) Deliver(ctx context.Context, d Delivery) error {
 		ReceivedAt:  d.ReceivedAt,
 		Recipients:  recipients(d.Recipients, parsed.to, parsed.cc),
 	}
-	stored, err := i.store.InsertMessage(ctx, msg)
+	// The row, its recipients and the events describing how it arrived
+	// commit together. A message with no arrival trail, or a trail for a
+	// message that is not there, would each be a lie the evidence path
+	// cannot detect afterwards.
+	var stored store.Message
+	err = i.store.WithTx(ctx, func(tx *store.Tx) error {
+		var err error
+		stored, err = tx.InsertMessage(ctx, msg)
+		if err != nil {
+			return err
+		}
+		return i.audit(ctx, tx, stored, d.From, quarantined, offList)
+	})
 	if err != nil {
 		return fmt.Errorf("%w: insert: %w", classifyWrite(err), err)
 	}
-
-	// From here on the message is durable and the sender is owed a 250.
-	// A ledger write that fails is logged and does not change the reply:
-	// refusing now would make the sender deliver the same mail twice.
-	i.audit(ctx, stored, d.From, quarantined, offList)
 
 	select {
 	case i.queue <- job{msg: stored, in: parsed.input()}:
@@ -351,8 +358,14 @@ func (i *Ingest) publish(ctx context.Context, m store.Message) {
 
 // audit writes the arrival trail: what came in, from which envelope
 // sender, and whether it was held back.
-func (i *Ingest) audit(ctx context.Context, m store.Message, envelopeFrom string, quarantined bool, offList []string) {
-	i.appendLedger(ctx, store.LedgerEntry{
+//
+// It runs inside the caller's transaction, so a failure here rolls the
+// message back rather than leaving a stored message nobody can account
+// for. That is the opposite of the phase 1 behavior, where the store had
+// no seam to compose the two writes and a failed ledger append was only
+// logged.
+func (i *Ingest) audit(ctx context.Context, tx *store.Tx, m store.Message, envelopeFrom string, quarantined bool, offList []string) error {
+	if _, err := tx.AppendLedger(ctx, store.LedgerEntry{
 		ProjectID: i.projectID,
 		Actor:     store.ActorSystem,
 		Action:    ActionMailReceived,
@@ -363,11 +376,13 @@ func (i *Ingest) audit(ctx context.Context, m store.Message, envelopeFrom string
 			// most real provider mail.
 			"envelope_from": envelopeFrom,
 		}),
-	})
-	if !quarantined {
-		return
+	}); err != nil {
+		return err
 	}
-	i.appendLedger(ctx, store.LedgerEntry{
+	if !quarantined {
+		return nil
+	}
+	_, err := tx.AppendLedger(ctx, store.LedgerEntry{
 		ProjectID: i.projectID,
 		Actor:     store.ActorSystem,
 		Action:    ActionMailQuarantined,
@@ -376,6 +391,7 @@ func (i *Ingest) audit(ctx context.Context, m store.Message, envelopeFrom string
 			"recipients": strings.Join(offList, ", "),
 		}),
 	})
+	return err
 }
 
 func (i *Ingest) appendLedger(ctx context.Context, e store.LedgerEntry) {

@@ -11,13 +11,29 @@ import (
 // read and every state change writes here; callers hand the id back to
 // their caller so an agent can point at the exact event.
 func (s *Store) AppendLedger(ctx context.Context, e LedgerEntry) (int64, error) {
+	var id int64
+	err := s.WithTx(ctx, func(tx *Tx) error {
+		var err error
+		id, err = tx.AppendLedger(ctx, e)
+		return err
+	})
+	if err != nil {
+		return 0, err
+	}
+	return id, nil
+}
+
+// AppendLedger is the transactional implementation. A state change and the
+// event describing it belong in one commit: an audit trail that can be
+// missing the record of a write that happened is not an audit trail.
+func (t *Tx) AppendLedger(ctx context.Context, e LedgerEntry) (int64, error) {
 	if e.TS.IsZero() {
-		e.TS = s.Now()
+		e.TS = t.s.Now()
 	}
 	if e.DetailJSON == "" {
 		e.DetailJSON = "{}"
 	}
-	res, err := s.write.ExecContext(ctx,
+	res, err := t.tx.ExecContext(ctx,
 		`INSERT INTO ledger (project_id, ts, actor, run_id, persona_id, action, detail_json)
 		 VALUES (?, ?, ?, ?, ?, ?, ?)`,
 		e.ProjectID, timestamp(e.TS), e.Actor, e.RunID, nullString(e.PersonaID),

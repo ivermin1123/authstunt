@@ -345,3 +345,35 @@ func TestRestartRecoversAndKeepsServing(t *testing.T) {
 	}
 	t.Fatal("the restarted process did not accept a new message")
 }
+
+// TestBadSeedURLIsAStartupError pins where the seed URL is validated. A
+// bad URL discovered on the first acquire would fail a test run rather
+// than a deployment, which is the wrong place to find out.
+func TestBadSeedURLIsAStartupError(t *testing.T) {
+	out, err := runServeExpectingFailure(t, t.TempDir(),
+		"--project", "demo", "--domain", "demo.test", "--seed-url", "not-a-url")
+	if err == nil {
+		t.Fatal("serve started with an unusable seed url")
+	}
+	if !strings.Contains(out, "seed url") {
+		t.Errorf("the error did not name the seed url: %q", out)
+	}
+}
+
+// TestServeStartsWithTheLeaseFlags checks the approved flags are accepted
+// and do not change the startup contract.
+func TestServeStartsWithTheLeaseFlags(t *testing.T) {
+	dataDir := t.TempDir()
+	srv := startBinary(t, dataDir, "--project", "demo", "--domain", "demo.test",
+		"--seed-url", "http://127.0.0.1:9/seed", "--pool-cooldown", "5s")
+	defer srv.stop()
+
+	// The server is serving, not merely started: the SMTP path still works
+	// with the lease service wired in front of it.
+	body := "From: a@acme.example\r\nTo: user@demo.test\r\nSubject: code\r\n\r\n" +
+		"Ma xac thuc 481920\r\n"
+	deliver(t, srv.addr, "a@acme.example", "user@demo.test", body)
+	if msg := awaitExtraction(t, dataDir); msg.ExtractionState != store.ExtractionSuccess {
+		t.Errorf("extraction state = %q", msg.ExtractionState)
+	}
+}

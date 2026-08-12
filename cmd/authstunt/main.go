@@ -18,7 +18,8 @@ var (
 const usage = `authstunt - a self-hosted test identity manager
 
 Usage:
-  authstunt serve [--project <name>] [--domain <pattern>]... [--data-dir <path>] [--smtp-listen <addr>]
+  authstunt serve [--project <name>] [--domain <pattern>]... [--data-dir <path>]
+                  [--smtp-listen <addr>] [--seed-url <url>] [--pool-cooldown <duration>]
   authstunt version
 `
 
