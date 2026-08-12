@@ -12,7 +12,32 @@ appears in a test environment.
 AuthStunt is the brain for authentication during tests. It never drives a
 browser. Playwright and AI agents (via MCP) are the hands.
 
-Status: P0 (foundation). Not usable yet.
+Status: early alpha. The mail path works end to end - the server accepts SMTP,
+stores the message encrypted, and extracts the OTP and the links. There is no
+HTTP API, no dashboard and no client library yet, so nothing outside the
+process can read a result. Those land in the phases after this one.
+
+## Running it
+
+```
+authstunt serve --project demo --domain demo.test
+```
+
+The first run initializes the data directory (`~/.authstunt/<project>` by
+default, `--data-dir` overrides) with the project and its ordered domain
+allowlist, and creates the encryption key that every stored body and
+extraction result is sealed with. Later runs may repeat the flags, which must
+match what is stored, or omit them; serve never silently reconciles a
+difference.
+
+SMTP listens on `127.0.0.1:1025` by default (`--smtp-listen` overrides). Point
+the application under test at it and drop the credentials or keep them -
+authentication is accepted either way.
+
+A message addressed to any recipient outside the allowlist is accepted,
+stored, and quarantined: it is kept as evidence and held back from the
+automated read path, so a staging app that copies a real customer address
+cannot hand that person's mail to a test.
 
 ## Layout
 

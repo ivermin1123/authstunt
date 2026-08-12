@@ -145,3 +145,63 @@ func TestMessageMatchingIsUnicodeInsensitive(t *testing.T) {
 		}
 	}
 }
+
+func TestAllowlistMatches(t *testing.T) {
+	patterns := []string{"demo.test", "*.example.test"}
+	cases := []struct {
+		name string
+		addr string
+		want bool
+	}{
+		{"exact domain", "user@demo.test", true},
+		{"case is folded", "user@Demo.TEST", true},
+		{"trailing root dot is the same domain", "user@demo.test.", true},
+		{"a wildcard covers its own base", "user@example.test", true},
+		{"a wildcard covers a subdomain", "user@mail.example.test", true},
+		{"a wildcard covers a deep subdomain", "user@a.b.example.test", true},
+		{"a different domain", "user@gmail.com", false},
+		{"a suffix that is not a subdomain", "user@notexample.test", false},
+		{"a subdomain of a non-wildcard entry", "user@mail.demo.test", false},
+		{"the base domain as a prefix", "user@demo.test.evil.com", false},
+		{"no at sign", "demo.test", false},
+		{"empty domain", "user@", false},
+		{"empty address", "", false},
+		// The local part may contain an at sign, so the domain is what
+		// follows the last one, not the first.
+		{"quoted local part with an at sign", `"weird@local"@demo.test`, true},
+	}
+	for _, tc := range cases {
+		t.Run(tc.name, func(t *testing.T) {
+			if got := store.AllowlistMatches(patterns, tc.addr); got != tc.want {
+				t.Errorf("AllowlistMatches(%q) = %v, want %v", tc.addr, got, tc.want)
+			}
+		})
+	}
+}
+
+// TestAllowlistMatchesUnicodeIsNotFolded pins the reason canonicalization
+// is IDNA and not a lowercase compare: a dotless i is a different domain,
+// however similar it looks.
+func TestAllowlistMatchesUnicodeIsNotFolded(t *testing.T) {
+	if store.AllowlistMatches([]string{"demo.test"}, "user@dеmo.test") {
+		t.Error("a Unicode lookalike domain matched the allowlist")
+	}
+	// The punycode a sender would actually resolve is the same domain as
+	// the Unicode spelling of the pattern.
+	if !store.AllowlistMatches([]string{"bücher.test"}, "user@xn--bcher-kva.test") {
+		t.Error("punycode did not match the Unicode allowlist entry it encodes")
+	}
+}
+
+// TestAllowlistMatchesSkipsUnusablePatterns proves a stored pattern that
+// no longer canonicalizes cannot make everything match, and cannot stop
+// the entries after it from matching either.
+func TestAllowlistMatchesSkipsUnusablePatterns(t *testing.T) {
+	patterns := []string{"not a domain at all", "demo.test"}
+	if !store.AllowlistMatches(patterns, "user@demo.test") {
+		t.Error("an unusable pattern stopped a later, valid one from matching")
+	}
+	if store.AllowlistMatches([]string{"not a domain at all"}, "user@anything.test") {
+		t.Error("an unusable pattern matched an unrelated address")
+	}
+}
