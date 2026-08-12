@@ -253,7 +253,13 @@ func (s *Service) attempt(ctx context.Context, run store.Run, lease store.Lease,
 			MessageID:      candidate.MessageID,
 			IdempotencyKey: req.IdempotencyKey,
 			TTL:            s.claimTTL,
+			NotAfter:       endOfGrant(run, lease),
 		})
+		if errors.Is(err, store.ErrClaimWindowClosed) {
+			// The lease or the run ends before the claim could be replayed
+			// even once, so there is no grant left to hand a secret under.
+			return Claimed{Reason: store.ReasonLeaseNotHeld}, nil
+		}
 		if errors.Is(err, store.ErrClaimTaken) {
 			// One of the two unique indexes refused. Either this message
 			// was claimed by another attempt, in which case the next
@@ -277,6 +283,21 @@ func (s *Service) attempt(ctx context.Context, run store.Run, lease store.Lease,
 		}, nil
 	}
 	return Claimed{}, nil
+}
+
+// endOfGrant is the instant past which a claim may no longer be replayed:
+// the earlier of the lease running out and the run running out.
+//
+// The gates already refuse a replay once either has ended, so capping the
+// record is the second lock. It matters because gate order is the kind of
+// thing a later change reshuffles, and a claim row whose expiry sat past
+// its lease would turn that reshuffle from a harmless surplus into a way
+// to read a secret against an identity somebody else now holds.
+func endOfGrant(run store.Run, lease store.Lease) time.Time {
+	if run.ExpiresAt.Before(lease.ExpiresAt) {
+		return run.ExpiresAt
+	}
+	return lease.ExpiresAt
 }
 
 // explain decides what to report when the deadline passed with nothing

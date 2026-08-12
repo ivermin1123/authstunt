@@ -30,7 +30,7 @@ func (w *wedge) bindDirectly(ctx context.Context, m store.Message, at time.Time)
 		for _, r := range m.Recipients {
 			addrs = append(addrs, r.Addr)
 		}
-		bound, _, err := tx.BindRecipients(ctx, stored.ID, addrs, at)
+		bound, _, err := tx.BindRecipients(ctx, stored.ID, addrs, at, at)
 		if err != nil {
 			return err
 		}

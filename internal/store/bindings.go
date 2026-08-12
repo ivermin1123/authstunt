@@ -23,7 +23,12 @@ const bindingColumns = `message_id, lease_id, run_id, identity_id, addr, bound_a
 // They are not an error: mail arriving in the gap between one run
 // releasing an address and the next acquiring it genuinely has no owner,
 // and the caller records that rather than guessing one.
-func (t *Tx) BindRecipients(ctx context.Context, messageID string, addrs []string, receivedAt time.Time) ([]Binding, []string, error) {
+//
+// originAt is when the message says it was generated, and it is what
+// decides suspicion on a reused address. Zero means the message carried
+// no usable origination time, which a pooled binding treats as
+// unprovable rather than as clean.
+func (t *Tx) BindRecipients(ctx context.Context, messageID string, addrs []string, receivedAt, originAt time.Time) ([]Binding, []string, error) {
 	var (
 		bound   []Binding
 		unbound []string
@@ -57,7 +62,7 @@ func (t *Tx) BindRecipients(ctx context.Context, messageID string, addrs []strin
 			IdentityID: owner.identityID,
 			Addr:       addr,
 			BoundAt:    t.s.Now(),
-			Suspect:    owner.suspicion(),
+			Suspect:    owner.suspicion(originAt),
 		}
 		if err := t.exec(ctx,
 			`INSERT INTO message_bindings (`+bindingColumns+`) VALUES (?, ?, ?, ?, ?, ?, ?)`,
@@ -71,26 +76,59 @@ func (t *Tx) BindRecipients(ctx context.Context, messageID string, addrs []strin
 }
 
 // leaseOwner is the lease that owned an address at an instant, with the
-// two facts that decide whether the binding is suspect.
+// facts that decide whether the binding is suspect.
 type leaseOwner struct {
 	leaseID            string
 	runID              string
 	identityID         string
+	mode               string
+	acquiredAt         time.Time
 	releasedAt         sql.NullString
 	acquiredInCooldown bool
 }
 
+// originGranularity is the resolution the comparison against a lease can
+// honestly use.
+//
+// A message states when it was generated to the second - RFC 5322 has no
+// finer field - while a lease is acquired at nanosecond resolution.
+// Comparing them raw would mark a run's own mail as older than its own
+// lease whenever the acquire landed mid-second, which would break pooled
+// mode for correct applications. The lease instant is therefore truncated
+// down to the second the message could have named.
+const originGranularity = time.Second
+
 // suspicion classifies a binding against the lease it resolved to.
 //
-// Cooldown outranks after-release because it is the more serious doubt: a
-// lease granted while the previous holder's cooldown was still running may
-// be receiving that holder's mail, which is a wrong-run risk, while
+// originAt is when the message says it was generated. On a pooled address
+// it is the signal a timer cannot provide: mail generated before this
+// lease started belongs to whoever held the address earlier, no matter how
+// late it arrived, and that is exactly the handover case a cooldown set
+// shorter than real delivery latency lets through.
+//
+// The order is proven facts first, unprovable last. Cooldown outranks
+// everything because a lease granted while the previous holder was still
+// cooling down carries the doubt for its whole life. Predating the lease
+// outranks after-release because it names a wrong-run risk, while
 // after-release only says this run had already finished with the address.
-func (o leaseOwner) suspicion() string {
-	if o.acquiredInCooldown {
+//
+// Ephemeral identities are not guarded: their address is minted for one
+// run and never reused, so no earlier run's mail can reach it and an
+// application that omits an origination time keeps working.
+func (o leaseOwner) suspicion(originAt time.Time) string {
+	switch {
+	case o.acquiredInCooldown:
 		return SuspectCooldown
-	}
-	if o.releasedAt.Valid {
+	case o.mode != ModePooled:
+		if o.releasedAt.Valid {
+			return SuspectAfterRelease
+		}
+		return SuspectNone
+	case originAt.IsZero():
+		return SuspectOriginUnknown
+	case originAt.Before(o.acquiredAt.Truncate(originGranularity)):
+		return SuspectPredatesLease
+	case o.releasedAt.Valid:
 		return SuspectAfterRelease
 	}
 	return SuspectNone
@@ -100,9 +138,13 @@ func (o leaseOwner) suspicion() string {
 // needs. The half-open comparison is the same rule, spelled the same way:
 // a message received exactly at the release instant belongs to nobody.
 func (t *Tx) leaseAt(ctx context.Context, addr string, at time.Time) (leaseOwner, error) {
-	var o leaseOwner
+	var (
+		o        leaseOwner
+		acquired string
+	)
 	err := t.tx.QueryRowContext(ctx,
-		`SELECT l.id, l.run_id, l.identity_id, l.released_at, l.acquired_in_cooldown
+		`SELECT l.id, l.run_id, l.identity_id, i.mode, l.acquired_at,
+		        l.released_at, l.acquired_in_cooldown
 		 FROM leases l
 		 JOIN identities i ON i.id = l.identity_id
 		 WHERE i.addr = ?
@@ -111,12 +153,16 @@ func (t *Tx) leaseAt(ctx context.Context, addr string, at time.Time) (leaseOwner
 		 ORDER BY l.acquired_at DESC
 		 LIMIT 1`,
 		addr, timestamp(at), timestamp(at)).
-		Scan(&o.leaseID, &o.runID, &o.identityID, &o.releasedAt, &o.acquiredInCooldown)
+		Scan(&o.leaseID, &o.runID, &o.identityID, &o.mode, &acquired,
+			&o.releasedAt, &o.acquiredInCooldown)
 	if errors.Is(err, sql.ErrNoRows) {
 		return leaseOwner{}, ErrNotFound
 	}
 	if err != nil {
 		return leaseOwner{}, fmt.Errorf("store: resolve owner: %w", err)
+	}
+	if o.acquiredAt, err = parseTimestamp(acquired); err != nil {
+		return leaseOwner{}, err
 	}
 	return o, nil
 }

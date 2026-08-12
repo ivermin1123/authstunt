@@ -12,6 +12,7 @@ import (
 	"strings"
 	"sync"
 	"syscall"
+	"time"
 
 	// Importing charset for its side effect installs message.CharsetReader,
 	// which is what lets a windows-1258 or ISO-8859-1 body decode instead
@@ -205,7 +206,7 @@ func (i *Ingest) Deliver(ctx context.Context, d Delivery) error {
 		if err := i.audit(ctx, tx, stored, d.From, quarantined, offList); err != nil {
 			return err
 		}
-		return i.bind(ctx, tx, stored, d.Recipients)
+		return i.bind(ctx, tx, stored, d.Recipients, parsed.origin)
 	})
 	if err != nil {
 		return fmt.Errorf("%w: insert: %w", classifyWrite(err), err)
@@ -391,8 +392,14 @@ func (i *Ingest) audit(ctx context.Context, tx *store.Tx, m store.Message, envel
 // worker - would be measurably faster and would reintroduce the window
 // this design exists to close: a message that is stored but not yet
 // attributed can be handed to whichever run asks first.
-func (i *Ingest) bind(ctx context.Context, tx *store.Tx, m store.Message, envelope []string) error {
-	bound, unbound, err := tx.BindRecipients(ctx, m.ID, envelope, m.ReceivedAt)
+//
+// originAt travels with the recipients because a reused pooled address
+// cannot be resolved by arrival time alone: mail generated for the
+// previous holder arrives after the next one took the address whenever
+// delivery is slower than the cooldown, and only the message's own age
+// separates the two.
+func (i *Ingest) bind(ctx context.Context, tx *store.Tx, m store.Message, envelope []string, originAt time.Time) error {
+	bound, unbound, err := tx.BindRecipients(ctx, m.ID, envelope, m.ReceivedAt, originAt)
 	if err != nil {
 		return err
 	}
@@ -479,6 +486,11 @@ type parsedMessage struct {
 	cc      []string
 	text    string
 	html    string
+	// origin is the Date header: when the sending application says it
+	// generated this message, as opposed to when this server received it.
+	// It stays zero when the header is absent or unparseable, and the
+	// binding layer treats that as unprovable rather than as clean.
+	origin time.Time
 }
 
 func (p parsedMessage) input() extract.Input {
@@ -505,6 +517,7 @@ func parseMessage(raw []byte, logger *slog.Logger) parsedMessage {
 	p.from = firstAddress(r.Header, "From")
 	p.to = addressList(r.Header, "To")
 	p.cc = addressList(r.Header, "Cc")
+	p.origin = headerDate(r.Header, logger)
 
 	for {
 		part, err := r.NextPart()
@@ -555,6 +568,25 @@ func headerSubject(h mail.Header) string {
 		return h.Get("Subject")
 	}
 	return subject
+}
+
+// headerDate reads when the sending application says it generated the
+// message.
+//
+// A zero time is a real answer here, not a parse failure to paper over: it
+// says the message cannot state its own age, and the pooled handover guard
+// refuses to treat such a message as fresh. Applications do send mail
+// without a Date - RFC 5322 requires one, test harnesses skip it - so the
+// absence is logged and carried rather than rejected at the door, because
+// a message this tool refused to store is a message an operator cannot
+// debug.
+func headerDate(h mail.Header, logger *slog.Logger) time.Time {
+	date, err := h.Date()
+	if err != nil {
+		logger.Warn("smtp: message has no usable Date header", "error", err)
+		return time.Time{}
+	}
+	return date
 }
 
 func firstAddress(h mail.Header, key string) string {

@@ -114,7 +114,21 @@ func (w *wedge) run(ctx context.Context, role string) (store.Run, personas.Grant
 	return r, grant
 }
 
+// otpTemplate is mail as an application sends it, Date header included.
+// The header is not decoration: on a pooled address it is the only thing
+// that says whether the message is older than the lease it is about to
+// bind to.
 const otpTemplate = "From: app@acme.example\r\n" +
+	"To: %s\r\n" +
+	"Date: %s\r\n" +
+	"Subject: Your verification code\r\n" +
+	"\r\n" +
+	"Your code is %s. It expires in ten minutes.\r\n"
+
+// undatedTemplate is the same mail from an application that omits the
+// Date header. RFC 5322 requires one; real senders still skip it, and a
+// pooled binding has to decide what to do about that.
+const undatedTemplate = "From: app@acme.example\r\n" +
 	"To: %s\r\n" +
 	"Subject: Your verification code\r\n" +
 	"\r\n" +
@@ -127,7 +141,29 @@ func (w *wedge) send(ctx context.Context, to, code string) {
 	w.sendAt(ctx, to, code, time.Now())
 }
 
+// sendAt delivers mail that was generated at the instant it arrived, which
+// is the ordinary case.
 func (w *wedge) sendAt(ctx context.Context, to, code string, at time.Time) {
+	w.t.Helper()
+	w.deliver(ctx, to, at, []byte(fmt.Sprintf(otpTemplate, to, at.Format(time.RFC1123Z), code)))
+}
+
+// sendGeneratedAt delivers mail that says it was generated at one instant
+// and arrives at another. That gap is the late delivery the pooled
+// handover guard exists for.
+func (w *wedge) sendGeneratedAt(ctx context.Context, to, code string, generated, received time.Time) {
+	w.t.Helper()
+	w.deliver(ctx, to, received,
+		[]byte(fmt.Sprintf(otpTemplate, to, generated.Format(time.RFC1123Z), code)))
+}
+
+// sendUndated delivers mail that cannot say when it was generated.
+func (w *wedge) sendUndated(ctx context.Context, to, code string) {
+	w.t.Helper()
+	w.deliver(ctx, to, time.Now(), []byte(fmt.Sprintf(undatedTemplate, to, code)))
+}
+
+func (w *wedge) deliver(ctx context.Context, to string, at time.Time, raw []byte) {
 	w.t.Helper()
 	waiter, err := w.bus.SubscribeMatch(ctx, func(ev sse.Event) bool {
 		return ev.Message != nil
@@ -140,7 +176,7 @@ func (w *wedge) sendAt(ctx context.Context, to, code string, at time.Time) {
 	if err := w.ingest.Deliver(ctx, smtp.Delivery{
 		From:       "bounce@acme.example",
 		Recipients: []string{to},
-		Raw:        []byte(fmt.Sprintf(otpTemplate, to, code)),
+		Raw:        raw,
 		ReceivedAt: at,
 	}); err != nil {
 		w.t.Fatalf("deliver: %v", err)
@@ -421,7 +457,7 @@ func (w *wedge) newPooledIdentity(ctx context.Context, addr, role string) store.
 // leave a run holding an identity that is still cooling.
 func TestPooledHandoverMarksSuspect(t *testing.T) {
 	t.Run("cooldown leaves the address unowned", func(t *testing.T) {
-		w := newWedge(t)
+		w := newWedge(t, withPooledPolicy(time.Second))
 		ctx := t.Context()
 		pooled := w.newPooledIdentity(ctx, "pooled-pro@demo.test", "pro")
 
@@ -461,7 +497,7 @@ func TestPooledHandoverMarksSuspect(t *testing.T) {
 	})
 
 	t.Run("a lease granted inside the cooldown is suspect", func(t *testing.T) {
-		w := newWedge(t)
+		w := newWedge(t, withPooledPolicy(time.Second))
 		ctx := t.Context()
 		pooled := w.newPooledIdentity(ctx, "pooled-pro@demo.test", "pro")
 
@@ -568,7 +604,7 @@ func TestQuarantinedMailIsNeverClaimable(t *testing.T) {
 	if err := w.ingest.Deliver(ctx, smtp.Delivery{
 		From:       "bounce@acme.example",
 		Recipients: []string{grant.Addr, "realcustomer@gmail.com"},
-		Raw:        []byte(fmt.Sprintf(otpTemplate, grant.Addr, "424242")),
+		Raw:        []byte(fmt.Sprintf(otpTemplate, grant.Addr, time.Now().Format(time.RFC1123Z), "424242")),
 		ReceivedAt: time.Now(),
 	}); err != nil {
 		t.Fatalf("deliver: %v", err)
@@ -730,7 +766,7 @@ func TestClaimLatencyP95(t *testing.T) {
 		if err := w.ingest.Deliver(ctx, smtp.Delivery{
 			From:       "bounce@acme.example",
 			Recipients: []string{grant.Addr},
-			Raw:        []byte(fmt.Sprintf(otpTemplate, grant.Addr, code)),
+			Raw:        []byte(fmt.Sprintf(otpTemplate, grant.Addr, time.Now().Format(time.RFC1123Z), code)),
 			ReceivedAt: time.Now(),
 		}); err != nil {
 			t.Fatalf("deliver: %v", err)

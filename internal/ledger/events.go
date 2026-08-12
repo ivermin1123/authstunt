@@ -34,6 +34,7 @@ const (
 	ActionMailQuarantined = "mail.quarantined"
 	ActionExtractionFail  = "extraction.failed"
 	ActionLeaseAcquired   = "lease.acquired"
+	ActionLeaseRefused    = "lease.refused"
 	ActionLeaseReleased   = "lease.released"
 	ActionSeedSettled     = "lease.seed_settled"
 	ActionMailBound       = "mail.bound"
@@ -154,6 +155,25 @@ func (LeaseAcquired) Action() string { return ActionLeaseAcquired }
 
 // sealed keeps LeaseAcquired inside this package.
 func (LeaseAcquired) sealed() {}
+
+// LeaseRefused records an acquire that was refused before any identity
+// was chosen.
+//
+// It carries no address, because none had been picked when the refusal
+// happened, and no free text: Reason is a code from the refusal set in
+// store, so an operator can grep for it and a later wire contract can map
+// it without reinterpreting a sentence.
+type LeaseRefused struct {
+	Role   string `json:"role"`
+	Mode   string `json:"mode"`
+	Reason string `json:"reason"`
+}
+
+// Action names this event in the stored trail.
+func (LeaseRefused) Action() string { return ActionLeaseRefused }
+
+// sealed keeps LeaseRefused inside this package.
+func (LeaseRefused) sealed() {}
 
 // LeaseReleased records an identity going back.
 type LeaseReleased struct {

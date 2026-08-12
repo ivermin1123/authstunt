@@ -2,6 +2,10 @@ package ledger_test
 
 import (
 	"encoding/json"
+	"go/ast"
+	"go/parser"
+	"go/token"
+	"os"
 	"reflect"
 	"strings"
 	"testing"
@@ -33,6 +37,11 @@ func allEvents() []ledger.Event {
 			Role:       "pro",
 			Mode:       "ephemeral",
 			Addr:       "pro-a1b2c3d4e5f6@demo.test",
+		},
+		ledger.LeaseRefused{
+			Role:   "pro",
+			Mode:   "pooled",
+			Reason: "pooled_policy_missing",
 		},
 		ledger.LeaseReleased{
 			LeaseID:    "lease0000002",
@@ -210,6 +219,60 @@ func TestAddrRedaction(t *testing.T) {
 	for in, want := range cases {
 		if got := in.Redacted(); got != want {
 			t.Errorf("Addr(%q).Redacted() = %q, want %q", string(in), got, want)
+		}
+	}
+}
+
+// TestEveryDefinedEventIsRegistered is the completeness check the list
+// above claims to have.
+//
+// It was written after a new event reached the package and every rule
+// below stayed green, because the rules only ever ran over the list and
+// nothing compared the list to the package. An event that escapes this
+// check escapes the redaction test, the no-secret-field test and the
+// escape-hatch test at once, which is the whole guarantee this package
+// exists to give.
+//
+// Membership is read from the source rather than from a registry the same
+// author would have to remember to update: a type in this package with a
+// sealed() method is an event, by construction.
+func TestEveryDefinedEventIsRegistered(t *testing.T) {
+	entries, err := os.ReadDir(".")
+	if err != nil {
+		t.Fatalf("read the package directory: %v", err)
+	}
+	fset := token.NewFileSet()
+	defined := map[string]bool{}
+	for _, entry := range entries {
+		name := entry.Name()
+		if !strings.HasSuffix(name, ".go") || strings.HasSuffix(name, "_test.go") {
+			continue
+		}
+		file, err := parser.ParseFile(fset, name, nil, 0)
+		if err != nil {
+			t.Fatalf("parse %s: %v", name, err)
+		}
+		for _, decl := range file.Decls {
+			fn, ok := decl.(*ast.FuncDecl)
+			if !ok || fn.Name.Name != "sealed" || fn.Recv == nil || len(fn.Recv.List) != 1 {
+				continue
+			}
+			if ident, ok := fn.Recv.List[0].Type.(*ast.Ident); ok {
+				defined[ident.Name] = true
+			}
+		}
+	}
+	if len(defined) == 0 {
+		t.Fatal("found no event types in the package; the check is not checking anything")
+	}
+
+	registered := map[string]bool{}
+	for _, ev := range allEvents() {
+		registered[reflect.TypeOf(ev).Name()] = true
+	}
+	for name := range defined {
+		if !registered[name] {
+			t.Errorf("%s is an event and is not in allEvents, so no rule in this file runs over it", name)
 		}
 	}
 }

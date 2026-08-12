@@ -49,6 +49,16 @@ func openStore(t *testing.T) (*store.Store, store.Project) {
 	return s, project
 }
 
+// withPooledPolicy declares what the application under test is allowed to
+// do with a reused address, which is the precondition for pooled mode
+// existing at all. Every pooled test states it, because a service without
+// one refuses to hand out a pooled identity.
+func withPooledPolicy(maxDelivery time.Duration) func(*personas.Config) {
+	return func(c *personas.Config) {
+		c.Pooled = &personas.PooledPolicy{MaxDeliveryLatency: maxDelivery}
+	}
+}
+
 func newService(t *testing.T, s *store.Store, project store.Project, opts ...func(*personas.Config)) *personas.Service {
 	t.Helper()
 	cfg := personas.Config{
@@ -149,7 +159,7 @@ func TestMintedAddressCannotEscapeTheAllowlist(t *testing.T) {
 // run's.
 func TestPooledAcquireIsExclusiveAndCoolsDown(t *testing.T) {
 	s, project := openStore(t)
-	svc := newService(t, s, project, func(c *personas.Config) {
+	svc := newService(t, s, project, withPooledPolicy(time.Second), func(c *personas.Config) {
 		c.PoolCooldown = time.Hour
 	})
 	ctx := t.Context()
@@ -201,9 +211,7 @@ func TestPooledAcquireIsExclusiveAndCoolsDown(t *testing.T) {
 // cooldown that never ended would turn a pool into a one-shot list.
 func TestPooledIdentityIsReusableAfterTheCooldown(t *testing.T) {
 	s, project := openStore(t)
-	svc := newService(t, s, project, func(c *personas.Config) {
-		c.PoolCooldown = time.Nanosecond
-	})
+	svc := newService(t, s, project, withPooledPolicy(time.Second))
 	ctx := t.Context()
 
 	persona, err := s.CreatePersona(ctx, store.Persona{
@@ -230,6 +238,18 @@ func TestPooledIdentityIsReusableAfterTheCooldown(t *testing.T) {
 	}
 	if err := svc.Release(ctx, first.ID, grant.LeaseID); err != nil {
 		t.Fatalf("release: %v", err)
+	}
+
+	// The cooldown is now at least a second long, because a pooled policy
+	// is what makes it legal at all and one second is the shortest bound a
+	// policy may declare. Waiting it out would put a real second into the
+	// suite for no extra proof, so the deadline is moved into the past
+	// instead: what this test is about is that an elapsed cooldown returns
+	// the identity to the pool, not how the clock got there.
+	if err := s.WithTx(ctx, func(tx *store.Tx) error {
+		return tx.SetCooldown(ctx, grant.IdentityID, time.Now().Add(-time.Second))
+	}); err != nil {
+		t.Fatalf("elapse the cooldown: %v", err)
 	}
 
 	second, _, err := svc.CreateRun(ctx)
@@ -504,8 +524,11 @@ func TestSeedURLIsValidatedAtStartup(t *testing.T) {
 func TestSweepReleasesExpiredWork(t *testing.T) {
 	s, project := openStore(t)
 	svc := newService(t, s, project, func(c *personas.Config) {
+		// A claim may not outlive its lease, so the three TTLs stay
+		// ordered even when all of them are set to expire immediately.
 		c.RunTTL = time.Nanosecond
-		c.LeaseTTL = time.Nanosecond
+		c.LeaseTTL = 2 * time.Nanosecond
+		c.ClaimTTL = time.Nanosecond
 	})
 	ctx := t.Context()
 

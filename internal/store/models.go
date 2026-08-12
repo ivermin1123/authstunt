@@ -216,10 +216,25 @@ type Identity struct {
 
 // Suspicion values on a binding. The empty string is a clean binding and
 // is the only one a claim will look at.
+//
+// The last two are the pooled handover guard. A timer can only say how
+// long ago the previous run gave the address back; these say whether the
+// message itself is older than the lease it resolved to, which is the
+// question that decides whether late mail belongs to the run that is
+// about to read it.
 const (
 	SuspectNone         = ""
 	SuspectCooldown     = "cooldown"
 	SuspectAfterRelease = "after_release"
+	// SuspectPredatesLease marks a pooled binding whose message was
+	// generated before its lease began. On a reused address that is the
+	// previous holder's mail, however late it arrived.
+	SuspectPredatesLease = "predates_lease"
+	// SuspectOriginUnknown marks a pooled binding whose message carries no
+	// usable origination time. Unprovable is refused rather than assumed
+	// clean: this is the whole reason the guard cannot be bypassed by an
+	// application that omits a header.
+	SuspectOriginUnknown = "origin_unknown"
 )
 
 // Claim kinds.
@@ -245,6 +260,25 @@ const (
 	ReasonLeaseSeedFailed = "lease_seed_failed"
 	ReasonRunNotActive    = "run_not_active"
 	ReasonExtractionFail  = "extraction_failed"
+)
+
+// Reason codes a lease acquisition is refused with.
+//
+// They are deliberately not members of the claim set above, which the
+// narrow plan froze at eleven codes: these describe a pooled
+// configuration that was never safe to use, which is a different
+// question from what one claim found.
+const (
+	// ReasonPooledPolicyMissing refuses a pooled acquire made without the
+	// operator declaring what the application's delivery behavior is.
+	// Pooled mode reuses an address across runs, and there is no safe
+	// default for how long the previous run's mail can still be in flight.
+	ReasonPooledPolicyMissing = "pooled_policy_missing"
+	// ReasonPooledCooldownBelowFloor refuses a cooldown shorter than the
+	// declared delivery bound. It is a construction-time refusal: a
+	// service that quietly raised the value instead would be deciding a
+	// safety parameter on the operator's behalf and hiding it.
+	ReasonPooledCooldownBelowFloor = "pooled_cooldown_below_floor"
 )
 
 // Binding records which lease owned a message's recipient address at the

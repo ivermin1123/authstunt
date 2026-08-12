@@ -157,7 +157,24 @@ type NewClaim struct {
 	MessageID      string
 	IdempotencyKey string
 	TTL            time.Duration
+	// NotAfter caps the replay window at the end of the grant it came
+	// from, normally the earlier of the lease and the run expiry. It is an
+	// instant rather than a shorter TTL because the comparison has to
+	// happen against the clock that stamps the row: this store's clock is
+	// monotonic and steps ahead of the wall clock to keep instants
+	// distinct, so a caller subtracting wall times would compute a window
+	// that lands past the deadline it was trying to respect. Zero means no
+	// cap.
+	NotAfter time.Time
 }
+
+// ErrClaimWindowClosed reports that the grant a claim would be recorded
+// under has no time left in it.
+//
+// It is a refusal, not a failure: handing the secret over anyway would
+// mint a claim whose whole replayable life is outside the lease that
+// authorized it.
+var ErrClaimWindowClosed = errors.New("store: the claim window is already closed")
 
 // RecordClaim writes a successful claim, or reports that one of the two
 // unique indexes refused it.
@@ -174,6 +191,13 @@ func (s *Store) RecordClaim(ctx context.Context, in NewClaim) (Claim, error) {
 		return Claim{}, errors.New("store: a claim needs a positive TTL")
 	}
 	now := s.Now()
+	expires := now.Add(in.TTL)
+	if !in.NotAfter.IsZero() && in.NotAfter.Before(expires) {
+		expires = in.NotAfter
+	}
+	if !now.Before(expires) {
+		return Claim{}, ErrClaimWindowClosed
+	}
 	claim := Claim{
 		ID:             NewID(),
 		LeaseID:        in.LeaseID,
@@ -182,7 +206,7 @@ func (s *Store) RecordClaim(ctx context.Context, in NewClaim) (Claim, error) {
 		MessageID:      in.MessageID,
 		IdempotencyKey: in.IdempotencyKey,
 		ClaimedAt:      now,
-		ExpiresAt:      now.Add(in.TTL),
+		ExpiresAt:      expires,
 	}
 	err := s.exec(ctx, `INSERT INTO claims (`+claimColumns+`) VALUES (?, ?, ?, ?, ?, ?, ?, ?)`,
 		claim.ID, claim.LeaseID, claim.RunID, claim.Kind, nullString(claim.MessageID),

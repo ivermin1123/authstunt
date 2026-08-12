@@ -439,7 +439,7 @@ func TestMigrateToV4OnAPopulatedV3Database(t *testing.T) {
 	}
 	if err := s.WithTx(ctx, func(tx *store.Tx) error {
 		bound, unbound, err := tx.BindRecipients(ctx, msg.ID,
-			[]string{"already-here@demo.test"}, msg.ReceivedAt)
+			[]string{"already-here@demo.test"}, msg.ReceivedAt, msg.ReceivedAt)
 		if err != nil {
 			return err
 		}
@@ -514,5 +514,119 @@ func TestPersonaWithAPooledIdentityCannotBePruned(t *testing.T) {
 
 	if err := s.DeletePersonaForTest(ctx, persona.ID); err == nil {
 		t.Fatal("a persona backing a pooled identity was deleted, taking its lease history with it")
+	}
+}
+
+// TestMigrateToV5OnAPopulatedV4Database upgrades a database that already
+// holds bindings, because v5 rebuilds `message_bindings` to widen the
+// constraint on `suspect` and a rebuild that lost rows would erase the
+// record of who owned which mail.
+func TestMigrateToV5OnAPopulatedV4Database(t *testing.T) {
+	ctx := t.Context()
+	dir := t.TempDir()
+	key, err := secrets.LoadOrCreateKey(filepath.Join(dir, "keys"), "test")
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	const (
+		projectID  = "proj0000000w"
+		identityID = "iden000000v4"
+		runID      = "run00000000v4"
+		leaseID    = "lease0000v4a"
+		messageID  = "msg0000000v4"
+		acquiredAt = "2026-08-12T10:00:00.000000000Z"
+	)
+	func() {
+		old, err := store.OpenAtSchemaVersionForTest(ctx, dir, key, 4)
+		if err != nil {
+			t.Fatal(err)
+		}
+		defer func() {
+			if err := old.Close(); err != nil {
+				t.Fatal(err)
+			}
+		}()
+		// Every row goes in as raw SQL in the v4 shape. Seeding through
+		// this binary's typed writers would build a database no older
+		// binary could have written, which is not the thing being upgraded.
+		stmts := []struct {
+			query string
+			args  []any
+		}{
+			{`INSERT INTO projects (id, name, created_at) VALUES (?, 'v4', ?)`,
+				[]any{projectID, acquiredAt}},
+			{`INSERT INTO runs (id, project_id, token_hash, state, fail_reason,
+				checkpoint_at, started_at, expires_at, ended_at)
+			  VALUES (?, ?, X'00', 'active', '', ?, ?, '2026-08-12T11:00:00.000000000Z', NULL)`,
+				[]any{runID, projectID, acquiredAt, acquiredAt}},
+			{`INSERT INTO identities (id, project_id, persona_id, addr, role, mode,
+				cooldown_until, created_at)
+			  VALUES (?, ?, NULL, 'bound-before-v5@demo.test', 'pro', 'ephemeral', NULL, ?)`,
+				[]any{identityID, projectID, acquiredAt}},
+			{`INSERT INTO leases (id, run_id, identity_id, role, state, seed_state,
+				seed_fingerprint, acquired_at, expires_at, released_at, acquired_in_cooldown)
+			  VALUES (?, ?, ?, 'pro', 'held', 'seeded', '', ?, '2026-08-12T11:00:00.000000000Z', NULL, 0)`,
+				[]any{leaseID, runID, identityID, acquiredAt}},
+			{`INSERT INTO messages (id, project_id, from_addr, subject, channel, raw_ref,
+				html_ref, text_body, extracted_json, quarantined, received_at, extraction_state)
+			  VALUES (?, ?, 'app@acme.example', 'before v5', 'email', '', '', ?, NULL, 0, ?, 'failed')`,
+				[]any{messageID, projectID, []byte("sealed by the v4 binary"), acquiredAt}},
+			{`INSERT INTO message_bindings (message_id, lease_id, run_id, identity_id,
+				addr, bound_at, suspect)
+			  VALUES (?, ?, ?, ?, 'bound-before-v5@demo.test', ?, 'after_release')`,
+				[]any{messageID, leaseID, runID, identityID, acquiredAt}},
+		}
+		for _, s := range stmts {
+			if err := old.ExecForTest(ctx, s.query, s.args...); err != nil {
+				t.Fatalf("seed v4: %v", err)
+			}
+		}
+	}()
+
+	s := upgrade(t, dir, key)
+
+	pragmas, err := s.ReadPragmas(ctx)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if pragmas.UserVersion != store.SchemaVersion {
+		t.Fatalf("user_version = %d, want %d", pragmas.UserVersion, store.SchemaVersion)
+	}
+
+	// The pre-v5 binding survived the rebuild with its suspicion intact.
+	bindings, err := s.ListLeaseBindings(ctx, leaseID)
+	if err != nil {
+		t.Fatalf("read a pre-v5 binding: %v", err)
+	}
+	if len(bindings) != 1 {
+		t.Fatalf("the rebuilt table holds %d bindings, want the one written at v4", len(bindings))
+	}
+	if bindings[0].Suspect != store.SuspectAfterRelease {
+		t.Errorf("suspect = %q, want it carried through the rebuild", bindings[0].Suspect)
+	}
+	if bindings[0].MessageID != messageID || bindings[0].RunID != runID {
+		t.Errorf("the rebuilt row lost its keys: %+v", bindings[0])
+	}
+
+	// And the widened constraint accepts the values v5 exists to record.
+	for _, suspect := range []string{store.SuspectPredatesLease, store.SuspectOriginUnknown} {
+		if err := s.ExecForTest(ctx,
+			`INSERT INTO message_bindings (message_id, lease_id, run_id, identity_id,
+				addr, bound_at, suspect)
+			 VALUES (?, ?, ?, ?, 'bound-before-v5@demo.test', ?, ?)`,
+			messageID, leaseID+suspect, runID, identityID, acquiredAt, suspect); err == nil {
+			t.Errorf("a binding on a lease that does not exist was accepted for %q", suspect)
+		}
+	}
+	if err := s.ExecForTest(ctx,
+		`UPDATE message_bindings SET suspect = ? WHERE message_id = ?`,
+		store.SuspectPredatesLease, messageID); err != nil {
+		t.Errorf("the widened constraint refused %q: %v", store.SuspectPredatesLease, err)
+	}
+	if err := s.ExecForTest(ctx,
+		`UPDATE message_bindings SET suspect = 'invented' WHERE message_id = ?`,
+		messageID); err == nil {
+		t.Error("the rebuilt table accepted a suspicion value outside the vocabulary")
 	}
 }

@@ -652,3 +652,82 @@ func (c *testClock) advance(d time.Duration) {
 	defer c.mu.Unlock()
 	c.now = c.now.Add(d)
 }
+
+// TestPooledSuspicionUsesTheResolutionAMessageCanState is the boundary the
+// pooled handover guard turns on.
+//
+// A message states when it was generated to the second; a lease is
+// acquired at nanosecond resolution. Comparing the two raw would mark a
+// run's own mail as older than its own lease whenever the acquire landed
+// mid-second, which would refuse every code on a correct application. The
+// comparison therefore truncates the lease instant down to the second the
+// message could have named, and that is exactly one second of slack - no
+// more, which is why the mail from a second earlier is still refused.
+func TestPooledSuspicionUsesTheResolutionAMessageCanState(t *testing.T) {
+	s := openTestStore(t)
+	project := newProject(t, s)
+
+	persona, err := s.CreatePersona(t.Context(), store.Persona{
+		ProjectID: project.ID, Name: "pooled", Email: "pooled-guard@demo.test",
+		PasswordEnc: []byte("sealed"), Role: "pro",
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+	identity, err := s.CreateIdentity(t.Context(), store.NewIdentity{
+		ProjectID: project.ID, PersonaID: persona.ID,
+		Addr: "pooled-guard@demo.test", Role: "pro", Mode: store.ModePooled,
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+	run, _ := newRun(t, s, project.ID)
+	lease, err := acquire(t, s, run.ID, identity.ID)
+	if err != nil {
+		t.Fatalf("acquire: %v", err)
+	}
+	second := lease.AcquiredAt.Truncate(time.Second)
+
+	cases := []struct {
+		name   string
+		origin time.Time
+		want   string
+	}{
+		{"generated after the acquire", lease.AcquiredAt.Add(time.Millisecond), store.SuspectNone},
+		{"generated in the acquire's own second", second, store.SuspectNone},
+		{"generated the second before", second.Add(-time.Second), store.SuspectPredatesLease},
+		{"generated while the previous run held it", second.Add(-time.Minute), store.SuspectPredatesLease},
+		{"unable to say", time.Time{}, store.SuspectOriginUnknown},
+	}
+	for i, tc := range cases {
+		t.Run(tc.name, func(t *testing.T) {
+			msg, err := s.InsertMessage(t.Context(), store.Message{
+				ProjectID:  project.ID,
+				Subject:    tc.name,
+				TextBody:   "code 123456",
+				ReceivedAt: lease.AcquiredAt.Add(time.Duration(i+1) * time.Second),
+				Recipients: []store.Recipient{
+					{Addr: identity.Addr, Kind: store.RecipientEnvelope},
+				},
+			})
+			if err != nil {
+				t.Fatal(err)
+			}
+			var bound []store.Binding
+			if err := s.WithTx(t.Context(), func(tx *store.Tx) error {
+				var err error
+				bound, _, err = tx.BindRecipients(t.Context(), msg.ID,
+					[]string{identity.Addr}, msg.ReceivedAt, tc.origin)
+				return err
+			}); err != nil {
+				t.Fatalf("bind: %v", err)
+			}
+			if len(bound) != 1 {
+				t.Fatalf("bound %d leases, want 1", len(bound))
+			}
+			if bound[0].Suspect != tc.want {
+				t.Errorf("suspect = %q, want %q", bound[0].Suspect, tc.want)
+			}
+		})
+	}
+}

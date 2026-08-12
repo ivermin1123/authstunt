@@ -24,12 +24,51 @@ import (
 )
 
 // Defaults for the durations the owner froze.
+//
+// DefaultPoolCooldown is hygiene, not a safety guarantee, and the
+// difference is the whole point of PooledPolicy below: sixty seconds is a
+// reasonable pause between two runs sharing an account, and it protects
+// nothing on its own if the application's mail takes longer than that to
+// arrive.
 const (
 	DefaultRunTTL       = 30 * time.Minute
 	DefaultLeaseTTL     = 30 * time.Minute
 	DefaultPoolCooldown = 60 * time.Second
 	DefaultSeedTimeout  = 30 * time.Second
 )
+
+// MinDeliveryLatency is the smallest bound a pooled policy may declare.
+//
+// It is one second because that is the resolution of the only thing a
+// message says about its own age: RFC 5322 dates have no finer field. A
+// policy claiming tighter delivery than that is a number this server
+// cannot check, so it is refused rather than accepted and ignored.
+const MinDeliveryLatency = time.Second
+
+// PooledPolicy is what an operator has to state before a pooled identity
+// may be leased at all.
+//
+// Pooled mode hands the same address to one run after another, so the
+// previous run's mail can still be in flight when the next run takes the
+// address. There is no safe default for how long that takes: it is a
+// property of the application under test, not of this server. Requiring
+// the declaration is what turns a guessed cooldown into a stated bound
+// that the handover guard and the cooldown floor are both derived from.
+type PooledPolicy struct {
+	// MaxDeliveryLatency is the operator's declared upper bound on the gap
+	// between the run's last action and the resulting message being
+	// generated and delivered here. It sets the cooldown floor.
+	MaxDeliveryLatency time.Duration
+}
+
+// ErrPooledPolicyMissing refuses a pooled acquire in a service that was
+// given no pooled policy.
+//
+// Refusing is the only honest answer. Serving the acquire would mean
+// picking a delivery bound on the operator's behalf, and picking it wrong
+// is what lets one run claim another run's code.
+var ErrPooledPolicyMissing = errors.New("personas: pooled mode needs a declared safety policy (" +
+	store.ReasonPooledPolicyMissing + ")")
 
 // localPartBytes is the randomness in a minted local part. Six bytes is
 // twelve hex characters, the same shape as every other id here, and far
@@ -87,9 +126,18 @@ type Config struct {
 	Allowlist []string
 	// Seeder is optional. Without one every lease settles as skipped,
 	// which is the honest state for "nobody was asked to seed anything".
-	Seeder       Seeder
-	RunTTL       time.Duration
-	LeaseTTL     time.Duration
+	Seeder   Seeder
+	RunTTL   time.Duration
+	LeaseTTL time.Duration
+	// Pooled is required before any pooled identity can be leased, and is
+	// ignored by ephemeral mode, whose addresses are minted per run and
+	// never reused.
+	Pooled *PooledPolicy
+	// PoolCooldown is how long a pooled identity stays out of the pool
+	// after a run gives it back. It may not be shorter than the policy's
+	// declared delivery bound; a shorter value is refused here rather than
+	// raised silently, because a safety parameter the operator did not
+	// choose is one nobody knows the value of.
 	PoolCooldown time.Duration
 	// ClaimTTL is how long a claim can be replayed under its idempotency
 	// key. Defaults to DefaultClaimTTL.
@@ -108,6 +156,7 @@ type Service struct {
 	domain    string
 	seeder    Seeder
 	bus       *sse.Bus
+	pooled    *PooledPolicy
 	runTTL    time.Duration
 	leaseTTL  time.Duration
 	cooldown  time.Duration
@@ -139,14 +188,20 @@ func New(cfg Config) (*Service, error) {
 	if cfg.LeaseTTL <= 0 {
 		cfg.LeaseTTL = DefaultLeaseTTL
 	}
-	if cfg.PoolCooldown < 0 {
-		return nil, errors.New("personas: cooldown cannot be negative")
-	}
-	if cfg.PoolCooldown == 0 {
-		cfg.PoolCooldown = DefaultPoolCooldown
-	}
 	if cfg.ClaimTTL <= 0 {
 		cfg.ClaimTTL = DefaultClaimTTL
+	}
+	// A claim that could outlive the lease it was granted under would be a
+	// replay window nothing owns: the lease is gone, the identity may
+	// already belong to another run, and the key would still return a
+	// secret. The claim path refuses that on the gates anyway; refusing the
+	// configuration is the lock that does not depend on gate order.
+	if cfg.ClaimTTL >= cfg.LeaseTTL {
+		return nil, fmt.Errorf("personas: claim TTL %s must be shorter than the lease TTL %s",
+			cfg.ClaimTTL, cfg.LeaseTTL)
+	}
+	if err := cfg.resolveCooldown(); err != nil {
+		return nil, err
 	}
 	if cfg.Logger == nil {
 		cfg.Logger = slog.Default()
@@ -157,12 +212,48 @@ func New(cfg Config) (*Service, error) {
 		domain:    domain,
 		seeder:    cfg.Seeder,
 		bus:       cfg.Bus,
+		pooled:    cfg.Pooled,
 		runTTL:    cfg.RunTTL,
 		leaseTTL:  cfg.LeaseTTL,
 		cooldown:  cfg.PoolCooldown,
 		claimTTL:  cfg.ClaimTTL,
 		logger:    cfg.Logger,
 	}, nil
+}
+
+// resolveCooldown validates the pooled configuration and settles the
+// cooldown the service will use.
+//
+// Without a policy the cooldown is left as configured and is never
+// consulted, because no pooled acquire can get far enough to need it. With
+// one, the declared delivery bound is a floor: a shorter cooldown is
+// refused here rather than raised to the floor, so an operator who thought
+// they had a five-second handover learns it from a startup error instead
+// of from a test that received somebody else's code.
+func (cfg *Config) resolveCooldown() error {
+	if cfg.PoolCooldown < 0 {
+		return errors.New("personas: cooldown cannot be negative")
+	}
+	if cfg.Pooled == nil {
+		if cfg.PoolCooldown == 0 {
+			cfg.PoolCooldown = DefaultPoolCooldown
+		}
+		return nil
+	}
+	if cfg.Pooled.MaxDeliveryLatency < MinDeliveryLatency {
+		return fmt.Errorf("personas: pooled policy declares a delivery bound of %s, minimum is %s",
+			cfg.Pooled.MaxDeliveryLatency, MinDeliveryLatency)
+	}
+	floor := cfg.Pooled.MaxDeliveryLatency
+	if cfg.PoolCooldown == 0 {
+		cfg.PoolCooldown = max(DefaultPoolCooldown, floor)
+		return nil
+	}
+	if cfg.PoolCooldown < floor {
+		return fmt.Errorf("personas: pool cooldown %s is below the declared delivery bound %s (%s)",
+			cfg.PoolCooldown, floor, store.ReasonPooledCooldownBelowFloor)
+	}
+	return nil
 }
 
 // CreateRun starts a run and returns it with its token. The token is
@@ -268,6 +359,18 @@ func (s *Service) reserveEphemeral(ctx context.Context, runID, role string) (sto
 }
 
 func (s *Service) reservePooled(ctx context.Context, runID, role string) (store.Lease, store.Identity, error) {
+	// The policy gate comes before the pool is even listed. A pooled
+	// address outlives the run that used it, and without a declared
+	// delivery bound there is no cooldown floor and no handover guard to
+	// derive - so there is no configuration under which handing this
+	// address over is known to be safe.
+	if s.pooled == nil {
+		if err := s.auditRefusal(ctx, runID, role, store.ModePooled,
+			store.ReasonPooledPolicyMissing); err != nil {
+			return store.Lease{}, store.Identity{}, err
+		}
+		return store.Lease{}, store.Identity{}, ErrPooledPolicyMissing
+	}
 	candidates, err := s.store.ListPooledIdentities(ctx, s.projectID, role)
 	if err != nil {
 		return store.Lease{}, store.Identity{}, err
@@ -467,6 +570,19 @@ func (s *Service) meta(runID string, identity store.Identity) ledger.Meta {
 		RunID:     runID,
 		PersonaID: identity.PersonaID,
 	}
+}
+
+// auditRefusal records an acquire that was refused before any identity was
+// chosen.
+//
+// There is no address and no lease to name yet, which is why the event
+// carries only the role, the mode and the reason code. An operator whose
+// suite suddenly cannot acquire needs to find the reason in the evidence
+// rather than in a log line that may not have been collected.
+func (s *Service) auditRefusal(ctx context.Context, runID, role, mode, reason string) error {
+	_, err := ledger.Write(ctx, s.store, ledger.Meta{ProjectID: s.projectID, RunID: runID},
+		ledger.LeaseRefused{Role: role, Mode: mode, Reason: reason})
+	return err
 }
 
 func (s *Service) auditAcquire(ctx context.Context, tx *store.Tx, runID string, lease store.Lease, identity store.Identity) error {
