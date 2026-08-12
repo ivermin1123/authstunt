@@ -10,6 +10,7 @@ import (
 	"os"
 	"path/filepath"
 	"strings"
+	"sync"
 	"time"
 
 	_ "github.com/ncruces/go-sqlite3/driver" // registers the "sqlite3" driver
@@ -52,6 +53,12 @@ type Store struct {
 	dataDir string
 	now     func() time.Time
 	log     *slog.Logger
+
+	// clock guards the monotonic tie-break in Now. Stamping is on every
+	// write path, so the lock is held for two comparisons and nothing
+	// else.
+	clock   sync.Mutex
+	lastNow time.Time
 }
 
 // Options configures Open. The zero value is valid.
@@ -221,7 +228,32 @@ func (s *Store) DataDir() string { return s.dataDir }
 
 // Now returns the store clock, so callers stamp times the same way the
 // store does.
-func (s *Store) Now() time.Time { return s.now().UTC().Truncate(time.Millisecond) }
+//
+// It never returns the same instant twice. That is not a nicety: a lease
+// owns an address over the half-open interval [acquired_at, released_at),
+// and two stamps that collapsed onto one instant would make that interval
+// empty, so the lease would own no instant at all and mail that arrived
+// while it was held would resolve to no owner. The underlying clock is
+// truncated to a millisecond, and acquiring plus releasing inside one
+// millisecond is ordinary, so the collision is the normal case rather
+// than a rare one.
+//
+// The tie-break costs a nanosecond per collision, which is the smallest
+// step the stored timestamp layout can represent. Drift against the wall
+// clock is therefore bounded by the number of stamps issued inside one
+// millisecond and is not observable at any resolution this product
+// reports. It holds within one process only; AcquireLease carries the
+// same guarantee across a restart or a clock that steps backwards.
+func (s *Store) Now() time.Time {
+	now := s.now().UTC().Truncate(time.Millisecond)
+	s.clock.Lock()
+	defer s.clock.Unlock()
+	if !now.After(s.lastNow) {
+		now = s.lastNow.Add(time.Nanosecond)
+	}
+	s.lastNow = now
+	return now
+}
 
 // tx runs fn inside a write transaction on the write executor.
 //

@@ -272,7 +272,13 @@ func TestSettleSeedRefusesALeaseThatLostItsHold(t *testing.T) {
 // TestLeaseAtResolvesTheOwningInterval is the correlation rule phase 3 is
 // built on, tested here where the rows live.
 func TestLeaseAtResolvesTheOwningInterval(t *testing.T) {
-	s := openTestStore(t)
+	// The clock is stepped rather than real, so the two intervals have a
+	// width the assertions can address. Under a real clock an acquire and
+	// its release can land inside the same millisecond, and the interval
+	// they describe is then a single tick wide: correct, and useless for
+	// proving where the boundaries are.
+	clock := steppedClock(time.Date(2026, 8, 12, 9, 0, 0, 0, time.UTC), time.Second)
+	s := openTestStoreWithClock(t, clock)
 	project := newProject(t, s)
 	identity := newIdentity(t, s, project.ID, "shared@demo.test")
 
@@ -334,6 +340,80 @@ func TestLeaseAtResolvesTheOwningInterval(t *testing.T) {
 
 	if _, err := s.LeaseAt(t.Context(), "nobody@demo.test", time.Now()); !errors.Is(err, store.ErrNotFound) {
 		t.Errorf("an address no identity owns resolved to a lease: %v", err)
+	}
+}
+
+// TestLeaseIntervalsNeverCollapseOrOverlap is the property the whole
+// correlation design rests on, asserted against a real clock rather than
+// a stepped one.
+//
+// A lease that acquires and releases inside the same millisecond used to
+// describe an empty interval, because the store clock truncated to
+// milliseconds and both stamps landed on the same value. An empty
+// interval owns no instant, so mail that arrived while the lease was held
+// resolved to no owner at all - which reads exactly like mail nobody
+// leased, and would have sent phase 3 down the unbound path for a message
+// with a rightful owner.
+func TestLeaseIntervalsNeverCollapseOrOverlap(t *testing.T) {
+	s := openTestStore(t)
+	project := newProject(t, s)
+	identity := newIdentity(t, s, project.ID, "tight-loop@demo.test")
+
+	// A tight loop is the point: every iteration tries to make acquire and
+	// release land inside one clock tick.
+	const rounds = 200
+	var previous store.Lease
+	for i := range rounds {
+		run, _ := newRun(t, s, project.ID)
+		lease, err := acquire(t, s, run.ID, identity.ID)
+		if err != nil {
+			t.Fatalf("round %d: acquire: %v", i, err)
+		}
+		if err := s.ReleaseLease(t.Context(), lease.ID); err != nil {
+			t.Fatalf("round %d: release: %v", i, err)
+		}
+		closed, err := s.Lease(t.Context(), lease.ID)
+		if err != nil {
+			t.Fatalf("round %d: read back: %v", i, err)
+		}
+		if !closed.ReleasedAt.After(closed.AcquiredAt) {
+			t.Fatalf("round %d: lease owned nothing: acquired %s, released %s",
+				i, closed.AcquiredAt, closed.ReleasedAt)
+		}
+		if i > 0 && closed.AcquiredAt.Before(previous.ReleasedAt) {
+			t.Fatalf("round %d: interval overlaps the previous lease: acquired %s, previous released %s",
+				i, closed.AcquiredAt, previous.ReleasedAt)
+		}
+		// Every instant the lease owned must resolve back to it.
+		owner, err := s.LeaseAt(t.Context(), identity.Addr, closed.AcquiredAt)
+		if err != nil {
+			t.Fatalf("round %d: LeaseAt at the acquire instant: %v", i, err)
+		}
+		if owner.ID != closed.ID {
+			t.Fatalf("round %d: the acquire instant resolved to %s, want %s", i, owner.ID, closed.ID)
+		}
+		previous = closed
+	}
+}
+
+// TestStoreClockNeverRepeatsAnInstant states the guarantee the intervals
+// above depend on, directly.
+func TestStoreClockNeverRepeatsAnInstant(t *testing.T) {
+	s := openTestStore(t)
+
+	const stamps = 10_000
+	seen := make(map[time.Time]struct{}, stamps)
+	previous := time.Time{}
+	for i := range stamps {
+		now := s.Now()
+		if _, repeat := seen[now]; repeat {
+			t.Fatalf("stamp %d repeated %s", i, now)
+		}
+		if !now.After(previous) && i > 0 {
+			t.Fatalf("stamp %d went backwards: %s then %s", i, previous, now)
+		}
+		seen[now] = struct{}{}
+		previous = now
 	}
 }
 

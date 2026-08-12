@@ -84,7 +84,10 @@ func (t *Tx) AcquireLease(ctx context.Context, in NewLease) (Lease, error) {
 		return Lease{}, fmt.Errorf("%w: run %s is %s", ErrRunNotActive, in.RunID, runState)
 	}
 
-	now := t.s.Now()
+	now, err := t.leaseStart(ctx, in.IdentityID)
+	if err != nil {
+		return Lease{}, err
+	}
 	lease := Lease{
 		ID:         NewID(),
 		RunID:      in.RunID,
@@ -109,6 +112,54 @@ func (t *Tx) AcquireLease(ctx context.Context, in NewLease) (Lease, error) {
 	return lease, nil
 }
 
+// leaseStart is the instant a new lease begins: the store clock, or the
+// end of this identity's previous lease if that is later.
+//
+// Inside one process the clock already never repeats an instant, so the
+// clamp is dead weight - until the process restarts, or the wall clock
+// steps backwards under NTP. Either would let a new interval start before
+// the previous one ended, and two overlapping intervals for one address
+// are exactly the state correlation cannot resolve: a message inside the
+// overlap has two owners and the query would pick one by row order.
+// Clamping keeps the identity's timeline strictly ordered whatever the
+// clock does, at the cost of one indexed lookup per acquire.
+func (t *Tx) leaseStart(ctx context.Context, identityID string) (time.Time, error) {
+	now := t.s.Now()
+	var released sql.NullString
+	err := t.tx.QueryRowContext(ctx,
+		`SELECT released_at FROM leases WHERE identity_id = ?
+		 ORDER BY acquired_at DESC LIMIT 1`, identityID).Scan(&released)
+	if errors.Is(err, sql.ErrNoRows) {
+		return now, nil
+	}
+	if err != nil {
+		return time.Time{}, fmt.Errorf("store: previous lease: %w", err)
+	}
+	if !released.Valid {
+		// The previous lease is still held. The unique index refuses this
+		// acquire in a moment; there is no interval to order against.
+		return now, nil
+	}
+	previous, err := parseTimestamp(released.String)
+	if err != nil {
+		return time.Time{}, err
+	}
+	if previous.After(now) {
+		return previous, nil
+	}
+	return now, nil
+}
+
+// leaseEnd renders the release instant for a guarded update, never
+// earlier than the acquire it closes.
+//
+// SQLite compares these columns as text, and the timestamp layout is
+// fixed width precisely so that byte order is time order, which is what
+// makes MAX() over the two correct here. An interval that ran backwards
+// would resolve to no owner at every instant, silently unbinding mail the
+// lease really did receive.
+const leaseEnd = `MAX(?, acquired_at)`
+
 // SettleSeed records the outcome of the seed adapter.
 //
 // A seeded or skipped lease keeps its hold and becomes claimable. A failed
@@ -131,7 +182,7 @@ func (t *Tx) SettleSeed(ctx context.Context, leaseID, seedState, fingerprint str
 	)
 	if seedState == SeedStateFailed {
 		res, err = t.tx.ExecContext(ctx,
-			`UPDATE leases SET seed_state = ?, seed_fingerprint = ?, state = ?, released_at = ?
+			`UPDATE leases SET seed_state = ?, seed_fingerprint = ?, state = ?, released_at = `+leaseEnd+`
 			 WHERE id = ? AND state = ?`,
 			seedState, fingerprint, LeaseFailed, timestamp(now), leaseID, LeaseHeld)
 	} else {
@@ -158,7 +209,7 @@ func (s *Store) ReleaseLease(ctx context.Context, leaseID string) error {
 // ReleaseLease is the transactional implementation. See Store.ReleaseLease.
 func (t *Tx) ReleaseLease(ctx context.Context, leaseID string) error {
 	res, err := t.tx.ExecContext(ctx,
-		`UPDATE leases SET state = ?, released_at = ? WHERE id = ? AND state = ?`,
+		`UPDATE leases SET state = ?, released_at = `+leaseEnd+` WHERE id = ? AND state = ?`,
 		LeaseReleased, timestamp(t.s.Now()), leaseID, LeaseHeld)
 	if err != nil {
 		return fmt.Errorf("store: release lease: %w", err)
@@ -186,7 +237,7 @@ func (t *Tx) ReleaseLease(ctx context.Context, leaseID string) error {
 // EndRun, so finishing a run and freeing its identities is one commit.
 func (t *Tx) releaseRunLeases(ctx context.Context, runID string, at time.Time) error {
 	if err := t.exec(ctx,
-		`UPDATE leases SET state = ?, released_at = ? WHERE run_id = ? AND state = ?`,
+		`UPDATE leases SET state = ?, released_at = `+leaseEnd+` WHERE run_id = ? AND state = ?`,
 		LeaseReleased, timestamp(at), runID, LeaseHeld); err != nil {
 		return fmt.Errorf("store: release run leases: %w", err)
 	}
@@ -202,7 +253,7 @@ func (s *Store) ExpireLeases(ctx context.Context) (int, error) {
 	var expired int
 	err := s.WithTx(ctx, func(tx *Tx) error {
 		res, err := tx.tx.ExecContext(ctx,
-			`UPDATE leases SET state = ?, released_at = ?
+			`UPDATE leases SET state = ?, released_at = `+leaseEnd+`
 			 WHERE state = ? AND expires_at <= ?`,
 			LeaseExpired, timestamp(tx.s.Now()), LeaseHeld, timestamp(tx.s.Now()))
 		if err != nil {

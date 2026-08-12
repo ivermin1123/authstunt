@@ -62,6 +62,24 @@ func openTestStoreWithLogs(t *testing.T) (*store.Store, *logBuffer) {
 	return s, logs
 }
 
+// steppedClock returns a clock that advances by step on every read,
+// starting at start.
+//
+// It exists for the tests that assert on the width of an interval rather
+// than on its ordering. The store clock guarantees two stamps are never
+// equal, but under a real clock consecutive stamps can be one nanosecond
+// apart, and "a moment inside this interval" is then not addressable.
+func steppedClock(start time.Time, step time.Duration) func() time.Time {
+	var mu sync.Mutex
+	current := start.Add(-step)
+	return func() time.Time {
+		mu.Lock()
+		defer mu.Unlock()
+		current = current.Add(step)
+		return current
+	}
+}
+
 // openTestStoreWithClock is openTestStore with the clock injected, for
 // the tests about deadlines: a sweeper test that waited for real time to
 // pass would be slow and flaky in exchange for proving nothing extra.
