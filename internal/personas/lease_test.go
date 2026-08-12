@@ -584,21 +584,6 @@ func TestEvidenceCarriesNoRawAddressOrSecret(t *testing.T) {
 	}
 }
 
-func TestRedactAddr(t *testing.T) {
-	cases := map[string]string{
-		"pro-a1b2c3d4e5f6@demo.test": "pro...@demo.test",
-		"ab@demo.test":               "ab@demo.test",
-		"not-an-address":                 "[redacted]",
-		"@demo.test":                 "[redacted]",
-		"":                               "[redacted]",
-	}
-	for in, want := range cases {
-		if got := personas.RedactAddr(in); got != want {
-			t.Errorf("RedactAddr(%q) = %q, want %q", in, got, want)
-		}
-	}
-}
-
 // TestNoShellExecutionOnTheSeedPath is the absence proof the phase
 // requires. A seed hook that ran a command would make a configuration file
 // a way to execute anything; the promise is a postcondition, and HTTP

@@ -22,15 +22,9 @@ import (
 	"github.com/emersion/go-message/mail"
 
 	"github.com/ivermin1123/authstunt/internal/extract"
+	"github.com/ivermin1123/authstunt/internal/ledger"
 	"github.com/ivermin1123/authstunt/internal/sse"
 	"github.com/ivermin1123/authstunt/internal/store"
-)
-
-// Ledger actions this package writes.
-const (
-	ActionMailReceived    = "mail.received"
-	ActionMailQuarantined = "mail.quarantined"
-	ActionExtractionFail  = "extraction.failed"
 )
 
 // EventMessage is the bus event name for a stored, extracted message.
@@ -327,12 +321,11 @@ func (i *Ingest) fail(ctx context.Context, m store.Message, cause error) {
 			"message_id", m.ID, "error", err)
 		return
 	}
-	i.appendLedger(ctx, store.LedgerEntry{
-		ProjectID:  i.projectID,
-		Actor:      store.ActorSystem,
-		Action:     ActionExtractionFail,
-		DetailJSON: detail(map[string]string{"message_id": m.ID, "error": cause.Error()}),
-	})
+	if _, err := ledger.Write(ctx, i.store, ledger.Meta{ProjectID: i.projectID},
+		ledger.ExtractionFailed{MessageID: m.ID, Reason: cause.Error()}); err != nil {
+		i.logger.Error("smtp: appending a ledger entry failed",
+			"action", ledger.ActionExtractionFail, "error", err)
+	}
 	i.publish(ctx, m)
 }
 
@@ -365,40 +358,23 @@ func (i *Ingest) publish(ctx context.Context, m store.Message) {
 // no seam to compose the two writes and a failed ledger append was only
 // logged.
 func (i *Ingest) audit(ctx context.Context, tx *store.Tx, m store.Message, envelopeFrom string, quarantined bool, offList []string) error {
-	if _, err := tx.AppendLedger(ctx, store.LedgerEntry{
-		ProjectID: i.projectID,
-		Actor:     store.ActorSystem,
-		Action:    ActionMailReceived,
-		DetailJSON: detail(map[string]string{
-			"message_id": m.ID,
-			// The envelope sender is recorded here because from_addr
-			// holds the header From a reader sees, and the two differ on
-			// most real provider mail.
-			"envelope_from": envelopeFrom,
-		}),
+	if _, err := ledger.Write(ctx, tx, ledger.Meta{ProjectID: i.projectID}, ledger.MailReceived{
+		MessageID: m.ID,
+		// The envelope sender is recorded because from_addr holds the
+		// header From a reader sees, and the two differ on most real
+		// provider mail.
+		EnvelopeFrom: ledger.Addr(envelopeFrom),
 	}); err != nil {
 		return err
 	}
 	if !quarantined {
 		return nil
 	}
-	_, err := tx.AppendLedger(ctx, store.LedgerEntry{
-		ProjectID: i.projectID,
-		Actor:     store.ActorSystem,
-		Action:    ActionMailQuarantined,
-		DetailJSON: detail(map[string]string{
-			"message_id": m.ID,
-			"recipients": strings.Join(offList, ", "),
-		}),
+	_, err := ledger.Write(ctx, tx, ledger.Meta{ProjectID: i.projectID}, ledger.MailQuarantined{
+		MessageID:  m.ID,
+		Recipients: ledger.Addrs(offList),
 	})
 	return err
-}
-
-func (i *Ingest) appendLedger(ctx context.Context, e store.LedgerEntry) {
-	if _, err := i.store.AppendLedger(ctx, e); err != nil {
-		i.logger.Error("smtp: appending a ledger entry failed",
-			"action", e.Action, "error", err)
-	}
 }
 
 // quarantine reports whether the message must be held back, and which

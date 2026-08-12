@@ -18,14 +18,8 @@ import (
 	"strings"
 	"time"
 
+	"github.com/ivermin1123/authstunt/internal/ledger"
 	"github.com/ivermin1123/authstunt/internal/store"
-)
-
-// Ledger actions this package writes.
-const (
-	ActionLeaseAcquired = "lease.acquired"
-	ActionLeaseReleased = "lease.released"
-	ActionSeedSettled   = "lease.seed_settled"
 )
 
 // Defaults for the durations the owner froze.
@@ -351,23 +345,17 @@ func (s *Service) settle(ctx context.Context, runID string, lease store.Lease, i
 				return err
 			}
 		}
-		detail := map[string]string{
-			"lease_id":    lease.ID,
-			"identity_id": identity.ID,
-			"seed_state":  state,
-			"addr":        RedactAddr(identity.Addr),
+		event := ledger.SeedSettled{
+			LeaseID:     lease.ID,
+			IdentityID:  identity.ID,
+			SeedState:   state,
+			Addr:        ledger.Addr(identity.Addr),
+			Fingerprint: result.Fingerprint,
 		}
 		if seedErr != nil {
-			detail["error"] = seedErr.Error()
+			event.Reason = seedErr.Error()
 		}
-		_, err := tx.AppendLedger(ctx, store.LedgerEntry{
-			ProjectID:  s.projectID,
-			Actor:      store.ActorSystem,
-			RunID:      runID,
-			PersonaID:  identity.PersonaID,
-			Action:     ActionSeedSettled,
-			DetailJSON: detailJSON(detail),
-		})
+		_, err := ledger.Write(ctx, tx, s.meta(runID, identity), event)
 		return err
 	})
 }
@@ -391,17 +379,10 @@ func (s *Service) Release(ctx context.Context, runID, leaseID string) error {
 				return err
 			}
 		}
-		_, err := tx.AppendLedger(ctx, store.LedgerEntry{
-			ProjectID: s.projectID,
-			Actor:     store.ActorSystem,
-			RunID:     runID,
-			PersonaID: identity.PersonaID,
-			Action:    ActionLeaseReleased,
-			DetailJSON: detailJSON(map[string]string{
-				"lease_id":    leaseID,
-				"identity_id": identity.ID,
-				"addr":        RedactAddr(identity.Addr),
-			}),
+		_, err := ledger.Write(ctx, tx, s.meta(runID, identity), ledger.LeaseReleased{
+			LeaseID:    leaseID,
+			IdentityID: identity.ID,
+			Addr:       ledger.Addr(identity.Addr),
 		})
 		return err
 	})
@@ -464,39 +445,22 @@ func sanitizeRole(role string) string {
 	return b.String()
 }
 
-// RedactAddr truncates the local part of an address for evidence.
-//
-// Evidence has to be enough to debug a failure and not enough to be a
-// mailing list. The domain is the project's own and carries nothing; the
-// local part can identify a person when the address is a real one that
-// should never have reached this tool.
-func RedactAddr(addr string) string {
-	at := strings.LastIndex(addr, "@")
-	if at <= 0 {
-		return "[redacted]"
+// meta is the ledger context every event from this service shares.
+func (s *Service) meta(runID string, identity store.Identity) ledger.Meta {
+	return ledger.Meta{
+		ProjectID: s.projectID,
+		RunID:     runID,
+		PersonaID: identity.PersonaID,
 	}
-	local, domain := addr[:at], addr[at+1:]
-	const keep = 3
-	if len(local) > keep {
-		local = local[:keep] + "..."
-	}
-	return local + "@" + domain
 }
 
 func (s *Service) auditAcquire(ctx context.Context, tx *store.Tx, runID string, lease store.Lease, identity store.Identity) error {
-	_, err := tx.AppendLedger(ctx, store.LedgerEntry{
-		ProjectID: s.projectID,
-		Actor:     store.ActorSystem,
-		RunID:     runID,
-		PersonaID: identity.PersonaID,
-		Action:    ActionLeaseAcquired,
-		DetailJSON: detailJSON(map[string]string{
-			"lease_id":    lease.ID,
-			"identity_id": identity.ID,
-			"role":        lease.Role,
-			"mode":        identity.Mode,
-			"addr":        RedactAddr(identity.Addr),
-		}),
+	_, err := ledger.Write(ctx, tx, s.meta(runID, identity), ledger.LeaseAcquired{
+		LeaseID:    lease.ID,
+		IdentityID: identity.ID,
+		Role:       lease.Role,
+		Mode:       identity.Mode,
+		Addr:       ledger.Addr(identity.Addr),
 	})
 	return err
 }

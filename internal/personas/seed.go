@@ -161,16 +161,3 @@ func (h *HTTPSeeder) Seed(ctx context.Context, req SeedRequest) (SeedResult, err
 		return SeedResult{}, fmt.Errorf("personas: seed response status %q is not seeded or skipped", parsed.Status)
 	}
 }
-
-// detailJSON encodes a ledger detail object.
-//
-// The map is built at the call site from named fields, so an encoding
-// failure is not a real branch; an empty object keeps the column valid
-// JSON if it somehow happened.
-func detailJSON(fields map[string]string) string {
-	b, err := json.Marshal(fields)
-	if err != nil {
-		return "{}"
-	}
-	return string(b)
-}

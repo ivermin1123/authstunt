@@ -12,6 +12,7 @@ import (
 	"time"
 
 	"github.com/ivermin1123/authstunt/internal/extract"
+	"github.com/ivermin1123/authstunt/internal/ledger"
 	"github.com/ivermin1123/authstunt/internal/secrets"
 	"github.com/ivermin1123/authstunt/internal/smtp"
 	"github.com/ivermin1123/authstunt/internal/sse"
@@ -194,7 +195,11 @@ func TestDeliverStoresExtractsAndPublishes(t *testing.T) {
 		t.Errorf("published id = %q, want %q", ev.Message.ID, msg.ID)
 	}
 
-	assertLedgerAction(t, h, smtp.ActionMailReceived, "bounce@acme.example")
+	// The envelope sender reaches evidence redacted. The typed ledger
+	// event owns that, so a call site cannot pass the raw address even by
+	// accident.
+	assertLedgerAction(t, h, ledger.ActionMailReceived, "bou...@acme.example")
+	assertLedgerHasNo(t, h, "bounce@acme.example")
 }
 
 // TestPublishFollowsTerminalExtraction is the ordering half of the ack
@@ -292,7 +297,7 @@ func TestQuarantineOffAllowlistRecipient(t *testing.T) {
 				t.Errorf("quarantined = %v, want %v", msg.Quarantined, tc.quarantined)
 			}
 			if tc.quarantined {
-				assertLedgerAction(t, h, smtp.ActionMailQuarantined, "")
+				assertLedgerAction(t, h, ledger.ActionMailQuarantined, "")
 			}
 		})
 	}
@@ -332,7 +337,7 @@ func TestExtractionPanicCommitsTerminalFailure(t *testing.T) {
 	if msg.ExtractedJSON != "" {
 		t.Errorf("a failed extraction stored %q, want nothing", msg.ExtractedJSON)
 	}
-	assertLedgerAction(t, h, smtp.ActionExtractionFail, "")
+	assertLedgerAction(t, h, ledger.ActionExtractionFail, "")
 
 	// A terminal row is never revisited. Recovery running again - which is
 	// what a restart does - must leave it alone, or a message that
@@ -589,6 +594,22 @@ func awaitEvent(t *testing.T, w *sse.Waiter) (sse.Event, bool) {
 	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
 	defer cancel()
 	return w.Wait(ctx)
+}
+
+// assertLedgerHasNo fails if any ledger detail carries the value at all.
+// The positive assertion above proves the redacted form is present; this
+// proves the raw one is not, which is the half that matters.
+func assertLedgerHasNo(t *testing.T, h *harness, value string) {
+	t.Helper()
+	entries, err := h.store.ListLedger(t.Context(), store.LedgerFilter{ProjectID: h.projectID})
+	if err != nil {
+		t.Fatalf("ledger: %v", err)
+	}
+	for _, e := range entries {
+		if strings.Contains(e.DetailJSON, value) {
+			t.Errorf("a ledger entry carries %q in full: %s", value, e.DetailJSON)
+		}
+	}
 }
 
 func waitFor(t *testing.T, cond func() bool) {
