@@ -297,8 +297,12 @@ func TestMigrateToV3AddsTheLeaseTablesOnAPopulatedDatabase(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if pragmas.UserVersion != 3 {
-		t.Fatalf("user_version = %d, want 3", pragmas.UserVersion)
+	// Asserted against the constant rather than a literal: an upgrade runs
+	// every migration, so pinning the number here would mean editing this
+	// test at every future one, which is how a version check turns into a
+	// line nobody reads.
+	if pragmas.UserVersion != store.SchemaVersion {
+		t.Fatalf("user_version = %d, want %d", pragmas.UserVersion, store.SchemaVersion)
 	}
 
 	// The v1 rows are still there. A migration that quietly dropped the
@@ -333,6 +337,124 @@ func TestMigrateToV3AddsTheLeaseTablesOnAPopulatedDatabase(t *testing.T) {
 	})
 	if err != nil {
 		t.Fatalf("acquire on an upgraded database: %v", err)
+	}
+}
+
+// TestMigrateToV4OnAPopulatedV3Database upgrades a database that already
+// carries a run, an identity and a held lease, because v4 adds a column
+// to `leases` and a table referencing rows that are already there.
+func TestMigrateToV4OnAPopulatedV3Database(t *testing.T) {
+	ctx := t.Context()
+	dir := t.TempDir()
+	key, err := secrets.LoadOrCreateKey(filepath.Join(dir, "keys"), "test")
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	var (
+		projectID  = "proj0000000v"
+		runID      string
+		identityID string
+		leaseID    string
+	)
+	func() {
+		old, err := store.OpenAtSchemaVersionForTest(ctx, dir, key, 3)
+		if err != nil {
+			t.Fatal(err)
+		}
+		defer func() {
+			if err := old.Close(); err != nil {
+				t.Fatal(err)
+			}
+		}()
+		if err := old.ExecForTest(ctx,
+			`INSERT INTO projects (id, name, created_at) VALUES (?, 'v3', ?)`,
+			projectID, "2026-08-12T00:00:00.000000000Z"); err != nil {
+			t.Fatal(err)
+		}
+		run, _, err := old.CreateRun(ctx, store.NewRun{ProjectID: projectID, TTL: time.Hour})
+		if err != nil {
+			t.Fatal(err)
+		}
+		runID = run.ID
+		identity, err := old.CreateIdentity(ctx, store.NewIdentity{
+			ProjectID: projectID,
+			Addr:      "already-here@demo.test",
+			Mode:      store.ModeEphemeral,
+		})
+		if err != nil {
+			t.Fatal(err)
+		}
+		identityID = identity.ID
+		// The lease goes in as raw SQL in the v3 column shape. The typed
+		// insert belongs to this binary, which already knows about the v4
+		// column, and a test that seeded through it would be upgrading a
+		// database no older binary could have written.
+		leaseID = "lease0000v3a"
+		if err := old.ExecForTest(ctx,
+			`INSERT INTO leases (id, run_id, identity_id, role, state, seed_state,
+				seed_fingerprint, acquired_at, expires_at, released_at)
+			 VALUES (?, ?, ?, 'pro', 'held', 'seeded', '', ?, ?, NULL)`,
+			leaseID, runID, identityID,
+			"2026-08-12T10:00:00.000000000Z", "2026-08-12T11:00:00.000000000Z"); err != nil {
+			t.Fatal(err)
+		}
+	}()
+
+	s := upgrade(t, dir, key)
+
+	pragmas, err := s.ReadPragmas(ctx)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if pragmas.UserVersion != store.SchemaVersion {
+		t.Fatalf("user_version = %d, want %d", pragmas.UserVersion, store.SchemaVersion)
+	}
+
+	// The lease written before v4 existed reads back with the added
+	// column at its default, rather than as a row the scanner refuses.
+	lease, err := s.Lease(ctx, leaseID)
+	if err != nil {
+		t.Fatalf("read a pre-v4 lease: %v", err)
+	}
+	if lease.InCooldown {
+		t.Error("a lease acquired before v4 came back marked as acquired in cooldown")
+	}
+	if !lease.Held() {
+		t.Errorf("the pre-v4 lease is %s, want held", lease.State)
+	}
+
+	// The new tables work end to end against those pre-existing rows.
+	msg, err := s.InsertMessage(ctx, store.Message{
+		ProjectID:  projectID,
+		Subject:    "after the upgrade",
+		TextBody:   "code 123456",
+		ReceivedAt: lease.AcquiredAt.Add(time.Second),
+		Recipients: []store.Recipient{
+			{Addr: "already-here@demo.test", Kind: store.RecipientEnvelope},
+		},
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if err := s.WithTx(ctx, func(tx *store.Tx) error {
+		bound, unbound, err := tx.BindRecipients(ctx, msg.ID,
+			[]string{"already-here@demo.test"}, msg.ReceivedAt)
+		if err != nil {
+			return err
+		}
+		if len(bound) != 1 || len(unbound) != 0 {
+			t.Errorf("bound %d, unbound %d, want 1 and 0", len(bound), len(unbound))
+		}
+		return nil
+	}); err != nil {
+		t.Fatalf("bind on an upgraded database: %v", err)
+	}
+	if _, err := s.RecordClaim(ctx, store.NewClaim{
+		LeaseID: leaseID, RunID: runID, Kind: store.ClaimEmailOTP,
+		MessageID: msg.ID, IdempotencyKey: "after-upgrade", TTL: time.Minute,
+	}); err != nil {
+		t.Fatalf("claim on an upgraded database: %v", err)
 	}
 }
 

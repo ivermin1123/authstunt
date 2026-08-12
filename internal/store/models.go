@@ -214,6 +214,73 @@ type Identity struct {
 	CreatedAt     time.Time
 }
 
+// Suspicion values on a binding. The empty string is a clean binding and
+// is the only one a claim will look at.
+const (
+	SuspectNone         = ""
+	SuspectCooldown     = "cooldown"
+	SuspectAfterRelease = "after_release"
+)
+
+// Claim kinds.
+const (
+	ClaimEmailOTP  = "email_otp"
+	ClaimMagicLink = "magic_link"
+	ClaimTOTP      = "totp"
+)
+
+// Reason codes every claim outcome carries, frozen by the narrow plan's
+// section 3.4. They become the machine-readable error codes when phase 4
+// freezes the wire contract, so they are spelled here once and never
+// shortened at a call site.
+const (
+	ReasonOK              = "claim_ok"
+	ReasonTimeout         = "claim_timeout"
+	ReasonNoBinding       = "claim_no_binding"
+	ReasonStaleFiltered   = "claim_stale_filtered"
+	ReasonSuspectBinding  = "claim_suspect_binding"
+	ReasonAlreadyClaimed  = "claim_already_claimed"
+	ReasonExpired         = "claim_expired"
+	ReasonLeaseNotHeld    = "lease_not_held"
+	ReasonLeaseSeedFailed = "lease_seed_failed"
+	ReasonRunNotActive    = "run_not_active"
+	ReasonExtractionFail  = "extraction_failed"
+)
+
+// Binding records which lease owned a message's recipient address at the
+// instant the message arrived.
+//
+// Suspect is evidence rather than an error: the binding is real and
+// visible, and it is never claimable.
+type Binding struct {
+	MessageID  string
+	LeaseID    string
+	RunID      string
+	IdentityID string
+	Addr       string
+	BoundAt    time.Time
+	Suspect    string
+}
+
+// Clean reports whether a claim may consider this binding.
+func (b Binding) Clean() bool { return b.Suspect == SuspectNone }
+
+// Claim is one secret handed over once.
+//
+// It holds no secret value. The value is re-derived from the bound
+// message every time, so a replay inside the TTL returns the same code
+// without a second copy of it existing at rest.
+type Claim struct {
+	ID             string
+	LeaseID        string
+	RunID          string
+	Kind           string
+	MessageID      string
+	IdempotencyKey string
+	ClaimedAt      time.Time
+	ExpiresAt      time.Time
+}
+
 // Lease is exclusive ownership of one identity by one run.
 //
 // Role is a snapshot taken at acquire rather than a join to the identity:
@@ -230,6 +297,11 @@ type Lease struct {
 	AcquiredAt      time.Time
 	ExpiresAt       time.Time
 	ReleasedAt      time.Time
+	// InCooldown records that this lease was granted while the identity's
+	// previous holder was still cooling down. It is decided at acquire and
+	// never recomputed, because it is the reason every binding to this
+	// lease is suspect: mail from the previous run may still be arriving.
+	InCooldown bool
 }
 
 // Held reports whether the lease still occupies its identity.

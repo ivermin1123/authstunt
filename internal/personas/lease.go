@@ -19,6 +19,7 @@ import (
 	"time"
 
 	"github.com/ivermin1123/authstunt/internal/ledger"
+	"github.com/ivermin1123/authstunt/internal/sse"
 	"github.com/ivermin1123/authstunt/internal/store"
 )
 
@@ -90,7 +91,14 @@ type Config struct {
 	RunTTL       time.Duration
 	LeaseTTL     time.Duration
 	PoolCooldown time.Duration
-	Logger       *slog.Logger
+	// ClaimTTL is how long a claim can be replayed under its idempotency
+	// key. Defaults to DefaultClaimTTL.
+	ClaimTTL time.Duration
+	// Bus is what a claim parks on while it waits for mail. Without one a
+	// claim answers from what is already stored and never waits, which is
+	// the honest behavior for a service nobody wired an event source to.
+	Bus    *sse.Bus
+	Logger *slog.Logger
 }
 
 // Service is the lease service.
@@ -99,9 +107,11 @@ type Service struct {
 	projectID string
 	domain    string
 	seeder    Seeder
+	bus       *sse.Bus
 	runTTL    time.Duration
 	leaseTTL  time.Duration
 	cooldown  time.Duration
+	claimTTL  time.Duration
 	logger    *slog.Logger
 }
 
@@ -135,6 +145,9 @@ func New(cfg Config) (*Service, error) {
 	if cfg.PoolCooldown == 0 {
 		cfg.PoolCooldown = DefaultPoolCooldown
 	}
+	if cfg.ClaimTTL <= 0 {
+		cfg.ClaimTTL = DefaultClaimTTL
+	}
 	if cfg.Logger == nil {
 		cfg.Logger = slog.Default()
 	}
@@ -143,9 +156,11 @@ func New(cfg Config) (*Service, error) {
 		projectID: cfg.ProjectID,
 		domain:    domain,
 		seeder:    cfg.Seeder,
+		bus:       cfg.Bus,
 		runTTL:    cfg.RunTTL,
 		leaseTTL:  cfg.LeaseTTL,
 		cooldown:  cfg.PoolCooldown,
+		claimTTL:  cfg.ClaimTTL,
 		logger:    cfg.Logger,
 	}, nil
 }

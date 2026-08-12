@@ -47,6 +47,25 @@ func allEvents() []ledger.Event {
 			Fingerprint: "v1-abc",
 			Reason:      "seed endpoint answered 500 Internal Server Error",
 		},
+		ledger.MailBound{
+			MessageID:  "msg000000004",
+			LeaseID:    "lease0000004",
+			IdentityID: "iden00000004",
+			Addr:       "pro-a1b2c3d4e5f6@demo.test",
+			Suspect:    "cooldown",
+		},
+		ledger.MailUnbound{
+			MessageID:  "msg000000005",
+			Recipients: ledger.Addrs{"realcustomer@gmail.com"},
+		},
+		ledger.ClaimSettled{
+			LeaseID:   "lease0000005",
+			ClaimID:   "clam00000001",
+			Kind:      "email_otp",
+			MessageID: "msg000000006",
+			Reason:    "claim_ok",
+			Addr:      "pro-a1b2c3d4e5f6@demo.test",
+		},
 	}
 }
 

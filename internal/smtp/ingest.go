@@ -188,10 +188,13 @@ func (i *Ingest) Deliver(ctx context.Context, d Delivery) error {
 		ReceivedAt:  d.ReceivedAt,
 		Recipients:  recipients(d.Recipients, parsed.to, parsed.cc),
 	}
-	// The row, its recipients and the events describing how it arrived
-	// commit together. A message with no arrival trail, or a trail for a
-	// message that is not there, would each be a lie the evidence path
-	// cannot detect afterwards.
+	// The row, its recipients, its bindings and the events describing how
+	// it arrived commit together. A message with no arrival trail, or a
+	// trail for a message that is not there, would each be a lie the
+	// evidence path cannot detect afterwards. The binding is in the same
+	// commit for a stronger reason: a message that existed for even an
+	// instant without an owner is a message a claim could be answered
+	// from before anyone decided whose it was.
 	var stored store.Message
 	err = i.store.WithTx(ctx, func(tx *store.Tx) error {
 		var err error
@@ -199,7 +202,10 @@ func (i *Ingest) Deliver(ctx context.Context, d Delivery) error {
 		if err != nil {
 			return err
 		}
-		return i.audit(ctx, tx, stored, d.From, quarantined, offList)
+		if err := i.audit(ctx, tx, stored, d.From, quarantined, offList); err != nil {
+			return err
+		}
+		return i.bind(ctx, tx, stored, d.Recipients)
 	})
 	if err != nil {
 		return fmt.Errorf("%w: insert: %w", classifyWrite(err), err)
@@ -373,6 +379,43 @@ func (i *Ingest) audit(ctx context.Context, tx *store.Tx, m store.Message, envel
 	_, err := ledger.Write(ctx, tx, ledger.Meta{ProjectID: i.projectID}, ledger.MailQuarantined{
 		MessageID:  m.ID,
 		Recipients: ledger.Addrs(offList),
+	})
+	return err
+}
+
+// bind resolves every envelope recipient to the lease that owned it when
+// the message arrived, and records both answers.
+//
+// It runs inside the caller's transaction, before the session answers
+// 250. The alternative - binding after the ack, from the extraction
+// worker - would be measurably faster and would reintroduce the window
+// this design exists to close: a message that is stored but not yet
+// attributed can be handed to whichever run asks first.
+func (i *Ingest) bind(ctx context.Context, tx *store.Tx, m store.Message, envelope []string) error {
+	bound, unbound, err := tx.BindRecipients(ctx, m.ID, envelope, m.ReceivedAt)
+	if err != nil {
+		return err
+	}
+	for _, b := range bound {
+		if _, err := ledger.Write(ctx, tx, ledger.Meta{
+			ProjectID: i.projectID,
+			RunID:     b.RunID,
+		}, ledger.MailBound{
+			MessageID:  b.MessageID,
+			LeaseID:    b.LeaseID,
+			IdentityID: b.IdentityID,
+			Addr:       ledger.Addr(b.Addr),
+			Suspect:    b.Suspect,
+		}); err != nil {
+			return err
+		}
+	}
+	if len(unbound) == 0 {
+		return nil
+	}
+	_, err = ledger.Write(ctx, tx, ledger.Meta{ProjectID: i.projectID}, ledger.MailUnbound{
+		MessageID:  m.ID,
+		Recipients: ledger.Addrs(unbound),
 	})
 	return err
 }

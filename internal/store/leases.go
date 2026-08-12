@@ -32,14 +32,14 @@ var ErrIdentityHeld = errors.New("store: identity is already leased")
 var ErrLeaseNotHeld = errors.New("store: lease is not held")
 
 const leaseColumns = `id, run_id, identity_id, role, state, seed_state,
-	seed_fingerprint, acquired_at, expires_at, released_at`
+	seed_fingerprint, acquired_at, expires_at, released_at, acquired_in_cooldown`
 
 // leaseColumnsAliased is the same list qualified for the correlation
 // query, which joins against identities. Spelled out rather than built at
 // runtime, matching messageColumnsAliased: a query assembled by a function
 // is one a reader has to run to know.
 const leaseColumnsAliased = `l.id, l.run_id, l.identity_id, l.role, l.state, l.seed_state,
-	l.seed_fingerprint, l.acquired_at, l.expires_at, l.released_at`
+	l.seed_fingerprint, l.acquired_at, l.expires_at, l.released_at, l.acquired_in_cooldown`
 
 // NewLease is the input to AcquireLease.
 type NewLease struct {
@@ -88,6 +88,10 @@ func (t *Tx) AcquireLease(ctx context.Context, in NewLease) (Lease, error) {
 	if err != nil {
 		return Lease{}, err
 	}
+	inCooldown, err := t.identityIsCoolingDown(ctx, in.IdentityID, now)
+	if err != nil {
+		return Lease{}, err
+	}
 	lease := Lease{
 		ID:         NewID(),
 		RunID:      in.RunID,
@@ -97,12 +101,13 @@ func (t *Tx) AcquireLease(ctx context.Context, in NewLease) (Lease, error) {
 		SeedState:  SeedStatePending,
 		AcquiredAt: now,
 		ExpiresAt:  now.Add(in.TTL),
+		InCooldown: inCooldown,
 	}
 	_, err = t.tx.ExecContext(ctx,
 		`INSERT INTO leases (`+leaseColumns+`)
-		 VALUES (?, ?, ?, ?, ?, ?, '', ?, ?, NULL)`,
+		 VALUES (?, ?, ?, ?, ?, ?, '', ?, ?, NULL, ?)`,
 		lease.ID, lease.RunID, lease.IdentityID, lease.Role, lease.State, lease.SeedState,
-		timestamp(lease.AcquiredAt), timestamp(lease.ExpiresAt))
+		timestamp(lease.AcquiredAt), timestamp(lease.ExpiresAt), lease.InCooldown)
 	if err != nil {
 		if isUniqueViolation(err) {
 			return Lease{}, fmt.Errorf("%w: identity %s", ErrIdentityHeld, in.IdentityID)
@@ -148,6 +153,35 @@ func (t *Tx) leaseStart(ctx context.Context, identityID string) (time.Time, erro
 		return previous, nil
 	}
 	return now, nil
+}
+
+// identityIsCoolingDown reports whether this identity's cooldown was
+// still running when the lease started.
+//
+// The service refuses to lease a cooling identity, so this is the answer
+// to the case where that check lost a race, or where the cooldown was
+// configured to nothing. It is read once, here, and stored on the lease:
+// deciding it later would mean reading identities.cooldown_until, which
+// the next release overwrites, and the same binding would then mean one
+// thing today and another tomorrow.
+func (t *Tx) identityIsCoolingDown(ctx context.Context, identityID string, at time.Time) (bool, error) {
+	var until sql.NullString
+	err := t.tx.QueryRowContext(ctx,
+		`SELECT cooldown_until FROM identities WHERE id = ?`, identityID).Scan(&until)
+	if errors.Is(err, sql.ErrNoRows) {
+		return false, ErrNotFound
+	}
+	if err != nil {
+		return false, fmt.Errorf("store: read cooldown: %w", err)
+	}
+	if !until.Valid {
+		return false, nil
+	}
+	deadline, err := parseTimestamp(until.String)
+	if err != nil {
+		return false, err
+	}
+	return at.Before(deadline), nil
 }
 
 // leaseEnd renders the release instant for a guarded update, never
@@ -351,7 +385,7 @@ func scanLeaseRow(row identityScanner) (Lease, error) {
 		released          sql.NullString
 	)
 	err := row.Scan(&l.ID, &l.RunID, &l.IdentityID, &l.Role, &l.State, &l.SeedState,
-		&l.SeedFingerprint, &acquired, &expires, &released)
+		&l.SeedFingerprint, &acquired, &expires, &released, &l.InCooldown)
 	if err != nil {
 		if errors.Is(err, sql.ErrNoRows) {
 			return Lease{}, err

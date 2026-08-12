@@ -36,6 +36,9 @@ const (
 	ActionLeaseAcquired   = "lease.acquired"
 	ActionLeaseReleased   = "lease.released"
 	ActionSeedSettled     = "lease.seed_settled"
+	ActionMailBound       = "mail.bound"
+	ActionMailUnbound     = "mail.unbound_recipient"
+	ActionClaimSettled    = "claim.settled"
 )
 
 // Addr is an email address in evidence.
@@ -186,6 +189,67 @@ func (SeedSettled) Action() string { return ActionSeedSettled }
 
 // sealed keeps SeedSettled inside this package.
 func (SeedSettled) sealed() {}
+
+// MailBound records that a message resolved to the lease that owned its
+// recipient address when it arrived.
+//
+// Suspect is empty for a clean binding and carries the doubt otherwise.
+// Recording a suspect binding is the point: an operator debugging a
+// missing code needs to see that the mail did arrive and was refused, not
+// an absence that looks the same as nothing being sent.
+type MailBound struct {
+	MessageID  string `json:"message_id"`
+	LeaseID    string `json:"lease_id"`
+	IdentityID string `json:"identity_id"`
+	Addr       Addr   `json:"addr"`
+	Suspect    string `json:"suspect,omitempty"`
+}
+
+// Action names this event in the stored trail.
+func (MailBound) Action() string { return ActionMailBound }
+
+// sealed keeps MailBound inside this package.
+func (MailBound) sealed() {}
+
+// MailUnbound records a recipient no lease owned when the message
+// arrived.
+//
+// It is not an error. Mail landing between one run releasing an address
+// and the next acquiring it genuinely has no owner, and so does mail to an
+// address nobody ever leased. Both are worth recording precisely because
+// the claim path will report finding nothing, and this is the entry that
+// explains why.
+type MailUnbound struct {
+	MessageID  string `json:"message_id"`
+	Recipients Addrs  `json:"recipients"`
+}
+
+// Action names this event in the stored trail.
+func (MailUnbound) Action() string { return ActionMailUnbound }
+
+// sealed keeps MailUnbound inside this package.
+func (MailUnbound) sealed() {}
+
+// ClaimSettled records the outcome of one claim, successful or not.
+//
+// Reason is a code from the frozen set, never free text and never
+// anything read out of the mail. What is deliberately absent is the value
+// that was handed over: the claim id and the message id are enough to
+// reconstruct which secret it was without evidence carrying the secret.
+type ClaimSettled struct {
+	LeaseID   string `json:"lease_id"`
+	ClaimID   string `json:"claim_id,omitempty"`
+	Kind      string `json:"kind"`
+	MessageID string `json:"message_id,omitempty"`
+	Reason    string `json:"reason"`
+	Addr      Addr   `json:"addr"`
+}
+
+// Action names this event in the stored trail.
+func (ClaimSettled) Action() string { return ActionClaimSettled }
+
+// sealed keeps ClaimSettled inside this package.
+func (ClaimSettled) sealed() {}
 
 // Meta is the context every event shares: which project, which run, which
 // persona, and who caused it.
