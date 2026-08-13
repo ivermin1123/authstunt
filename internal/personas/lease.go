@@ -272,8 +272,17 @@ type Grant struct {
 	IdentityID string
 	Addr       string
 	Role       string
-	SeedState  string
-	ExpiresAt  time.Time
+	// Mode is the mode the identity actually carries, read back from the
+	// row rather than echoed from the request.
+	//
+	// It exists so a surface can report what it served instead of what it
+	// was asked for. An ephemeral request is never satisfied by a pooled
+	// identity and vice versa, so the two agree today; reporting the
+	// stored value is what keeps a future divergence visible instead of
+	// silent.
+	Mode      string
+	SeedState string
+	ExpiresAt time.Time
 }
 
 // Acquire grants a run exclusive use of an identity of the given role.
@@ -305,10 +314,28 @@ func (s *Service) Acquire(ctx context.Context, runID, role, mode string) (Grant,
 		IdentityID: identity.ID,
 		Addr:       identity.Addr,
 		Role:       lease.Role,
+		Mode:       identity.Mode,
 		SeedState:  result.Status,
 		ExpiresAt:  lease.ExpiresAt,
 	}, nil
 }
+
+// EndRun moves a run to a terminal state and releases its leases.
+//
+// It exists so a surface never reaches past the service into the store:
+// every other lifecycle step is a Service method, and an API handler that
+// had to know about the store for exactly one of them would be the seam
+// where that rule starts eroding.
+func (s *Service) EndRun(ctx context.Context, runID, state, reason string) error {
+	return s.store.EndRun(ctx, runID, state, reason)
+}
+
+// PooledPolicy reports the policy in force, or nil when pooled mode is
+// not configured.
+//
+// A surface reports this so an operator can see that pooled mode is off
+// rather than discovering it from a refusal.
+func (s *Service) PooledPolicy() *PooledPolicy { return s.pooled }
 
 // reserve takes the lease. For pooled mode it walks the candidates in
 // order and lets the unique index decide, rather than reading "is it
