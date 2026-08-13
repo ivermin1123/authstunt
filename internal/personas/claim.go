@@ -23,8 +23,8 @@ const DefaultClaimTTL = 120 * time.Second
 // STUB(p3): `totp` is defined in the schema and not implemented. A
 // correct RFC 6238 code needs either a new dependency or hand-written
 // crypto, both owner decisions, and `secrets` is keyed by persona, so it
-// could only ever serve persona-backed pooled identities. Recorded in
-// DECISIONS.md and in the phase 3 contract, section 8.
+// could only ever serve persona-backed pooled identities. Until that
+// decision is made, a totp claim is refused rather than faked.
 var ErrUnsupportedKind = errors.New("personas: claim kind is not supported by this build")
 
 // Claimed is the answer to a claim: one reason code, and a value only
