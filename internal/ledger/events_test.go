@@ -233,9 +233,9 @@ func TestAddrRedaction(t *testing.T) {
 		"ab@demo.test":               "ab@demo.test",
 		"abc@demo.test":              "abc@demo.test",
 		"abcd@demo.test":             "abc...@demo.test",
-		"not-an-address":                 "[redacted]",
+		"not-an-address":             "[redacted]",
 		"@demo.test":                 "[redacted]",
-		"":                               "[redacted]",
+		"":                           "[redacted]",
 		// The domain is what a reader needs to tell an owned address from
 		// one that should never have arrived, so it survives whole.
 		"someone@gmail.com": "som...@gmail.com",
