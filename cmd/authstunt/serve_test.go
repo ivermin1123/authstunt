@@ -491,7 +491,7 @@ func TestServeStartsWithTheLeaseFlags(t *testing.T) {
 // wider than loopback because a flag happened to say so. Naming the Host
 // values it should answer to is how the operator writes the decision down.
 func TestNonLoopbackAPIBindNeedsAnExplicitHost(t *testing.T) {
-	for _, addr := range []string{"0.0.0.0:1080", "192.0.2.10:1080", ":1080"} {
+	for _, addr := range []string{"0.0.0.0:8925", "192.0.2.10:8925", ":8925"} {
 		out, err := runServeExpectingFailure(t, t.TempDir(),
 			"--project", "demo", "--domain", "demo.test", "--api-listen", addr)
 		if err == nil {

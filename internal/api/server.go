@@ -31,7 +31,7 @@ const MaxRequestBytes = 64 << 10
 // DefaultAddr is the listen address. Loopback, because this server hands
 // out credentials and the operator has to opt in, in writing, to anything
 // wider.
-const DefaultAddr = "127.0.0.1:1080"
+const DefaultAddr = "127.0.0.1:8925"
 
 // writeTimeout bounds a response. It is longer than the longest claim
 // long-poll, which parks on the bus with its own deadline; a write

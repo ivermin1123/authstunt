@@ -101,7 +101,7 @@ func (h *harness) do(method, path, token string, body any) *httptest.ResponseRec
 	// httptest defaults the Host to example.com, which the allowlist
 	// correctly refuses. Every test that is not about the Host check
 	// therefore sends a loopback name, the way a real client would.
-	req.Host = "localhost:1080"
+	req.Host = "localhost:8925"
 	if token != "" {
 		req.Header.Set("Authorization", "Bearer "+token)
 	}
@@ -429,7 +429,7 @@ func TestForeignHostRejected(t *testing.T) {
 	}
 
 	// The loopback names are accepted, with and without a port.
-	for _, host := range []string{"localhost", "127.0.0.1:1080", "localhost:1080", "[::1]:1080"} {
+	for _, host := range []string{"localhost", "127.0.0.1:8925", "localhost:8925", "[::1]:8925"} {
 		req := httptest.NewRequestWithContext(context.Background(), http.MethodGet, "/healthz", nil)
 		req.Host = host
 		rec := httptest.NewRecorder()
@@ -447,7 +447,7 @@ func TestOriginCheckBlocksCrossSite(t *testing.T) {
 	// refused before the credential is even looked at.
 	for _, origin := range []string{"https://evil.example", "null", "http://127.0.0.1.evil.example"} {
 		req := httptest.NewRequestWithContext(context.Background(), http.MethodPost, "/api/runs", nil)
-		req.Host = "localhost:1080"
+		req.Host = "localhost:8925"
 		req.Header.Set("Origin", origin)
 		req.Header.Set("Authorization", "Bearer "+h.bearer)
 		rec := httptest.NewRecorder()
@@ -460,8 +460,8 @@ func TestOriginCheckBlocksCrossSite(t *testing.T) {
 	// A same-origin browser request is fine, and so is a CLI that sends
 	// no Origin at all - which the rest of these tests already prove.
 	req := httptest.NewRequestWithContext(context.Background(), http.MethodPost, "/api/runs", nil)
-	req.Host = "localhost:1080"
-	req.Header.Set("Origin", "http://localhost:1080")
+	req.Host = "localhost:8925"
+	req.Header.Set("Origin", "http://localhost:8925")
 	req.Header.Set("Authorization", "Bearer "+h.bearer)
 	rec := httptest.NewRecorder()
 	h.handler.ServeHTTP(rec, req)
