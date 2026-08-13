@@ -1,0 +1,35 @@
+Received: from mail.example.com (mail.example.com [203.0.113.9])
+	by relay.mail-staging.example.com with ESMTPS id 4Xk5
+	for <probe@mail-staging.example.com>; Thu, 13 Aug 2026 06:20:03 +0000
+From: Example App <no-reply@example.com>
+To: probe@mail-staging.example.com
+Subject: Ma xac thuc cua ban la 481 920
+Message-Id: <ema_01HZX@auth.example.com>
+Date: Thu, 13 Aug 2026 06:20:00 +0000
+Mime-Version: 1.0
+Content-Type: multipart/alternative; boundary="b1"
+
+--b1
+Content-Type: text/plain; charset=utf-8
+
+Xin chao thay co,
+
+Ma xac thuc cua ban la 481 920. Ma het han sau 10 phut.
+
+Hoac bam vao lien ket sau de dang nhap:
+https://auth.example.com/v1/verify?token=abc123DEF456
+
+--b1
+Content-Type: text/html; charset=utf-8
+
+<html>
+  <body>
+    <p>Xin chao thay co,</p>
+    <p>Ma xac thuc cua ban la <strong>481 920</strong>. Ma het han sau 10 phut.</p>
+    <p>
+      <a href="https://auth.example.com/v1/verify?token=abc123DEF456">Dang nhap</a>
+    </p>
+  </body>
+</html>
+
+--b1--
