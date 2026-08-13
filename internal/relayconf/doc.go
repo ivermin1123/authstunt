@@ -34,8 +34,15 @@
 //
 // # What a pass does and does not mean
 //
-// A pass means the relay preserved what AuthStunt reads, for the messages it
-// was given. It is not a claim about deliverability, latency, or any message
-// shape absent from the fixtures. Compare is a pure function over two
-// captures; it never talks to a relay and cannot tell you that one is running.
+// This package is relay compatibility test infrastructure. It is not evidence
+// that any relay conforms, and a green run against the fixtures bundled here
+// proves only that the rules tell a conforming capture apart from a hostile
+// one. Conformance is a statement about a specific relay, and it can only be
+// made after that relay exists and its own before/after captures have been run
+// through these rules.
+//
+// A pass on real captures means the relay preserved what AuthStunt reads, for
+// the messages it was given. It is not a claim about deliverability, latency,
+// or any message shape absent from the corpus. Compare is a pure function over
+// two captures; it never talks to a relay and cannot tell you one is running.
 package relayconf
