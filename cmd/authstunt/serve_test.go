@@ -4,7 +4,6 @@ import (
 	"bufio"
 	"context"
 	"encoding/json"
-	"io"
 	"log/slog"
 	netsmtp "net/smtp"
 	"os"
@@ -66,18 +65,80 @@ type running struct {
 	addr    string
 	dataDir string
 	stop    func()
-	// logs returns everything the process wrote to stderr so far. The
-	// project bearer is announced there, so a test can assert it was
-	// printed exactly once without the credential ever touching stdout,
-	// which carries the machine-readable ready line.
+	// logs returns everything the process wrote to stderr so far, which is
+	// where the structured log and every startup diagnostic go. A
+	// credential must never appear in it.
 	logs func() string
+	// stdout returns the process's stdout, which carries the
+	// machine-readable ready line and must carry nothing else.
+	stdout func() string
+}
+
+// provisionBearer runs the explicit provisioning command and returns the
+// credential it printed.
+//
+// Every test that drives the API surface needs one, and serve refuses to
+// start the API without one, so this is the setup step that mirrors what
+// an operator does once by hand. The opt-in flag is required here because
+// a test's stdout is a pipe: that refusal is the behavior under test in
+// bearer_test.go, and this helper is the deliberate override of it.
+func provisionBearer(t *testing.T, dataDir string, bootstrapArgs ...string) string {
+	t.Helper()
+	args := append([]string{"project", "bearer", "provision",
+		"--data-dir", dataDir, "--allow-non-tty-reveal"}, bootstrapArgs...)
+	// nolint:gosec // G204 flags the variable program and arguments. Both
+	// come from this test: the program is the binary it just built, and
+	// the arguments are its own literals.
+	cmd := exec.Command(binary(t), args...)
+	var stdout, stderr strings.Builder
+	cmd.Stdout = &stdout
+	cmd.Stderr = &stderr
+	if err := cmd.Run(); err != nil {
+		t.Fatalf("provision the bearer: %v\n%s", err, stderr.String())
+	}
+	token := strings.TrimSpace(stdout.String())
+	if !strings.HasPrefix(token, store.ProjectBearerPrefix) {
+		t.Fatalf("the provision command printed no credential: %q", stdout.String())
+	}
+	return token
+}
+
+// provisionOnce provisions the bearer unless the directory already has
+// one, which is the case every test that restarts a server on the same
+// data directory hits.
+func provisionOnce(t *testing.T, dataDir string, bootstrapArgs []string) {
+	t.Helper()
+	args := append([]string{"project", "bearer", "provision",
+		"--data-dir", dataDir, "--allow-non-tty-reveal"}, bootstrapArgs...)
+	// nolint:gosec // G204, same as above: the binary under test, run with
+	// this test's own arguments.
+	out, err := exec.Command(binary(t), args...).CombinedOutput()
+	if err != nil && !strings.Contains(string(out), "already has a bearer") {
+		t.Fatalf("provision the bearer: %v\n%s", err, out)
+	}
+}
+
+// bootstrapArgs picks the flags the provisioning command shares with
+// serve out of a serve argument list, so a caller passes its flags once.
+func bootstrapArgs(args []string) []string {
+	var out []string
+	for i := 0; i+1 < len(args); i++ {
+		if args[i] == "--project" || args[i] == "--domain" {
+			out = append(out, args[i], args[i+1])
+		}
+	}
+	return out
 }
 
 // startBinary launches serve and waits for the line it prints once the
 // port is accepting, which is what makes the test deterministic without a
 // sleep.
+//
+// It provisions the project bearer first, because serve no longer mints
+// one: the API refuses to bind for a project that has no credential.
 func startBinary(t *testing.T, dataDir string, args ...string) *running {
 	t.Helper()
+	provisionOnce(t, dataDir, bootstrapArgs(args))
 	ctx, cancel := context.WithCancel(context.Background())
 	// Port 0 on both listeners: these tests run in parallel and alongside
 	// whatever the developer already has bound, so a fixed API port would
@@ -114,6 +175,11 @@ func startBinary(t *testing.T, dataDir string, args ...string) *running {
 		}
 	})
 
+	// Everything stdout carries is kept, not discarded: a test has to be
+	// able to assert that the ready line is the whole of it and that no
+	// credential ever joined it.
+	var mu sync.Mutex
+	var out strings.Builder
 	line := make(chan string, 1)
 	go func() {
 		r := bufio.NewReader(stdout)
@@ -121,10 +187,26 @@ func startBinary(t *testing.T, dataDir string, args ...string) *running {
 		if err != nil {
 			return
 		}
+		mu.Lock()
+		out.WriteString(text)
+		mu.Unlock()
 		line <- strings.TrimSpace(text)
-		// Keep draining so the process never blocks on a full pipe.
-		_, _ = io.Copy(io.Discard, r)
+		// Keep reading so the process never blocks on a full pipe.
+		for {
+			chunk, err := r.ReadString('\n')
+			mu.Lock()
+			out.WriteString(chunk)
+			mu.Unlock()
+			if err != nil {
+				return
+			}
+		}
 	}()
+	readStdout := func() string {
+		mu.Lock()
+		defer mu.Unlock()
+		return out.String()
+	}
 
 	select {
 	case text := <-line:
@@ -134,7 +216,7 @@ func startBinary(t *testing.T, dataDir string, args ...string) *running {
 		}
 		return &running{
 			addr: addr, dataDir: dataDir, stop: stop,
-			logs: stderr.String,
+			logs: stderr.String, stdout: readStdout,
 		}
 	case <-time.After(30 * time.Second):
 		stop()
@@ -411,33 +493,125 @@ func TestNonLoopbackAPIBindNeedsAnExplicitHost(t *testing.T) {
 	}
 }
 
-// TestServeProvisionsTheProjectBearerOnce checks the credential is
-// printed exactly once, on stderr, and is not written into the data
-// directory.
-func TestServeProvisionsTheProjectBearerOnce(t *testing.T) {
+// TestServeNeverEmitsACredential is the whole point of moving
+// provisioning out of serve.
+//
+// serve is the long-running process, so its output is the one thing that
+// reliably ends up somewhere else: a CI log, a supervisor journal, a
+// container runtime, a log shipper. None of those are destinations this
+// program can see, so the rule is not "print it carefully" but "never hold
+// it". The test asserts that on a first start, on a restart, and across
+// both streams.
+func TestServeNeverEmitsACredential(t *testing.T) {
 	dataDir := t.TempDir()
-	srv := startBinary(t, dataDir, "--project", "demo", "--domain", "demo.test")
-	srv.stop()
-	logs := srv.logs()
+	token := provisionBearer(t, dataDir, "--project", "demo", "--domain", "demo.test")
 
-	const marker = "project bearer provisioned"
-	if strings.Count(logs, marker) != 1 {
-		t.Fatalf("expected the bearer to be announced exactly once, got %d:\n%s",
-			strings.Count(logs, marker), logs)
-	}
-	token := bearerFrom(t, logs)
-
-	// A second start reuses it rather than minting another, so an
-	// operator who stored the first value is not silently locked out.
-	second := startBinary(t, dataDir, "--project", "demo", "--domain", "demo.test")
-	second.stop()
-	secondLogs := second.logs()
-	if strings.Contains(secondLogs, marker) {
-		t.Fatalf("a restart minted a second bearer:\n%s", secondLogs)
+	for _, name := range []string{"first start", "restart"} {
+		srv := startBinary(t, dataDir, "--project", "demo", "--domain", "demo.test")
+		srv.stop()
+		for stream, body := range map[string]string{"stderr": srv.logs(), "stdout": srv.stdout()} {
+			if strings.Contains(body, token) {
+				t.Errorf("%s: serve wrote the bearer to %s:\n%s", name, stream, body)
+			}
+			// The prefix too, so a future line that printed a different
+			// or partial credential still fails.
+			if strings.Contains(body, store.ProjectBearerPrefix) {
+				t.Errorf("%s: serve wrote something bearer-shaped to %s:\n%s", name, stream, body)
+			}
+		}
 	}
 
-	// And it is nowhere on disk: the operator moves it into a secret
-	// store from the terminal, and the data directory never holds it.
+	// And the value is nowhere on disk: the operator moves it into a
+	// secret store from the terminal, and the data directory never holds
+	// it.
+	assertNotOnDisk(t, dataDir, token)
+}
+
+// TestServeRefusesTheAPIWithoutAProvisionedBearer pins the fail-closed
+// half of the contract.
+//
+// A serve that started an API nobody could authenticate against would be a
+// surface with one reachable route and a confusing 401 on the rest. It
+// stops instead, and names the command that fixes it.
+func TestServeRefusesTheAPIWithoutAProvisionedBearer(t *testing.T) {
+	dataDir := t.TempDir()
+	out, err := runServeExpectingFailure(t, dataDir, "--project", "demo", "--domain", "demo.test")
+	if err == nil {
+		t.Fatal("serve started the API for a project with no bearer")
+	}
+	if !strings.Contains(out, "project bearer provision") {
+		t.Errorf("the error did not name the provisioning command: %q", out)
+	}
+	if strings.Contains(out, store.ProjectBearerPrefix) {
+		t.Errorf("the refusal leaked something bearer-shaped: %q", out)
+	}
+}
+
+// TestServeRunsAsAMailCatcherWithoutABearer keeps the refusal proportional:
+// the credential guards the API, so an instance with no API does not need
+// one. Without this, adding the check would have quietly broken every
+// mail-catcher-only deployment.
+func TestServeRunsAsAMailCatcherWithoutABearer(t *testing.T) {
+	dataDir := t.TempDir()
+	ctx, cancel := context.WithCancel(context.Background())
+	defer cancel()
+	// nolint:gosec // G204, same as above: the binary under test, run with
+	// this test's own arguments.
+	cmd := exec.CommandContext(ctx, binary(t), "serve", "--data-dir", dataDir,
+		"--project", "demo", "--domain", "demo.test",
+		"--smtp-listen", "127.0.0.1:0", "--api-listen", "")
+	stdout, err := cmd.StdoutPipe()
+	if err != nil {
+		t.Fatalf("stdout: %v", err)
+	}
+	var stderr strings.Builder
+	cmd.Stderr = &stderr
+	if err := cmd.Start(); err != nil {
+		t.Fatalf("start: %v", err)
+	}
+	defer func() { cancel(); _ = cmd.Wait() }()
+
+	line := make(chan string, 1)
+	go func() {
+		text, err := bufio.NewReader(stdout).ReadString('\n')
+		if err == nil {
+			line <- text
+		}
+	}()
+	select {
+	case text := <-line:
+		if !strings.Contains(text, "api off") {
+			t.Errorf("the ready line did not report the API as off: %q", text)
+		}
+	case <-time.After(30 * time.Second):
+		t.Fatalf("the mail catcher never announced a port\nstderr: %s", stderr.String())
+	}
+}
+
+// TestServeRejectsTheRemovedRotateFlag checks the flag that used to mint
+// and print a credential fails with a pointer to its replacement rather
+// than with the flag package's "not defined", which would leave an
+// operator guessing where the capability went.
+func TestServeRejectsTheRemovedRotateFlag(t *testing.T) {
+	dataDir := t.TempDir()
+	provisionBearer(t, dataDir, "--project", "demo", "--domain", "demo.test")
+
+	out, err := runServeExpectingFailure(t, dataDir, "--rotate-bearer")
+	if err == nil {
+		t.Fatal("serve accepted --rotate-bearer")
+	}
+	if !strings.Contains(out, "project bearer rotate") {
+		t.Errorf("the error did not name the replacement command: %q", out)
+	}
+	if strings.Contains(out, store.ProjectBearerPrefix) {
+		t.Errorf("the refusal leaked something bearer-shaped: %q", out)
+	}
+}
+
+// assertNotOnDisk fails if a credential appears anywhere under a data
+// directory.
+func assertNotOnDisk(t *testing.T, dataDir, token string) {
+	t.Helper()
 	if err := filepath.WalkDir(dataDir, func(path string, d os.DirEntry, err error) error {
 		if err != nil || d.IsDir() {
 			return err
@@ -455,17 +629,4 @@ func TestServeProvisionsTheProjectBearerOnce(t *testing.T) {
 	}); err != nil {
 		t.Fatal(err)
 	}
-}
-
-// bearerFrom pulls the announced credential out of the startup output.
-func bearerFrom(t *testing.T, logs string) string {
-	t.Helper()
-	for line := range strings.SplitSeq(logs, "\n") {
-		line = strings.TrimSpace(line)
-		if strings.HasPrefix(line, store.ProjectBearerPrefix) {
-			return line
-		}
-	}
-	t.Fatalf("no bearer in the startup output:\n%s", logs)
-	return ""
 }

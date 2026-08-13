@@ -13,9 +13,9 @@ AuthStunt is the brain for authentication during tests. It never drives a
 browser. Playwright and AI agents (via MCP) are the hands.
 
 Status: early alpha. The mail path works end to end - the server accepts SMTP,
-stores the message encrypted, and extracts the OTP and the links. There is no
-HTTP API, no dashboard and no client library yet, so nothing outside the
-process can read a result. Those land in the phases after this one.
+stores the message encrypted, and extracts the OTP and the links. A provisional
+HTTP API is bound on loopback for validation work; its paths and fields are not
+frozen and may change. There is no dashboard and no client library yet.
 
 ## Running it
 
@@ -38,6 +38,41 @@ A message addressed to any recipient outside the allowlist is accepted,
 stored, and quarantined: it is kept as evidence and held back from the
 automated read path, so a staging app that copies a real customer address
 cannot hand that person's mail to a test.
+
+## The project bearer
+
+The HTTP API authenticates callers with a project bearer, and serve refuses to
+bind the API for a project that has none. serve never creates one and never
+prints one: it is a long-running process, so its output ends up in a CI log, a
+supervisor journal or a log shipper, and a credential must not be carried into
+any of them.
+
+Provisioning is a command an operator runs once, deliberately:
+
+```
+authstunt project bearer provision --data-dir ~/.authstunt/demo
+authstunt project bearer rotate    --data-dir ~/.authstunt/demo
+authstunt project bearer revoke    --data-dir ~/.authstunt/demo
+```
+
+The value is printed once, on stdout, and is not recoverable afterwards. It is
+never written into the data directory, never logged, and never present in
+evidence - only its SHA-256 digest is stored. Move it into a secret manager
+from the terminal that printed it.
+
+By default the value is only shown on a terminal. A pipe, a redirect to a file,
+or a CI job is refused, because the credential would land in whatever collects
+that output. `--allow-non-tty-reveal` overrides the refusal and makes the
+caller responsible for the destination. The check runs before anything is
+written, so a refused rotation leaves the current credential working.
+
+Rotation replaces the value and the previous one stops authenticating
+immediately; there is never more than one live bearer for a project. Every
+provision, rotation and revocation is recorded in the audit ledger as the
+operation alone - the trail says a credential changed, never which one.
+
+An instance that serves no API needs no bearer: `--api-listen ""` runs it as a
+mail catcher only.
 
 ## Layout
 

@@ -20,7 +20,11 @@ const usage = `authstunt - a self-hosted test identity manager
 Usage:
   authstunt serve [--project <name>] [--domain <pattern>]... [--data-dir <path>]
                   [--smtp-listen <addr>] [--seed-url <url>] [--pool-cooldown <duration>]
+  authstunt project bearer <provision|rotate|revoke> [--data-dir <path>]
   authstunt version
+
+serve never creates or prints a credential. The API needs a project bearer,
+and "authstunt project bearer provision" is the one place one is produced.
 `
 
 func main() {
@@ -45,6 +49,8 @@ func run(args []string) error {
 		return nil
 	case "serve":
 		return runServe(args[1:], os.Stderr)
+	case "project":
+		return runProject(args[1:], os.Stdout, os.Stderr)
 	case "help", "-h", "--help":
 		fmt.Print(usage)
 		return nil

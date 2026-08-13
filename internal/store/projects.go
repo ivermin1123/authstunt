@@ -49,6 +49,25 @@ func HashProjectBearer(token string) [sha256.Size]byte {
 //
 // The raw token is returned exactly once, here, and never stored.
 func (s *Store) SetProjectBearer(ctx context.Context, projectID string) (string, error) {
+	var token string
+	err := s.WithTx(ctx, func(tx *Tx) error {
+		var err error
+		token, err = tx.SetProjectBearer(ctx, projectID)
+		return err
+	})
+	if err != nil {
+		return "", err
+	}
+	return token, nil
+}
+
+// SetProjectBearer is the transactional implementation.
+//
+// Provisioning composes with the ledger event that records it, for the
+// reason every other credential write does: a bearer that changed with no
+// entry saying so is a state change nobody can reconstruct, and the audit
+// trail for a credential is the one that matters most.
+func (t *Tx) SetProjectBearer(ctx context.Context, projectID string) (string, error) {
 	raw := make([]byte, bearerTokenBytes)
 	if _, err := rand.Read(raw); err != nil {
 		return "", fmt.Errorf("store: project bearer: %w", err)
@@ -56,7 +75,7 @@ func (s *Store) SetProjectBearer(ctx context.Context, projectID string) (string,
 	token := ProjectBearerPrefix + base64.RawURLEncoding.EncodeToString(raw)
 	digest := HashProjectBearer(token)
 
-	res, err := s.write.ExecContext(ctx, `UPDATE projects SET bearer_hash = ? WHERE id = ?`,
+	res, err := t.tx.ExecContext(ctx, `UPDATE projects SET bearer_hash = ? WHERE id = ?`,
 		digest[:], projectID)
 	if err != nil {
 		return "", fmt.Errorf("store: set project bearer: %w", err)
@@ -76,7 +95,15 @@ func (s *Store) SetProjectBearer(ctx context.Context, projectID string) (string,
 // Revoking a project that has no bearer is not an error: the caller asked
 // for a state, and the state already holds.
 func (s *Store) RevokeProjectBearer(ctx context.Context, projectID string) error {
-	res, err := s.write.ExecContext(ctx, `UPDATE projects SET bearer_hash = NULL WHERE id = ?`, projectID)
+	return s.WithTx(ctx, func(tx *Tx) error {
+		return tx.RevokeProjectBearer(ctx, projectID)
+	})
+}
+
+// RevokeProjectBearer is the transactional implementation, so a revocation
+// and its ledger entry commit together.
+func (t *Tx) RevokeProjectBearer(ctx context.Context, projectID string) error {
+	res, err := t.tx.ExecContext(ctx, `UPDATE projects SET bearer_hash = NULL WHERE id = ?`, projectID)
 	if err != nil {
 		return fmt.Errorf("store: revoke project bearer: %w", err)
 	}

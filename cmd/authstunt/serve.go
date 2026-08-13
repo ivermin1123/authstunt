@@ -82,13 +82,16 @@ func runServe(args []string, stderr io.Writer) error {
 	fs.DurationVar(&opts.pooledMaxLat, "pooled-max-delivery-latency", 0,
 		"declared upper bound on the application's mail delivery latency; enables pooled mode, which stays experimental")
 	fs.BoolVar(&opts.rotateBearer, "rotate-bearer", false,
-		"mint a new project bearer at startup, invalidating the previous one, and print it once")
+		"REMOVED: use `authstunt project bearer rotate` instead; serve never mints or prints a credential")
 	fs.StringVar(&opts.seedURL, "seed-url", "",
 		"absolute http or https URL the application exposes to seed a leased identity; leaving it unset skips seeding")
 	fs.DurationVar(&opts.poolCooldown, "pool-cooldown", personas.DefaultPoolCooldown,
 		"how long a released pooled identity is held back before it can be leased again")
 	if err := fs.Parse(args); err != nil {
 		return err
+	}
+	if opts.rotateBearer {
+		return errRotateBearerRemoved
 	}
 
 	dataDir, err := resolveDataDir(opts)
@@ -121,11 +124,7 @@ func resolveDataDir(opts serveOptions) (string, error) {
 // serve opens the data directory, applies the bootstrap contract, and runs
 // until the context is canceled.
 func serve(ctx context.Context, opts serveOptions, dataDir string, logger *slog.Logger) error {
-	key, err := secrets.LoadOrCreateKey(filepath.Join(dataDir, "keys"), keyName)
-	if err != nil {
-		return fmt.Errorf("serve: %w", err)
-	}
-	st, err := store.Open(ctx, dataDir, key, store.Options{Logger: logger})
+	st, err := openDataDir(ctx, dataDir, logger)
 	if err != nil {
 		return fmt.Errorf("serve: %w", err)
 	}
@@ -135,9 +134,9 @@ func serve(ctx context.Context, opts serveOptions, dataDir string, logger *slog.
 		}
 	}()
 
-	project, allowlist, err := bootstrap(ctx, st, opts)
+	project, allowlist, err := bootstrap(ctx, st, opts.project, opts.domains)
 	if err != nil {
-		return err
+		return fmt.Errorf("serve: %w", err)
 	}
 
 	// The lease service is built before anything starts listening, so a
@@ -244,8 +243,7 @@ func serve(ctx context.Context, opts serveOptions, dataDir string, logger *slog.
 	return serveErr
 }
 
-// startAPI binds the provisional HTTP surface and provisions the project
-// bearer.
+// startAPI binds the provisional HTTP surface.
 //
 // It returns a nil server when --api-listen is empty, which is how an
 // operator runs a mail-catcher-only instance.
@@ -257,7 +255,7 @@ func startAPI(ctx context.Context, st *store.Store, leases *personas.Service,
 	if err := guardAPIBind(opts); err != nil {
 		return nil, nil, err
 	}
-	if err := provisionBearer(ctx, st, project, opts, logger); err != nil {
+	if err := requireBearer(ctx, st, project); err != nil {
 		return nil, nil, err
 	}
 
@@ -321,37 +319,40 @@ func apiHosts(opts serveOptions) []string {
 	return append([]string(nil), opts.apiHosts...)
 }
 
-// provisionBearer makes sure the project has an API credential and prints
-// it exactly once.
+// errRotateBearerRemoved answers the flag that used to rotate the
+// credential during startup.
 //
-// It goes to stderr rather than stdout, which carries the machine-readable
-// ready line a fixture parses, and it is never written into the data
-// directory: the operator moves it into a secret manager, a CI secret or
-// an environment secret from here.
-func provisionBearer(ctx context.Context, st *store.Store, project store.Project,
-	opts serveOptions, logger *slog.Logger) error {
+// The flag is still registered rather than deleted so that an operator or
+// a script carrying it gets this sentence instead of "flag provided but
+// not defined", which says nothing about where the capability went.
+var errRotateBearerRemoved = errors.New(
+	"serve: --rotate-bearer has been removed because serve must never emit a credential; " +
+		"run `authstunt project bearer rotate --data-dir <dir>` instead")
+
+// errNoBearer is the startup refusal for an API that has no credential to
+// authenticate anyone with.
+var errNoBearer = errors.New(
+	"serve: this project has no API bearer; " +
+		"run `authstunt project bearer provision --data-dir <dir>` first, " +
+		"or pass --api-listen \"\" to run as a mail catcher only")
+
+// requireBearer refuses to serve the API for a project nobody provisioned.
+//
+// Failing closed here is the point of the whole shape. The alternative
+// serve used to take - mint one and print it - meant every start was a
+// potential disclosure into whatever collects a process's output: a CI
+// log, a supervisor journal, a container runtime, a shipping agent. None
+// of those are things this process can see or reason about, so the only
+// safe rule is that serve never holds a raw credential at all. Provisioning
+// moved to a command an operator runs deliberately, at a terminal, once.
+func requireBearer(ctx context.Context, st *store.Store, project store.Project) error {
 	has, err := st.ProjectHasBearer(ctx, project.ID)
 	if err != nil {
 		return fmt.Errorf("serve: %w", err)
 	}
-	if has && !opts.rotateBearer {
-		logger.Info("serve: the project bearer is already provisioned; --rotate-bearer mints a new one")
-		return nil
+	if !has {
+		return errNoBearer
 	}
-	token, err := st.SetProjectBearer(ctx, project.ID)
-	if err != nil {
-		return fmt.Errorf("serve: %w", err)
-	}
-	action := "provisioned"
-	if has {
-		action = "rotated, the previous value no longer authenticates"
-	}
-	// The value is printed here and nowhere else. It is not logged
-	// through the structured logger, because a log handler may ship
-	// somewhere this must never reach.
-	fmt.Fprintf(os.Stderr,
-		"authstunt: project bearer %s. Store it now, it is not recoverable:\n%s\n",
-		action, token)
 	return nil
 }
 
@@ -388,40 +389,63 @@ func newLeaseService(st *store.Store, project store.Project, allowlist []string,
 	return svc, nil
 }
 
+// openDataDir loads the project key and opens the store.
+//
+// Both commands that touch a data directory go through here, so the key
+// file and the database are always opened the same way and in the same
+// order. Callers add their own prefix to the error: the failure is the
+// same, but which command hit it is not.
+func openDataDir(ctx context.Context, dataDir string, logger *slog.Logger) (*store.Store, error) {
+	key, err := secrets.LoadOrCreateKey(filepath.Join(dataDir, "keys"), keyName)
+	if err != nil {
+		return nil, err
+	}
+	st, err := store.Open(ctx, dataDir, key, store.Options{Logger: logger})
+	if err != nil {
+		return nil, err
+	}
+	return st, nil
+}
+
 // bootstrap applies design 4.2 item 2: create the project and its ordered
 // allowlist on an uninitialized directory, verify them on an initialized
 // one, and never reconcile silently.
-func bootstrap(ctx context.Context, st *store.Store, opts serveOptions) (store.Project, []string, error) {
+//
+// It is shared by serve and by the bearer command, which is why it takes
+// the two values rather than the serve flag set: provisioning a credential
+// on a directory nobody initialized yet has to initialize it the same way,
+// through this function, not through a second copy of these rules.
+func bootstrap(ctx context.Context, st *store.Store, name string, domains []string) (store.Project, []string, error) {
 	existing, err := st.ListProjects(ctx)
 	if err != nil {
-		return store.Project{}, nil, fmt.Errorf("serve: %w", err)
+		return store.Project{}, nil, err
 	}
 
 	switch len(existing) {
 	case 0:
-		if opts.project == "" || len(opts.domains) == 0 {
+		if name == "" || len(domains) == 0 {
 			return store.Project{}, nil, errors.New(
-				"serve: this data directory is empty: --project and at least one --domain are required to initialize it")
+				"this data directory is empty: --project and at least one --domain are required to initialize it")
 		}
-		project, err := st.CreateProject(ctx, opts.project)
+		project, err := st.CreateProject(ctx, name)
 		if err != nil {
-			return store.Project{}, nil, fmt.Errorf("serve: %w", err)
+			return store.Project{}, nil, err
 		}
-		if err := st.SetAllowlist(ctx, project.ID, opts.domains); err != nil {
-			return store.Project{}, nil, fmt.Errorf("serve: %w", err)
+		if err := st.SetAllowlist(ctx, project.ID, domains); err != nil {
+			return store.Project{}, nil, err
 		}
 		allowlist, err := st.Allowlist(ctx, project.ID)
 		if err != nil {
-			return store.Project{}, nil, fmt.Errorf("serve: %w", err)
+			return store.Project{}, nil, err
 		}
 		return project, allowlist, nil
 	case 1:
 		project := existing[0]
 		allowlist, err := st.Allowlist(ctx, project.ID)
 		if err != nil {
-			return store.Project{}, nil, fmt.Errorf("serve: %w", err)
+			return store.Project{}, nil, err
 		}
-		if err := verifyFlags(project, allowlist, opts); err != nil {
+		if err := verifyFlags(project, allowlist, name, domains); err != nil {
 			return store.Project{}, nil, err
 		}
 		return project, allowlist, nil
@@ -431,7 +455,7 @@ func bootstrap(ctx context.Context, st *store.Store, opts serveOptions) (store.P
 		// this binary does not understand, and guessing which row to
 		// serve would be worse than stopping.
 		return store.Project{}, nil, fmt.Errorf(
-			"serve: this data directory holds %d projects, but an instance serves exactly one", len(existing))
+			"this data directory holds %d projects, but an instance serves exactly one", len(existing))
 	}
 }
 
@@ -439,25 +463,23 @@ func bootstrap(ctx context.Context, st *store.Store, opts serveOptions) (store.P
 //
 // Reconciliation is a separate, explicit surface. A serve that quietly
 // rewrote an allowlist would be a serve that can quietly widen one.
-func verifyFlags(project store.Project, allowlist []string, opts serveOptions) error {
-	if opts.project != "" && opts.project != project.Name {
-		return fmt.Errorf("serve: --project %q does not match the stored project %q",
-			opts.project, project.Name)
+func verifyFlags(project store.Project, allowlist []string, name string, domains []string) error {
+	if name != "" && name != project.Name {
+		return fmt.Errorf("--project %q does not match the stored project %q", name, project.Name)
 	}
-	if len(opts.domains) == 0 {
+	if len(domains) == 0 {
 		return nil
 	}
-	given := make([]string, 0, len(opts.domains))
-	for _, d := range opts.domains {
+	given := make([]string, 0, len(domains))
+	for _, d := range domains {
 		canonical, err := store.CanonicalDomainPattern(d)
 		if err != nil {
-			return fmt.Errorf("serve: --domain %q: %w", d, err)
+			return fmt.Errorf("--domain %q: %w", d, err)
 		}
 		given = append(given, canonical)
 	}
 	if !slices.Equal(given, allowlist) {
-		return fmt.Errorf("serve: --domain flags %v do not match the stored allowlist %v",
-			given, allowlist)
+		return fmt.Errorf("--domain flags %v do not match the stored allowlist %v", given, allowlist)
 	}
 	return nil
 }

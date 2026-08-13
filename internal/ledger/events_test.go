@@ -75,6 +75,30 @@ func allEvents() []ledger.Event {
 			Reason:    "claim_ok",
 			Addr:      "pro-a1b2c3d4e5f6@demo.test",
 		},
+		ledger.BearerChanged{
+			Operation: ledger.BearerRotated,
+		},
+	}
+}
+
+// TestBearerChangedCarriesNoPartOfTheValue is the rule that makes the
+// audit trail safe to keep for a credential event: it records that a
+// bearer changed, and nothing that helps anybody reconstruct which value
+// it was.
+func TestBearerChangedCarriesNoPartOfTheValue(t *testing.T) {
+	typ := reflect.TypeOf(ledger.BearerChanged{})
+	if typ.NumField() != 1 {
+		t.Fatalf("BearerChanged grew to %d fields; a credential event has room for exactly one, the operation",
+			typ.NumField())
+	}
+	for _, op := range []string{ledger.BearerProvisioned, ledger.BearerRotated, ledger.BearerRevoked} {
+		encoded, err := json.Marshal(ledger.BearerChanged{Operation: op})
+		if err != nil {
+			t.Fatalf("marshal: %v", err)
+		}
+		if want := `{"operation":"` + op + `"}`; string(encoded) != want {
+			t.Errorf("BearerChanged(%q) = %s, want %s", op, encoded, want)
+		}
 	}
 }
 

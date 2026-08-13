@@ -40,6 +40,16 @@ const (
 	ActionMailBound       = "mail.bound"
 	ActionMailUnbound     = "mail.unbound_recipient"
 	ActionClaimSettled    = "claim.settled"
+	ActionBearerChanged   = "project.bearer_changed"
+)
+
+// Bearer operations recorded by BearerChanged. They are the whole
+// vocabulary: a project bearer is created, replaced, or removed, and
+// nothing else ever happens to one.
+const (
+	BearerProvisioned = "provisioned"
+	BearerRotated     = "rotated"
+	BearerRevoked     = "revoked"
 )
 
 // Addr is an email address in evidence.
@@ -270,6 +280,29 @@ func (ClaimSettled) Action() string { return ActionClaimSettled }
 
 // sealed keeps ClaimSettled inside this package.
 func (ClaimSettled) sealed() {}
+
+// BearerChanged records that a project's API credential was created,
+// replaced or removed.
+//
+// It exists because a credential appearing or changing is exactly the kind
+// of event an operator has to be able to reconstruct afterwards: who could
+// authenticate, from when, and whether an old value was cut off. What it
+// deliberately does not carry is any part of the value itself - not the
+// token, not a digest, not a prefix of one. The record answers "a bearer
+// was rotated at this time"; recovering the value is the operator's
+// problem, by design, because the value only ever existed in the terminal
+// that asked for it.
+//
+// Operation is one of the constants above, never free text.
+type BearerChanged struct {
+	Operation string `json:"operation"`
+}
+
+// Action names this event in the stored trail.
+func (BearerChanged) Action() string { return ActionBearerChanged }
+
+// sealed keeps BearerChanged inside this package.
+func (BearerChanged) sealed() {}
 
 // Meta is the context every event shares: which project, which run, which
 // persona, and who caused it.
