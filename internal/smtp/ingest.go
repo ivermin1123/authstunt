@@ -337,9 +337,23 @@ func (i *Ingest) fail(ctx context.Context, m store.Message, cause error) {
 }
 
 // publish announces a settled message.
+//
+// The announcement does not inherit the caller's cancellation, and that is
+// the whole of it. By the time this runs the message is stored and its
+// terminal state has committed, so the fact being announced is already
+// durable; a context canceled a moment later cannot un-settle it. Letting
+// the publish fail on that context left the message correct and the caller
+// stranded: parked on a message that had arrived and been read, waiting out
+// a budget that could be two minutes, and then told the wait ran out.
+//
+// The window is narrow - shutdown landing between the commit and this call -
+// but it is silent, and a silent wrong answer is the shape of failure this
+// package exists to prevent. What remains is ErrBusStopped, which is not the
+// same failure: a stopped bus releases every waiter on its way out, so the
+// caller is answered rather than abandoned.
 func (i *Ingest) publish(ctx context.Context, m store.Message) {
 	payload := detail(map[string]string{"id": m.ID, "project_id": m.ProjectID})
-	err := i.bus.Publish(ctx, sse.Publication{
+	err := i.bus.Publish(context.WithoutCancel(ctx), sse.Publication{
 		Name: EventMessage,
 		Data: []byte(payload),
 		Message: &sse.MessageRef{
