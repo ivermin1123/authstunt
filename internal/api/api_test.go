@@ -14,6 +14,7 @@ import (
 	"github.com/ivermin1123/authstunt/internal/api"
 	"github.com/ivermin1123/authstunt/internal/personas"
 	"github.com/ivermin1123/authstunt/internal/secrets"
+	"github.com/ivermin1123/authstunt/internal/sse"
 	"github.com/ivermin1123/authstunt/internal/store"
 )
 
@@ -24,6 +25,7 @@ type harness struct {
 	t       *testing.T
 	store   *store.Store
 	service *personas.Service
+	bus     *sse.Bus
 	handler http.Handler
 	project store.Project
 	bearer  string
@@ -54,10 +56,26 @@ func newHarness(t *testing.T) *harness {
 	if err := st.SetAllowlist(ctx, project.ID, []string{"demo.test"}); err != nil {
 		t.Fatal(err)
 	}
+	// The bus is wired here for the same reason serve wires it: without one
+	// a claim answers from what is already stored and never parks, so every
+	// test in this package would exercise the fast path only and the
+	// long-poll contract would rest entirely on the one test that builds a
+	// binary. The lost-wakeup seam is in this package's handler path, so it
+	// has to be reachable from this package's tests.
+	generation, err := st.NextEventGeneration(ctx)
+	if err != nil {
+		t.Fatal(err)
+	}
+	bus := sse.NewBus(generation)
+	busCtx, stopBus := context.WithCancel(context.Background())
+	go bus.Run(busCtx)
+	t.Cleanup(stopBus)
+
 	svc, err := personas.New(personas.Config{
 		Store:     st,
 		ProjectID: project.ID,
 		Allowlist: []string{"demo.test"},
+		Bus:       bus,
 		Logger:    slog.New(slog.DiscardHandler),
 	})
 	if err != nil {
@@ -78,7 +96,7 @@ func newHarness(t *testing.T) *harness {
 		t.Fatal(err)
 	}
 	return &harness{
-		t: t, store: st, service: svc,
+		t: t, store: st, service: svc, bus: bus,
 		handler: srv.Handler(), project: project, bearer: bearer,
 	}
 }
