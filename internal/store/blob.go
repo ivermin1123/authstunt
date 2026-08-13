@@ -130,8 +130,9 @@ func (b *BlobStore) Get(ref string) ([]byte, error) {
 // caller that reruns a cleanup pass does not have to track what it already
 // removed.
 //
-// Nothing calls this yet. The retention policy that would is not written,
-// so blobs are currently only ever added.
+// Nothing calls this yet. The retention policy that would is not written, so
+// blobs are currently only ever added. Kept because retention is scheduled
+// work and deleting a blob correctly is the part worth having ready.
 func (b *BlobStore) Delete(ref string) error {
 	if !ValidID(ref) {
 		return ErrBadRef

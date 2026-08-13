@@ -1,3 +1,16 @@
+// The persona surface is maintainer-only.
+//
+// Eleven of the twelve methods here have no caller outside this package, and
+// the twelfth, CreatePersona, is called only by tests. That is not neglect:
+// personas back pooled identities, and pooled mode is deliberately reachable
+// from tests alone, so the only thing that creates one is a test. Nothing is
+// exported for a caller that does not exist yet either - these methods are
+// how the pooled and handover suites build the state they assert on.
+//
+// Kept, not deleted, and not extended into a command. Shipping a way to fill
+// the pool would put an experimental mode under a public contract, which is
+// the thing that decision set out to avoid.
+
 package store
 
 import (

@@ -59,6 +59,12 @@
 // made after that relay exists and its own before/after captures have been run
 // through these rules.
 //
+// The package is maintainer-only by decision. There is no command that runs
+// it: the rules are exercised through `go test ./internal/relayconf/`, here
+// against the bundled fixtures and elsewhere against a caller's own captures.
+// Compare therefore has no production caller, which is the intended shape
+// rather than a gap waiting to be closed.
+//
 // A pass on real captures means the relay preserved what AuthStunt reads, for
 // the messages it was given. It is not a claim about deliverability, latency,
 // or any message shape absent from the corpus. Compare is a pure function over

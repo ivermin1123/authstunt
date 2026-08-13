@@ -1,3 +1,11 @@
+// The hub is written and not mounted.
+//
+// No route serves an event stream, so nothing outside this package's tests
+// constructs a Sink or a subscriber. SSE is scheduled work rather than a
+// discarded direction, and the parts that are hard to get right later - the
+// replay ring, the generation counter in the event id, eviction of a client
+// that stops reading - are the parts that are already here and covered.
+
 package sse
 
 import (

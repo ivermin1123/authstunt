@@ -1,3 +1,12 @@
+// Cursors are unreached from the binary today.
+//
+// Nothing paginates yet: the message listing this encodes a position for is
+// not exposed by any route, so EncodeCursor and DecodeCursor have no caller
+// outside the tests. They are kept rather than deleted because the shape is
+// a decision already taken - the composite (received_at, id) exists because a
+// bare timestamp can skip same-millisecond messages permanently - and the
+// listing route that needs it is scheduled work, not an abandoned idea.
+
 package store
 
 import (
