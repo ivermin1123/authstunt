@@ -630,3 +630,107 @@ func TestMigrateToV5OnAPopulatedV4Database(t *testing.T) {
 		t.Error("the rebuilt table accepted a suspicion value outside the vocabulary")
 	}
 }
+
+func TestMigrateToV6OnAPopulatedV5Database(t *testing.T) {
+	ctx := t.Context()
+	dir := t.TempDir()
+	key, err := secrets.LoadOrCreateKey(filepath.Join(dir, "keys"), "test")
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	const (
+		projectID  = "proj0000000v5"
+		otherID    = "proj0000000v6"
+		identityID = "iden000000v5"
+		runID      = "run00000000v5"
+		createdAt  = "2026-08-13T10:00:00.000000000Z"
+	)
+	func() {
+		old, err := store.OpenAtSchemaVersionForTest(ctx, dir, key, 5)
+		if err != nil {
+			t.Fatal(err)
+		}
+		defer func() {
+			if err := old.Close(); err != nil {
+				t.Fatal(err)
+			}
+		}()
+		// Raw v5 statements, for the reason the v5 test states: seeding
+		// through this binary's writers would build a database no v5
+		// binary could have written.
+		stmts := []struct {
+			query string
+			args  []any
+		}{
+			{`INSERT INTO projects (id, name, created_at) VALUES (?, 'v5', ?)`,
+				[]any{projectID, createdAt}},
+			{`INSERT INTO projects (id, name, created_at) VALUES (?, 'v5-second', ?)`,
+				[]any{otherID, createdAt}},
+			{`INSERT INTO runs (id, project_id, token_hash, state, fail_reason,
+				checkpoint_at, started_at, expires_at, ended_at)
+			  VALUES (?, ?, X'00', 'active', '', ?, ?, '2026-08-13T11:00:00.000000000Z', NULL)`,
+				[]any{runID, projectID, createdAt, createdAt}},
+			{`INSERT INTO identities (id, project_id, persona_id, addr, role, mode,
+				cooldown_until, created_at)
+			  VALUES (?, ?, NULL, 'before-v6@demo.test', 'pro', 'ephemeral', NULL, ?)`,
+				[]any{identityID, projectID, createdAt}},
+		}
+		for _, s := range stmts {
+			if err := old.ExecForTest(ctx, s.query, s.args...); err != nil {
+				t.Fatalf("seed v5: %v", err)
+			}
+		}
+	}()
+
+	s := upgrade(t, dir, key)
+
+	pragmas, err := s.ReadPragmas(ctx)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if pragmas.UserVersion != store.SchemaVersion {
+		t.Fatalf("user_version = %d, want %d", pragmas.UserVersion, store.SchemaVersion)
+	}
+
+	// Nothing the v5 binary wrote was lost by the ALTER.
+	project, err := s.Project(ctx, projectID)
+	if err != nil {
+		t.Fatalf("read a pre-v6 project: %v", err)
+	}
+	if project.Name != "v5" {
+		t.Fatalf("project name = %q, want %q", project.Name, "v5")
+	}
+	run, err := s.Run(ctx, runID)
+	if err != nil {
+		t.Fatalf("read a pre-v6 run: %v", err)
+	}
+	if run.ProjectID != projectID {
+		t.Fatalf("run project = %q, want %q", run.ProjectID, projectID)
+	}
+
+	// Both upgraded projects start unprovisioned, and the unique index
+	// tolerates that: NULLs are distinct in SQLite.
+	for _, id := range []string{projectID, otherID} {
+		has, err := s.ProjectHasBearer(ctx, id)
+		if err != nil {
+			t.Fatalf("bearer state of %s: %v", id, err)
+		}
+		if has {
+			t.Fatalf("project %s came out of the migration already provisioned", id)
+		}
+	}
+
+	// And a bearer minted after the upgrade authenticates the right one.
+	token, err := s.SetProjectBearer(ctx, projectID)
+	if err != nil {
+		t.Fatalf("set bearer: %v", err)
+	}
+	got, err := s.ProjectByBearer(ctx, token)
+	if err != nil {
+		t.Fatalf("authenticate the new bearer: %v", err)
+	}
+	if got.ID != projectID {
+		t.Fatalf("bearer resolved to %q, want %q", got.ID, projectID)
+	}
+}

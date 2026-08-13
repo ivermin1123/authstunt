@@ -2,10 +2,130 @@ package store
 
 import (
 	"context"
+	"crypto/rand"
+	"crypto/sha256"
 	"database/sql"
+	"encoding/base64"
 	"errors"
 	"fmt"
 )
+
+// ProjectBearerPrefix marks a project bearer so the value is recognizable
+// in a log or a config file and can be redacted on sight.
+//
+// Like RunTokenPrefix it is a convenience for redaction, not a security
+// control, and it is deliberately different from the run prefix so the two
+// principals cannot be confused for one another by eye or by grep.
+const ProjectBearerPrefix = "pb_"
+
+// bearerTokenBytes is the entropy behind a project bearer. It matches
+// runTokenBytes for the same reason: 32 random bytes is why the stored
+// digest is a plain SHA-256 rather than a password KDF.
+const bearerTokenBytes = 32
+
+// ErrNoBearer reports a project that has not been provisioned with a
+// bearer yet. It is distinct from ErrNotFound on purpose: "this project
+// has no credential" is a startup condition the API answers by telling the
+// operator to provision one, while "no project matches this credential" is
+// an authentication failure that must say nothing at all.
+var ErrNoBearer = errors.New("store: this project has no bearer")
+
+// HashProjectBearer returns the digest a project row stores for a bearer.
+//
+// SHA-256 over the whole token string, prefix included, exactly as
+// HashRunToken does for a run token. The two principals share the
+// algorithm on purpose: one convention, one place to change it.
+func HashProjectBearer(token string) [sha256.Size]byte {
+	return sha256.Sum256([]byte(token))
+}
+
+// SetProjectBearer mints a bearer for a project and returns it once.
+//
+// This is both provisioning and rotation: it overwrites whatever digest
+// the row held, so the previous bearer stops authenticating the moment
+// this returns. There is deliberately no way to have two live bearers for
+// one project - an extra credential nobody is tracking is the thing this
+// shape exists to prevent.
+//
+// The raw token is returned exactly once, here, and never stored.
+func (s *Store) SetProjectBearer(ctx context.Context, projectID string) (string, error) {
+	raw := make([]byte, bearerTokenBytes)
+	if _, err := rand.Read(raw); err != nil {
+		return "", fmt.Errorf("store: project bearer: %w", err)
+	}
+	token := ProjectBearerPrefix + base64.RawURLEncoding.EncodeToString(raw)
+	digest := HashProjectBearer(token)
+
+	res, err := s.write.ExecContext(ctx, `UPDATE projects SET bearer_hash = ? WHERE id = ?`,
+		digest[:], projectID)
+	if err != nil {
+		return "", fmt.Errorf("store: set project bearer: %w", err)
+	}
+	affected, err := res.RowsAffected()
+	if err != nil {
+		return "", fmt.Errorf("store: set project bearer: %w", err)
+	}
+	if affected == 0 {
+		return "", ErrNotFound
+	}
+	return token, nil
+}
+
+// RevokeProjectBearer clears a project's bearer, leaving it unprovisioned.
+//
+// Revoking a project that has no bearer is not an error: the caller asked
+// for a state, and the state already holds.
+func (s *Store) RevokeProjectBearer(ctx context.Context, projectID string) error {
+	res, err := s.write.ExecContext(ctx, `UPDATE projects SET bearer_hash = NULL WHERE id = ?`, projectID)
+	if err != nil {
+		return fmt.Errorf("store: revoke project bearer: %w", err)
+	}
+	affected, err := res.RowsAffected()
+	if err != nil {
+		return fmt.Errorf("store: revoke project bearer: %w", err)
+	}
+	if affected == 0 {
+		return ErrNotFound
+	}
+	return nil
+}
+
+// ProjectHasBearer reports whether a project has been provisioned.
+//
+// serve uses it to decide between "print the bearer you must configure"
+// and "carry on", without ever reading a digest into a caller's hands.
+func (s *Store) ProjectHasBearer(ctx context.Context, projectID string) (bool, error) {
+	var digest []byte
+	err := s.read.QueryRowContext(ctx,
+		`SELECT bearer_hash FROM projects WHERE id = ?`, projectID).Scan(&digest)
+	if errors.Is(err, sql.ErrNoRows) {
+		return false, ErrNotFound
+	}
+	if err != nil {
+		return false, fmt.Errorf("store: project bearer state: %w", err)
+	}
+	return len(digest) > 0, nil
+}
+
+// ProjectByBearer authenticates a bearer and returns its project.
+//
+// The lookup is by digest, so the raw token never reaches a query plan, an
+// error message or a slow-query log - the same property RunByToken relies
+// on, and the reason no constant-time comparison appears here: nothing
+// compares the secret in Go at all, and the index is matching a 32-byte
+// digest of a 32-byte random value.
+//
+// A token that matches nothing is ErrNotFound, the same answer an unknown
+// id gets. An empty token is rejected before the query so that it can
+// never be confused with the NULL an unprovisioned project holds.
+func (s *Store) ProjectByBearer(ctx context.Context, token string) (Project, error) {
+	if token == "" {
+		return Project{}, ErrNotFound
+	}
+	digest := HashProjectBearer(token)
+	return s.scanProject(s.read.QueryRowContext(ctx,
+		`SELECT id, name, created_at FROM projects WHERE bearer_hash = ?`, digest[:]))
+}
 
 // CreateProject inserts a project and returns it with its generated id
 // and timestamp.
