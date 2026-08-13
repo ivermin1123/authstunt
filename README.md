@@ -40,6 +40,10 @@ looking for it in. So the OTP and every link URL are compared byte for byte
 between what a relay was given and what it delivered, while headers a relay is
 allowed to rewrite are ignored.
 
+These rules ship as a test package rather than a command: five fixtures check
+them here, and running `go test ./internal/relayconf/` against your own
+before/after captures answers the same question about your relay.
+
 ## What makes it different
 
 Identity-first, not mail-first. Mailpit catches email. AuthStunt manages test
@@ -103,8 +107,13 @@ authstunt serve --project demo --domain demo.test
 ```
 
 ```
-authstunt serving project demo, api 127.0.0.1:1080, smtp 127.0.0.1:1025
+authstunt serving project demo, api 127.0.0.1:8925, long-poll on, pooled off, seeder off, smtp 127.0.0.1:1025
 ```
+
+The line reports the capabilities that are actually wired, not the flags that
+asked for them, so an instance running with less than you expected says so at
+startup instead of at the first test that depends on it.
+
 
 Point the application under test at SMTP on `127.0.0.1:1025` and either drop
 the credentials or keep them, since authentication is accepted either way.
@@ -119,10 +128,10 @@ that every later call uses instead.
 Open a run, then lease an identity for it:
 
 ```
-curl -sX POST http://127.0.0.1:1080/api/runs \
+curl -sX POST http://127.0.0.1:8925/api/runs \
   -H "Authorization: Bearer $BEARER"
 
-curl -sX POST http://127.0.0.1:1080/api/runs/$RUN_ID/leases \
+curl -sX POST http://127.0.0.1:8925/api/runs/$RUN_ID/leases \
   -H "Authorization: Bearer $RUN_TOKEN" \
   -d '{"role":"signup"}'
 ```
@@ -145,7 +154,7 @@ code. The claim parks until the mail lands, so it can be issued straight after
 the signup rather than after a sleep:
 
 ```
-curl -sX POST http://127.0.0.1:1080/api/leases/$LEASE_ID/claims \
+curl -sX POST http://127.0.0.1:8925/api/leases/$LEASE_ID/claims \
   -H "Authorization: Bearer $RUN_TOKEN" \
   -d '{"kind":"email_otp","idempotency_key":"signup-1","timeout_ms":15000}'
 ```
