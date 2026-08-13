@@ -218,12 +218,22 @@ func serve(ctx context.Context, opts serveOptions, dataDir string, logger *slog.
 	// Printed on stdout, and printed last, so a fixture can wait for this
 	// line and know both ports are already accepting. The SMTP address
 	// stays the final field: fixtures already parse it from the end of
-	// this line, and moving it would break them for no gain.
+	// this line, and moving it would break them for no gain, so the
+	// capabilities go in front of it rather than after.
+	//
+	// The capabilities are here because every one of them is optional and
+	// every one of them changes what a caller gets back. Printing them at
+	// startup is what makes a missing one visible then, rather than as a
+	// test that hangs or a timeout that is quietly ignored later.
 	apiAddr := "off"
 	if apiListener != nil {
 		apiAddr = apiListener.Addr().String()
 	}
-	fmt.Printf("authstunt serving project %s, api %s, smtp %s\n", project.Name, apiAddr, srv.Addr())
+	caps := leases.Capabilities()
+	fmt.Printf("authstunt serving project %s, api %s, long-poll %s, pooled %s, seeder %s, smtp %s\n",
+		project.Name, apiAddr,
+		onOff(caps.LongPoll), onOff(caps.Pooled), onOff(caps.Seeder),
+		srv.Addr())
 
 	serveErr := srv.Serve(ctx)
 
@@ -397,6 +407,16 @@ func newLeaseService(st *store.Store, project store.Project, allowlist []string,
 		return nil, fmt.Errorf("serve: %w", err)
 	}
 	return svc, nil
+}
+
+// onOff renders a capability for the startup line. "off" is spelled out
+// rather than omitted, because a capability missing from a line reads as a
+// line that does not report it.
+func onOff(enabled bool) string {
+	if enabled {
+		return "on"
+	}
+	return "off"
 }
 
 // openDataDir loads the project key and opens the store.

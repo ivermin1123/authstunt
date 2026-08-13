@@ -164,6 +164,34 @@ type Service struct {
 	logger    *slog.Logger
 }
 
+// Capabilities reports which optional dependencies the service was actually
+// built with. Every one of them is allowed to be absent, and every one of them
+// changes what a caller gets back, which is the combination that produces a
+// degradation nobody notices.
+//
+// It reads the wired dependencies rather than the flags that were meant to
+// wire them, so a capability lost to a wiring mistake reports off rather than
+// reporting what the operator asked for.
+type Capabilities struct {
+	// LongPoll is whether a claim can park and wait for mail. Without it a
+	// claim answers from what is already stored and timeout_ms is ignored.
+	LongPoll bool
+	// Pooled is whether pooled identities can be leased at all.
+	Pooled bool
+	// Seeder is whether a lease can be seeded. Without one every lease
+	// settles as skipped.
+	Seeder bool
+}
+
+// Capabilities returns what this service can actually do.
+func (s *Service) Capabilities() Capabilities {
+	return Capabilities{
+		LongPoll: s.bus != nil,
+		Pooled:   s.pooled != nil,
+		Seeder:   s.seeder != nil,
+	}
+}
+
 // New validates the configuration and returns the service.
 func New(cfg Config) (*Service, error) {
 	if cfg.Store == nil {
@@ -205,6 +233,14 @@ func New(cfg Config) (*Service, error) {
 	}
 	if cfg.Logger == nil {
 		cfg.Logger = slog.Default()
+	}
+	// A nil bus is accepted on purpose so a test can build the service
+	// without an event source, but it is not free: every claim answers from
+	// what is already stored and returns at once, so a caller's timeout_ms
+	// is accepted and ignored. Saying so here is what keeps that from being
+	// discovered later as a long poll that never polls.
+	if cfg.Bus == nil {
+		cfg.Logger.Warn("personas: no event bus, so a claim cannot wait for mail; timeout_ms will be accepted and ignored")
 	}
 	return &Service{
 		store:     cfg.Store,
