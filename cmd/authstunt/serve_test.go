@@ -4,6 +4,7 @@ import (
 	"bufio"
 	"context"
 	"encoding/json"
+	"errors"
 	"log/slog"
 	netsmtp "net/smtp"
 	"os"
@@ -11,6 +12,7 @@ import (
 	"path/filepath"
 	"strings"
 	"sync"
+	"syscall"
 	"testing"
 	"time"
 
@@ -60,6 +62,11 @@ func binary(t *testing.T) string {
 
 func runtimeIsWindows() bool { return os.PathSeparator == '\\' }
 
+// shutdownWait bounds how long a test waits for a signaled process. It is
+// looser than the server's own grace so a slow drain reports as a drain that
+// was too slow rather than as a test that gave up first.
+const shutdownWait = 30 * time.Second
+
 // running is a started server process and the address it announced.
 type running struct {
 	addr string
@@ -68,6 +75,10 @@ type running struct {
 	apiAddr string
 	dataDir string
 	stop    func()
+	// terminate sends SIGTERM, waits for the process to exit on its own and
+	// returns its exit code. It is the only stop path that lets the
+	// shutdown sequence run.
+	terminate func(*testing.T) int
 	// logs returns everything the process wrote to stderr so far, which is
 	// where the structured log and every startup diagnostic go. A
 	// credential must never appear in it.
@@ -164,10 +175,22 @@ func startBinary(t *testing.T, dataDir string, args ...string) *running {
 		t.Fatalf("start: %v", err)
 	}
 
+	// The process is waited on exactly once, whichever way it is stopped.
+	// cancel() kills, which is fine for a test that only wanted the server
+	// gone; terminate signals, which is the only path that runs the
+	// shutdown sequence at all.
+	var (
+		waitOnce sync.Once
+		waitErr  error
+	)
+	waitProc := func() error {
+		waitOnce.Do(func() { waitErr = cmd.Wait() })
+		return waitErr
+	}
 	stopped := make(chan struct{})
 	stop := func() {
 		cancel()
-		_ = cmd.Wait()
+		_ = waitProc()
 		close(stopped)
 	}
 	t.Cleanup(func() {
@@ -177,6 +200,36 @@ func startBinary(t *testing.T, dataDir string, args ...string) *running {
 			stop()
 		}
 	})
+
+	// terminate delivers a real SIGTERM and waits for the process to leave
+	// on its own, which is what every stop path in these tests used to skip:
+	// exec.CommandContext cancellation kills the process outright, so
+	// signal.NotifyContext never fired and not one line of the shutdown
+	// sequence had ever run under test.
+	terminate := func(t *testing.T) int {
+		t.Helper()
+		if err := cmd.Process.Signal(syscall.SIGTERM); err != nil {
+			t.Fatalf("signal: %v", err)
+		}
+		done := make(chan error, 1)
+		go func() { done <- waitProc() }()
+		select {
+		case err := <-done:
+			select {
+			case <-stopped:
+			default:
+				close(stopped)
+			}
+			var exit *exec.ExitError
+			if err != nil && !errors.As(err, &exit) {
+				t.Fatalf("wait: %v", err)
+			}
+			return cmd.ProcessState.ExitCode()
+		case <-time.After(shutdownWait):
+			t.Fatalf("the process did not exit within %s of SIGTERM", shutdownWait)
+			return -1
+		}
+	}
 
 	// Everything stdout carries is kept, not discarded: a test has to be
 	// able to assert that the ready line is the whole of it and that no
@@ -226,7 +279,7 @@ func startBinary(t *testing.T, dataDir string, args ...string) *running {
 		}
 		return &running{
 			addr: addr, apiAddr: apiAddr, dataDir: dataDir, stop: stop,
-			logs: stderr.String, stdout: readStdout,
+			terminate: terminate, logs: stderr.String, stdout: readStdout,
 		}
 	case <-time.After(30 * time.Second):
 		stop()
