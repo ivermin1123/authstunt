@@ -136,7 +136,11 @@ func TestCRLFAndUnicodeFormAreNotViolations(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	crlf := strings.ReplaceAll(string(raw), "\n", "\r\n")
+	// Normalize to LF first. .gitattributes pins these fixtures to LF, but a
+	// test that would produce \r\r\n if that pin were ever lost is a test that
+	// fails for a reason unrelated to what it is checking.
+	lf := strings.ReplaceAll(string(raw), "\r\n", "\n")
+	crlf := strings.ReplaceAll(lf, "\n", "\r\n")
 	after, err := relayconf.Parse([]byte(crlf))
 	if err != nil {
 		t.Fatalf("parsing the CRLF variant: %v", err)

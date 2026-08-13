@@ -1,0 +1,7 @@
+# Mail fixtures are golden files for a package that compares bytes. Git's
+# end-of-line conversion would rewrite them on checkout, so the same fixture
+# would have different bytes on Windows than on macOS and a byte-level rule
+# would mean something different per platform. -text pins them exactly as
+# committed. The CRLF handling they exercise belongs in the test, not in the
+# checkout.
+*.eml -text
