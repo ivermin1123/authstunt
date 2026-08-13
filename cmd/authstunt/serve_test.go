@@ -62,7 +62,10 @@ func runtimeIsWindows() bool { return os.PathSeparator == '\\' }
 
 // running is a started server process and the address it announced.
 type running struct {
-	addr    string
+	addr string
+	// apiAddr is the host:port the HTTP API bound, parsed out of the ready
+	// line so a test can drive the same surface a client would.
+	apiAddr string
 	dataDir string
 	stop    func()
 	// logs returns everything the process wrote to stderr so far, which is
@@ -214,8 +217,15 @@ func startBinary(t *testing.T, dataDir string, args ...string) *running {
 		if !ok {
 			t.Fatalf("startup line did not carry an address: %q", text)
 		}
+		// The API address sits between its own label and the SMTP one. It
+		// is read here rather than assumed, because these tests bind port
+		// 0 and only the ready line knows what the kernel handed out.
+		var apiAddr string
+		if _, rest, found := strings.Cut(text, "api "); found {
+			apiAddr, _, _ = strings.Cut(rest, ",")
+		}
 		return &running{
-			addr: addr, dataDir: dataDir, stop: stop,
+			addr: addr, apiAddr: apiAddr, dataDir: dataDir, stop: stop,
 			logs: stderr.String, stdout: readStdout,
 		}
 	case <-time.After(30 * time.Second):

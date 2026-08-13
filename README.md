@@ -17,10 +17,14 @@ browser. Playwright and AI agents are the hands.
 
 ## The problem it was built for
 
-Not every auth provider will send your mail for you. Clerk has no custom SMTP:
-to send auth mail yourself you turn off "Delivered by Clerk" per template,
-listen for the `email.created` webhook, and send the message from your own
-infrastructure.
+Not every auth provider will send your mail for you. Clerk, at the time of
+writing, has no custom SMTP: to send auth mail yourself you turn off
+["Delivered by Clerk"][clerk-templates] per template, listen for the
+`email.created` webhook, and send the message from [your own
+infrastructure][clerk-deliverability].
+
+[clerk-templates]: https://clerk.com/docs/guides/customizing-clerk/email-sms-templates
+[clerk-deliverability]: https://clerk.com/docs/guides/development/troubleshooting/email-deliverability
 
 Send it through a relay with click tracking and the relay rewrites the links.
 The magic link now points at the tracker rather than at the auth provider. The
@@ -125,36 +129,42 @@ curl -sX POST http://127.0.0.1:1080/api/runs/$RUN_ID/leases \
 
 ```json
 {
-  "lease_id": "732ca49f57d4",
-  "identity_id": "67f9b32d4731",
-  "addr": "signup-2a774ec42f89@demo.test",
+  "lease_id": "df11513e200b",
+  "identity_id": "493816489583",
+  "addr": "signup-8627b23ca1e5@demo.test",
   "role": "signup",
   "mode": "ephemeral",
   "seed_state": "skipped",
   "pooled_policy": null,
-  "expires_at": "2026-08-13T15:14:36.295Z"
+  "expires_at": "2026-08-13T15:37:47.830Z"
 }
 ```
 
-Sign that address up in the application under test. When its mail arrives, ask
-the lease for the code:
+Sign that address up in the application under test, then ask the lease for the
+code. The claim parks until the mail lands, so it can be issued straight after
+the signup rather than after a sleep:
 
 ```
 curl -sX POST http://127.0.0.1:1080/api/leases/$LEASE_ID/claims \
   -H "Authorization: Bearer $RUN_TOKEN" \
-  -d '{"kind":"email_otp","idempotency_key":"signup-1","timeout_ms":0}'
+  -d '{"kind":"email_otp","idempotency_key":"signup-1","timeout_ms":15000}'
 ```
 
 ```json
 {
   "reason": "claim_ok",
-  "claim_id": "2cac009b14df",
-  "message_id": "f2f0fb9c1f3a",
+  "claim_id": "5105bdd2febd",
+  "message_id": "59b818ca328e",
   "value": "481920",
   "timed_out": false,
-  "waited_ms": 0
+  "waited_ms": 3103
 }
 ```
+
+`timeout_ms` is a long poll: the claim parks until the mail lands, so a test
+issues it as soon as it triggers the signup rather than sleeping first and
+hoping. `waited_ms` reports how long it actually waited, and `timed_out` says
+whether the budget ran out.
 
 `kind` is `email_otp` or `magic_link`; `totp` is defined in the schema and
 refused until it is implemented. A claim is bound to one message, and every
@@ -180,14 +190,13 @@ cannot hand that person's mail to a test.
 - `cmd/authstunt` - main binary
 - `internal/*` - server internals: smtp, extract, api, store, secrets,
   personas, ledger, sse, relayconf, fsutil
-- `internal/mcp` - MCP server (P2, not yet written)
-- `internal/flows` - YAML flow loading and lint (P3, not yet written)
-- `web/` - dashboard (P1, not yet written)
-- `packages/client` - `@authstunt/client` (P2, not yet written)
-- `packages/playwright` - `@authstunt/playwright` (P2, not yet written)
-- `examples/demo-app` - demo target app for integration tests (P1, not yet
-  written)
-- `docs/` - documentation (P5, not yet written)
+- `internal/mcp` - MCP server (not yet written)
+- `internal/flows` - YAML flow loading and lint (not yet written)
+- `web/` - dashboard (not yet written)
+- `packages/client` - `@authstunt/client` (not yet written)
+- `packages/playwright` - `@authstunt/playwright` (not yet written)
+- `examples/demo-app` - demo target app for integration tests (not yet written)
+- `docs/` - documentation (not yet written)
 
 ## The project bearer
 

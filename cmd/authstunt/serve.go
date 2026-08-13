@@ -139,10 +139,24 @@ func serve(ctx context.Context, opts serveOptions, dataDir string, logger *slog.
 		return fmt.Errorf("serve: %w", err)
 	}
 
+	// The bus is built before the lease service because the lease service
+	// takes it: a claim parks on the bus to wait for mail, and a service
+	// built without one answers from what is already stored and never
+	// waits. That degradation is silent, so the wiring order is what
+	// keeps it from happening.
+	generation, err := st.NextEventGeneration(ctx)
+	if err != nil {
+		return fmt.Errorf("serve: event generation: %w", err)
+	}
+	bus := sse.NewBus(generation)
+	busCtx, stopBus := context.WithCancel(context.Background())
+	defer stopBus()
+	go bus.Run(busCtx)
+
 	// The lease service is built before anything starts listening, so a
 	// bad --seed-url is a startup error rather than a surprise the first
 	// time a run asks for an identity.
-	leases, err := newLeaseService(st, project, allowlist, opts, logger)
+	leases, err := newLeaseService(st, project, allowlist, bus, opts, logger)
 	if err != nil {
 		return err
 	}
@@ -155,15 +169,6 @@ func serve(ctx context.Context, opts serveOptions, dataDir string, logger *slog.
 		logger.Info("serve: swept expired work from a previous run",
 			"runs", runs, "leases", held)
 	}
-
-	generation, err := st.NextEventGeneration(ctx)
-	if err != nil {
-		return fmt.Errorf("serve: event generation: %w", err)
-	}
-	bus := sse.NewBus(generation)
-	busCtx, stopBus := context.WithCancel(context.Background())
-	defer stopBus()
-	go bus.Run(busCtx)
 
 	ingest, err := smtp.NewIngest(smtp.IngestConfig{
 		Store:     st,
@@ -359,13 +364,18 @@ func requireBearer(ctx context.Context, st *store.Store, project store.Project) 
 // newLeaseService wires the lease service, including the seed adapter
 // when one is configured.
 func newLeaseService(st *store.Store, project store.Project, allowlist []string,
-	opts serveOptions, logger *slog.Logger) (*personas.Service, error) {
+	bus *sse.Bus, opts serveOptions, logger *slog.Logger) (*personas.Service, error) {
 	cfg := personas.Config{
 		Store:        st,
 		ProjectID:    project.ID,
 		Allowlist:    allowlist,
 		PoolCooldown: opts.poolCooldown,
-		Logger:       logger,
+		// Without the bus a claim cannot park, so it answers from what is
+		// already stored and a caller's timeout is silently ignored. The
+		// service accepts a nil bus by design, which is why passing it
+		// here is not optional in the shipped binary.
+		Bus:    bus,
+		Logger: logger,
 	}
 	// Pooled mode stays off until the operator declares the application's
 	// delivery bound. The debt this pays off is from phase 3: the service
