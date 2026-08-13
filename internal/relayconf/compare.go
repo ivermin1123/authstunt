@@ -119,16 +119,17 @@ func Compare(before, after Message) Report {
 	// 4. Identity and threading headers, after canonicalization.
 	compareHeaders(add, before, after)
 
-	// 5. Body parts, after canonicalization.
+	// 5 and 6. Body parts, after canonicalization. One rule each, so that a
+	// relay that damages only the plain-text alternative is named for it.
 	comparePart(add, "text_part_preserved", before.Text, after.Text, canonicalText)
 	comparePart(add, "html_part_preserved", before.HTML, after.HTML, canonicalHTML)
 
-	// 6. The extractor must still read both parts as it would real mail. A
+	// 7. The extractor must still read both parts as it would real mail. A
 	// relay that drops the plain-text alternative leaves extraction working
 	// only for HTML-capable paths, which is a silent narrowing.
 	comparePartPresence(add, before, after)
 
-	// 7. Whole-extraction parity: the catch-all for anything the specific
+	// 8. Whole-extraction parity: the catch-all for anything the specific
 	// rules above did not name.
 	if extractionEqual(beforeX, afterX) {
 		add("extraction_parity", StatusPass, "extraction output identical")
@@ -137,6 +138,7 @@ func Compare(before, after Message) Report {
 			"extraction output differs beyond the rules above")
 	}
 
+	// 9. Hop metadata the relay added. Informational, never a failure.
 	reportHopHeaders(add, before, after)
 	return r
 }

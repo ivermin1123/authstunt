@@ -32,6 +32,24 @@
 //     the product exists to deliver, and there is no benign transformation of
 //     either. They are compared before canonicalization can touch them.
 //
+// # The nine rules
+//
+// Compare emits exactly these rule IDs, in this order, one finding each:
+//
+//	otp_exact             the one-time code, compared before canonicalization
+//	links_exact           every link URL, exactly and in order
+//	verify_link_exact     the link a caller is handed to complete the flow
+//	headers_preserved     From, To, Subject and Message-ID after canonicalization
+//	text_part_preserved   the plain-text part, semantic content intact
+//	html_part_preserved   the HTML part, semantic content intact
+//	multipart_alternative both parts of a text+html message survived
+//	extraction_parity     the catch-all for anything the rules above did not name
+//	hop_headers           informational: the metadata a relay is meant to add
+//
+// A rule that the fixture cannot exercise reports skipped rather than passing
+// quietly, so the count of rules is stable across every run and a report can be
+// read against this list.
+//
 // # What a pass does and does not mean
 //
 // This package is relay compatibility test infrastructure. It is not evidence
