@@ -62,6 +62,24 @@ func binary(t *testing.T) string {
 
 func runtimeIsWindows() bool { return os.PathSeparator == '\\' }
 
+// lockedBuffer is an io.Writer a test can read while it is being written.
+type lockedBuffer struct {
+	mu  sync.Mutex
+	buf strings.Builder
+}
+
+func (b *lockedBuffer) Write(p []byte) (int, error) {
+	b.mu.Lock()
+	defer b.mu.Unlock()
+	return b.buf.Write(p)
+}
+
+func (b *lockedBuffer) String() string {
+	b.mu.Lock()
+	defer b.mu.Unlock()
+	return b.buf.String()
+}
+
 // shutdownWait bounds how long a test waits for a signaled process. It is
 // looser than the server's own grace so a slow drain reports as a drain that
 // was too slow rather than as a test that gave up first.
@@ -163,13 +181,25 @@ func startBinary(t *testing.T, dataDir string, args ...string) *running {
 	// come from this test: the program is the binary it just built, and
 	// the arguments are its own literals.
 	cmd := exec.CommandContext(ctx, binary(t), full...)
+	// Without a WaitDelay, Wait blocks for as long as anything still holds
+	// the output pipe, which turns a server that fails to exit into a test
+	// that hangs instead of one that fails. The delay is deliberately
+	// longer than the server's own shutdown grace: a value under that would
+	// kill the process partway through a legitimate drain and the test
+	// would be measuring its own impatience.
+	cmd.WaitDelay = 20 * time.Second
 	stdout, err := cmd.StdoutPipe()
 	if err != nil {
 		cancel()
 		t.Fatalf("stdout: %v", err)
 	}
-	var stderr strings.Builder
-	cmd.Stderr = &stderr
+	// The process writes stderr on its own goroutine inside os/exec, so a
+	// test that reads the log while the server is still running would be
+	// racing that writer. Every read goes through the same lock as the
+	// write, which is what lets a test assert on a startup warning without
+	// stopping the process first.
+	stderr := &lockedBuffer{}
+	cmd.Stderr = stderr
 	if err := cmd.Start(); err != nil {
 		cancel()
 		t.Fatalf("start: %v", err)
@@ -220,9 +250,20 @@ func startBinary(t *testing.T, dataDir string, args ...string) *running {
 			default:
 				close(stopped)
 			}
+			// The exit code is read from ProcessState rather than inferred
+			// from err. Wait reports the context's error whenever
+			// cancellation won the race, and os/exec says so plainly: once
+			// Cancel has run, "any program behavior from this point may be
+			// due to ctx even if the command exits with code 0". Asserting
+			// err == nil here would fail a process that shut down perfectly.
 			var exit *exec.ExitError
-			if err != nil && !errors.As(err, &exit) {
+			switch {
+			case err == nil, errors.As(err, &exit), errors.Is(err, context.Canceled):
+			default:
 				t.Fatalf("wait: %v", err)
+			}
+			if cmd.ProcessState == nil {
+				t.Fatal("the process left no exit status behind")
 			}
 			return cmd.ProcessState.ExitCode()
 		case <-time.After(shutdownWait):

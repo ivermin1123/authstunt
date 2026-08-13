@@ -81,7 +81,15 @@ const localPartBytes = 6
 // It is a normal outcome, not a fault: a pool of four cannot serve five
 // concurrent runs, and the caller's answer is to wait or to widen the
 // pool.
-var ErrNoIdentityAvailable = errors.New("personas: no identity of that role is available")
+//
+// It wraps store.ErrNotFound because that is what it is: the caller asked
+// for an identity of a role and there is not one to give. A surface that
+// classifies errors by sentinel would otherwise have to name this one
+// separately or fall through to whatever it uses for the unexplained, and
+// falling through is how "the pool is empty" came to be reported as a
+// failure to prepare an account.
+var ErrNoIdentityAvailable = fmt.Errorf(
+	"personas: no identity of that role is available: %w", store.ErrNotFound)
 
 // Seeder prepares the application-side state a run needs before it can
 // use an identity.

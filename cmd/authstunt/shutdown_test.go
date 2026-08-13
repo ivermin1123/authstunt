@@ -4,6 +4,7 @@ import (
 	"bufio"
 	"fmt"
 	"net"
+	"runtime"
 	"strings"
 	"sync"
 	"testing"
@@ -15,15 +16,29 @@ import (
 // outright, so signal.NotifyContext never fired and srv.Shutdown,
 // apiSrv.Shutdown and ingest.Stop were unreachable from any test.
 //
-// Running it turned up something the comment in serve did not predict. That
-// comment describes draining the listener before the extraction workers, so a
-// session still inside Data cannot publish onto a closed queue. The drain does
-// not happen: cancellation closes the SMTP server outright, which closes every
-// active connection with it, so srv.Shutdown afterwards only ever reports
-// "server already closed" and no session survives to reach the queue. The
-// ordering it protects is therefore inert today - reversing the two lines
-// fails nothing - and that is an open question for the owner rather than
-// something these tests quietly encode.
+// Running it turned up something the comment in serve did not predict, and
+// the owner has since ruled on it: stopping closes the SMTP server outright,
+// which closes every active connection with it, and a graceful drain is a
+// non-goal until something needs one. These tests therefore assert what the
+// server actually does, not what the old comment described.
+//
+// # Known limitation: this file does not run on Windows
+//
+// Both tests below are skipped there, and nothing covers the shutdown path on
+// Windows as a result. That is not the same situation as the POSIX mode-bit
+// skips in internal/secrets, where a Windows-equivalent assertion exists and
+// runs. Here there is no equivalent to write: os/exec_windows.go implements
+// Process.Signal for os.Kill alone and returns EWINDOWS for everything else,
+// with a "TODO(rsc): Handle Interrupt too?" still in the source, so a Go test
+// cannot deliver SIGTERM to a child at all. Reaching the same code path would
+// mean a console control event through GenerateConsoleCtrlEvent, which needs
+// a shared console group and a golang.org/x/sys/windows call from the test
+// process, and that is a larger piece of work than the gap justifies today.
+//
+// It is written down here rather than left as a bare t.Skip because CI runs
+// go test without -v: the Windows job reports ok for this package whether
+// these tests ran or not, so the skip is invisible in the log that would
+// otherwise be taken as evidence.
 
 // smtpSession is a hand-driven SMTP conversation, which the standard client
 // cannot express: this test has to hold a message half-written across a
@@ -127,8 +142,8 @@ func (s *smtpSession) tryFinishData(code string) error {
 // boundary: a message the server answered 250 to is on disk after the
 // process leaves, and the process leaves cleanly.
 func TestSigtermKeepsEverythingItAcked(t *testing.T) {
-	if runtimeIsWindows() {
-		t.Skip("SIGTERM is not deliverable on Windows; the drain path is covered on unix")
+	if runtime.GOOS == "windows" {
+		t.Skip("os/exec cannot deliver SIGTERM on Windows (EWINDOWS); see the known limitation above")
 	}
 	const messages = 12
 	dataDir := t.TempDir()
@@ -165,22 +180,25 @@ func TestSigtermKeepsEverythingItAcked(t *testing.T) {
 // TestShutdownNeverAcksAMessageItDidNotKeep holds the ack contract across a
 // signal, for sessions that were mid-body when it arrived.
 //
-// The contract is one-directional and survives any shutdown design: a 250 is
-// a promise that the message is on disk, so every session that was answered
-// must be readable afterwards. A session that was cut off instead has no
-// promise attached to it - its client saw a broken connection and will send
-// again - so this asserts against what was acked rather than against what was
-// attempted.
+// Two things are asserted, and the second is why the first is not enough on
+// its own.
 //
-// Written that way on purpose. Today the SMTP listener is closed on
-// cancellation rather than drained, so these sessions are severed and none of
-// them is acked; the assertion passes without pinning that behavior in place.
-// If the drain the shutdown comment describes is ever implemented, the same
-// assertion gets stronger on its own: the sessions would then be answered,
-// and every one of them would have to be on disk.
-func TestShutdownNeverAcksAMessageItDidNotKeep(t *testing.T) {
-	if runtimeIsWindows() {
-		t.Skip("SIGTERM is not deliverable on Windows; the path is covered on unix")
+// The invariant: a 250 is a promise that the message is on disk, so every
+// session that was answered must be readable afterwards. That holds under any
+// shutdown design. On its own, though, it is satisfied trivially by a server
+// that answers nobody, so it would keep passing against a binary with no
+// shutdown handling at all.
+//
+// The behavior: stopping severs sessions that are mid-body rather than
+// draining them, which is the owner's ruling recorded in DECISIONS. So the
+// test also asserts that these sessions really were cut off - that nothing
+// silently started draining, and that the severed ones left nothing behind.
+// If a drain is ever implemented this fails loudly and asks to be rewritten,
+// which is the correct outcome for a test that pins a decision rather than a
+// law.
+func TestShutdownSeversInFlightSessionsAndAcksNothingItDropped(t *testing.T) {
+	if runtime.GOOS == "windows" {
+		t.Skip("os/exec cannot deliver SIGTERM on Windows (EWINDOWS); see the known limitation above")
 	}
 	const inFlight = 10
 	dataDir := t.TempDir()
@@ -192,37 +210,35 @@ func TestShutdownNeverAcksAMessageItDidNotKeep(t *testing.T) {
 		sessions[i].openData(t, "bounce@acme.example", fmt.Sprintf("held-%d@demo.test", i))
 	}
 
-	// Every session is now mid-body when the signal lands.
-	exit := make(chan int, 1)
-	go func() {
-		exit <- srv.terminate(t)
-	}()
-	time.Sleep(300 * time.Millisecond)
-
+	// The finishers park briefly so the signal lands while every session is
+	// still mid-body. terminate stays on the test goroutine, because it
+	// reports failures with Fatal and only this goroutine may call it.
 	var (
-		mu     sync.Mutex
-		acked  int
-		wg     sync.WaitGroup
-		logged = make([]string, 0, inFlight)
+		mu      sync.Mutex
+		acked   int
+		refused []string
+		wg      sync.WaitGroup
 	)
 	for i, s := range sessions {
 		wg.Add(1)
 		go func() {
 			defer wg.Done()
-			if err := s.tryFinishData(fmt.Sprintf("%06d", 200000+i)); err != nil {
-				mu.Lock()
-				logged = append(logged, err.Error())
-				mu.Unlock()
+			time.Sleep(300 * time.Millisecond)
+			err := s.tryFinishData(fmt.Sprintf("%06d", 200000+i))
+			mu.Lock()
+			defer mu.Unlock()
+			if err != nil {
+				refused = append(refused, err.Error())
 				return
 			}
-			mu.Lock()
 			acked++
-			mu.Unlock()
 		}()
 	}
+
+	code := srv.terminate(t)
 	wg.Wait()
 
-	if code := <-exit; code != 0 {
+	if code != 0 {
 		t.Errorf("exit code = %d, want 0: the shutdown sequence did not finish "+
 			"cleanly with sessions still delivering\nstderr: %s", code, srv.logs())
 	}
@@ -231,11 +247,25 @@ func TestShutdownNeverAcksAMessageItDidNotKeep(t *testing.T) {
 	}
 
 	stored := readBack(t, dataDir)
+
+	mu.Lock()
+	defer mu.Unlock()
+	// The invariant, which must hold whatever shutdown does.
 	if len(stored) < acked {
 		t.Fatalf("%d sessions were answered 250 but only %d messages are on disk: "+
 			"a message was acked and then dropped by shutdown", acked, len(stored))
 	}
-	t.Logf("of %d sessions held open across SIGTERM, %d were acked and %d messages "+
-		"are on disk; the rest were cut off before any promise was made: %v",
-		inFlight, acked, len(stored), logged)
+	// The decision, which this test exists to pin.
+	if acked != 0 {
+		t.Errorf("%d of %d sessions held open across the signal were answered 250; "+
+			"stopping is supposed to sever them, so either a drain was "+
+			"implemented or the signal landed too late", acked, inFlight)
+	}
+	if len(refused) != inFlight {
+		t.Errorf("%d of %d sessions reported being cut off, want all of them",
+			len(refused), inFlight)
+	}
+	if len(stored) != 0 {
+		t.Errorf("%d messages are on disk from sessions that were never acked", len(stored))
+	}
 }

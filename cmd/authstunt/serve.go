@@ -160,6 +160,17 @@ func serve(ctx context.Context, opts serveOptions, dataDir string, logger *slog.
 	if err != nil {
 		return err
 	}
+	// Pooled mode can be switched on and still have nothing to serve.
+	// Nothing in this binary puts an identity into the pool - the pool is
+	// only ever read - so an operator who passed the flag has declared a
+	// policy for a pool that is empty, and every pooled lease will be
+	// refused. That is a deliberate limitation rather than a defect, but
+	// finding out from a refused lease in the middle of a test run is the
+	// expensive way to learn it.
+	if err := warnIfPoolIsEmpty(ctx, st, project, leases, logger); err != nil {
+		return err
+	}
+
 	// Sweeping at start is what makes the expiry contract safe after a
 	// crash: a process that died holding leases left identities locked,
 	// and nobody is coming to unlock them.
@@ -237,10 +248,21 @@ func serve(ctx context.Context, opts serveOptions, dataDir string, logger *slog.
 
 	serveErr := srv.Serve(ctx)
 
-	// Shutdown ordering matters and is the reverse of startup: stop
-	// accepting, drain the sessions still inside Data, then drain the
-	// extraction workers they fed. Stopping the workers first would close
-	// the queue under a session that is still allowed to publish to it.
+	// Stopping is not a drain, and the order below no longer depends on one.
+	//
+	// This used to say that the listener is drained before the extraction
+	// workers, so a session still inside Data could not publish onto a
+	// closed queue. That is not what happens. Serve closes the SMTP server
+	// the moment its context is canceled, and closing it closes every
+	// connection with it, so no session survives to reach the queue and the
+	// ordering that was meant to protect them protects nothing today.
+	//
+	// It is left in this order anyway: it costs nothing, it is still the
+	// reverse of startup, and it is the order a drain would need if one is
+	// ever added. Nothing is lost by not draining. A message is answered 250
+	// only after its row commits, so a session cut off mid-body was never
+	// promised anything and its client sends again, which is ordinary SMTP.
+	// A drain stays a non-goal until something needs one.
 	shutdownCtx, cancel := context.WithTimeout(context.Background(), shutdownGrace)
 	defer cancel()
 	if err := srv.Shutdown(shutdownCtx); err != nil {
@@ -407,6 +429,30 @@ func newLeaseService(st *store.Store, project store.Project, allowlist []string,
 		return nil, fmt.Errorf("serve: %w", err)
 	}
 	return svc, nil
+}
+
+// warnIfPoolIsEmpty says so when pooled mode is on and the pool is empty.
+//
+// The two together are a configuration that cannot serve a single pooled
+// lease, and nothing else in the process will mention it until a caller is
+// refused. The warning names the consequence rather than the state, because
+// "pooled_configured is true and the pool is empty" is only actionable to
+// somebody who already knows the pool cannot be filled.
+func warnIfPoolIsEmpty(ctx context.Context, st *store.Store, project store.Project,
+	leases *personas.Service, logger *slog.Logger) error {
+	if !leases.Capabilities().Pooled {
+		return nil
+	}
+	pooled, err := st.CountPooledIdentities(ctx, project.ID)
+	if err != nil {
+		return fmt.Errorf("serve: %w", err)
+	}
+	if pooled == 0 {
+		logger.Warn("serve: pooled mode is enabled but the pool is empty, so every " +
+			"pooled lease will be refused; this build has no way to add one, and " +
+			"ephemeral mode is unaffected")
+	}
+	return nil
 }
 
 // onOff renders a capability for the startup line. "off" is spelled out

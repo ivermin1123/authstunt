@@ -49,9 +49,20 @@ func TestPooledPolicyReachesTheServiceFromTheFlag(t *testing.T) {
 			t.Errorf("healthz reported pooled_configured=false with the flag set: %v", health)
 		}
 
-		if got := pooledRefusal(t, srv.apiAddr, bearer); got == store.ReasonPooledPolicyMissing {
-			t.Errorf("a pooled request was refused as %q even though the flag "+
-				"declared a policy: the flag did not reach the lease service", got)
+		// An empty pool is nothing found, not a seed that failed. The
+		// distinction matters to whoever reads the refusal: one says the
+		// account could not be prepared, the other says there was no
+		// account to prepare.
+		if got := pooledRefusal(t, srv.apiAddr, bearer); got != "not_found" {
+			t.Errorf("a pooled request over an empty pool was refused as %q, "+
+				"want not_found", got)
+		}
+
+		// Enabled and empty is a configuration that cannot serve anything,
+		// so it says so at startup rather than through a refused lease.
+		if logs := srv.logs(); !strings.Contains(logs, "the pool is empty") {
+			t.Errorf("pooled mode was enabled over an empty pool without saying "+
+				"so at startup:\n%s", logs)
 		}
 	})
 
@@ -66,6 +77,12 @@ func TestPooledPolicyReachesTheServiceFromTheFlag(t *testing.T) {
 		health := apiCall(t, srv.apiAddr, http.MethodGet, "/healthz", bearer, nil)
 		if configured, _ := health["pooled_configured"].(bool); configured {
 			t.Errorf("healthz reported pooled_configured=true with no flag: %v", health)
+		}
+		// The empty pool is only worth a warning when somebody asked for
+		// pooled mode. An instance that never wanted it says nothing.
+		if logs := srv.logs(); strings.Contains(logs, "the pool is empty") {
+			t.Errorf("an instance that never enabled pooled mode warned about "+
+				"the pool:\n%s", logs)
 		}
 		// The refusal is the named one, never a quiet downgrade to
 		// ephemeral.
@@ -82,6 +99,10 @@ func TestPooledPolicyReachesTheServiceFromTheFlag(t *testing.T) {
 // is only ever read, never written, so it is always empty. The reason code
 // is still the honest signal for what this test is about, because the policy
 // gate is checked before the pool is listed.
+//
+// The two codes are deliberately different answers. Missing policy is a
+// refusal to serve pooled mode at all; an empty pool is nothing found, which
+// is why it reports not_found rather than a failure to prepare an account.
 func pooledRefusal(t *testing.T, apiAddr, bearer string) string {
 	t.Helper()
 	run := apiCall(t, apiAddr, http.MethodPost, "/api/runs", bearer, nil)
@@ -96,8 +117,8 @@ func pooledRefusal(t *testing.T, apiAddr, bearer string) string {
 	switch {
 	case strings.Contains(err.Error(), store.ReasonPooledPolicyMissing):
 		return store.ReasonPooledPolicyMissing
-	case strings.Contains(err.Error(), store.ReasonLeaseSeedFailed):
-		return store.ReasonLeaseSeedFailed
+	case strings.Contains(err.Error(), "not_found"):
+		return "not_found"
 	default:
 		t.Fatalf("unexpected pooled refusal: %v", err)
 		return ""

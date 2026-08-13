@@ -228,13 +228,24 @@ func (s *Server) Serve(ctx context.Context) error {
 	return nil
 }
 
-// Shutdown stops accepting and waits for in-flight sessions, up to the
-// context's deadline.
+// Shutdown stops the server and reports nil if it was already stopped.
+//
+// Already stopped is the normal case, not a failure. Serve closes the server
+// as soon as its context is canceled, so by the time a caller reaches its own
+// shutdown step the work is usually done; treating that as an error made
+// every clean stop log one. Shutdown is idempotent here for the same reason
+// Close is: the caller asked for a stopped server and has one.
+//
+// It does not drain in-flight sessions, because closing the server closes
+// their connections with it. See the shutdown sequence in cmd/authstunt.
 func (s *Server) Shutdown(ctx context.Context) error {
-	if err := s.inner.Shutdown(ctx); err != nil && !errors.Is(err, net.ErrClosed) {
+	err := s.inner.Shutdown(ctx)
+	switch {
+	case err == nil, errors.Is(err, net.ErrClosed), errors.Is(err, gosmtp.ErrServerClosed):
+		return nil
+	default:
 		return fmt.Errorf("smtp: shutdown: %w", err)
 	}
-	return nil
 }
 
 // session is one client connection's mail transaction.

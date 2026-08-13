@@ -128,6 +128,24 @@ func (s *Store) ListPooledIdentities(ctx context.Context, projectID, role string
 	return out, nil
 }
 
+// CountPooledIdentities reports how many pooled identities the project has,
+// across every role.
+//
+// It exists so serve can say at startup that pooled mode was asked for and
+// has nothing to serve. The per-role listing cannot answer that: it would
+// have to be asked role by role, and the roles are not known until a caller
+// names one.
+func (s *Store) CountPooledIdentities(ctx context.Context, projectID string) (int, error) {
+	var n int
+	err := s.read.QueryRowContext(ctx,
+		`SELECT COUNT(*) FROM identities WHERE project_id = ? AND mode = ?`,
+		projectID, ModePooled).Scan(&n)
+	if err != nil {
+		return 0, fmt.Errorf("store: count pooled identities: %w", err)
+	}
+	return n, nil
+}
+
 // SetCooldown holds a pooled identity out of the pool until an instant.
 //
 // It is applied on release and on a seed that failed part way. The second
