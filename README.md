@@ -89,3 +89,6 @@ Requires Go 1.26+. `go build ./...` builds, `go test -race ./...` tests,
 `golangci-lint run` lints. CI runs all three, repeats the tests on Windows
 (where the key file is protected by an ACL rather than mode bits), and adds a
 cross-platform build matrix and a goreleaser config check.
+
+Development uses AI assistance under the quality bar documented in
+`CLAUDE.md`.

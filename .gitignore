@@ -13,5 +13,20 @@ node_modules/
 .env
 .env.*
 
-# OS and editor noise
+# OS, editor and tooling noise
 .DS_Store
+.claude/
+
+# The repo root publishes the documents listed below and nothing else. Any
+# other note that lands there stays local, so working material cannot reach
+# this history by accident.
+/*.md
+!/README.md
+!/CLAUDE.md
+!/CONTRIBUTING.md
+!/SECURITY.md
+!/CODE_OF_CONDUCT.md
+!/CHANGELOG.md
+
+# Local working notes
+plans/
