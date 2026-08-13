@@ -31,8 +31,10 @@ var ErrEvicted = errors.New("sse: client evicted for not keeping up")
 // It is an interface rather than an http.ResponseWriter because real socket
 // writes are the one thing testing/synctest cannot see through - a goroutine
 // blocked on network I/O is not durably blocked, so a bubble containing one
-// never goes idle. The HTTP adapter is a few lines at the API layer and is
-// covered there with httptest.
+// never goes idle.
+//
+// The HTTP adapter that would supply a real Sink does not exist: no route
+// mounts this hub, so nothing outside this package's tests constructs one.
 type Sink interface {
 	io.Writer
 	Flush() error

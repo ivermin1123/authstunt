@@ -126,8 +126,12 @@ func (b *BlobStore) Get(ref string) ([]byte, error) {
 	return data, nil
 }
 
-// Delete removes a blob. Deleting an absent blob is not an error: the
-// retention sweep must be safe to rerun.
+// Delete removes a blob. Deleting an absent blob is not an error, so a
+// caller that reruns a cleanup pass does not have to track what it already
+// removed.
+//
+// Nothing calls this yet. The retention policy that would is not written,
+// so blobs are currently only ever added.
 func (b *BlobStore) Delete(ref string) error {
 	if !ValidID(ref) {
 		return ErrBadRef
@@ -138,8 +142,10 @@ func (b *BlobStore) Delete(ref string) error {
 	return nil
 }
 
-// Refs lists every stored reference. The retention sweep uses it to find
-// blobs whose rows are gone.
+// Refs lists every stored reference, which is what finding blobs whose rows
+// are gone requires.
+//
+// Nothing calls this yet either, for the same reason as Delete.
 func (b *BlobStore) Refs() ([]string, error) {
 	entries, err := os.ReadDir(b.dir)
 	if err != nil {
