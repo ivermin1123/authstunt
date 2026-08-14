@@ -28,7 +28,37 @@ jobs:
       - uses: actions/setup-go@v7
         with:
           go-version: "1.26.x"
-      - run: go test -race ./...
+      # Same shape as the windows job: a skip leaves no trace in a plain
+      # run, so the stream is parsed back into the readable log and then
+      # asked what stepped aside. Nothing skips on Linux today, which is
+      # exactly why it is worth stating rather than assuming.
+      - name: Test
+        shell: bash
+        run: |
+          set +e
+          go test -count=1 -race -json ./... > test-output.json 2> test-stderr.txt
+          status=$?
+          set -e
+
+          jq -r 'select(.Action=="output") | .Output' test-output.json || true
+          cat test-stderr.txt
+
+          echo "===== SKIPPED ====="
+          jq -r 'select(.Action=="skip" and .Test != null) | "SKIP  \(.Package)  \(.Test)"' \
+            test-output.json | sort -u
+          jq -r 'select(.Action=="skip" and .Test == null) | "SKIP-PKG  \(.Package)"' \
+            test-output.json | sort -u
+
+          exit $status
+      - name: Upload the test stream
+        if: always()
+        uses: actions/upload-artifact@v7
+        with:
+          name: test-output-ubuntu
+          path: |
+            test-output.json
+            test-stderr.txt
+          if-no-files-found: warn
       # Benchmarks are reported, never gating: they exist so the storage
       # choices stay falsifiable, not to fail a build on a noisy runner.
       - name: benchmarks (reported, not gating)
