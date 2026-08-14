@@ -105,8 +105,11 @@ func New(cfg Config) (*Server, error) {
 	return s, nil
 }
 
-// Handler returns the configured handler, which is what a test drives and
-// what serve mounts.
+// Handler returns the configured handler, which is what a test drives.
+//
+// serve does not call this: it mounts the same handler through HTTPServer,
+// which attaches the timeouts a listener needs. Both read one field set once
+// in New, so there is a single mux and no way for the two to drift apart.
 func (s *Server) Handler() http.Handler { return s.handler }
 
 // HTTPServer returns an http.Server carrying this handler and the
