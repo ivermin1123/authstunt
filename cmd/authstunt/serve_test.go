@@ -32,6 +32,15 @@ var buildOnce struct {
 
 func binary(t *testing.T) string {
 	t.Helper()
+	// A pre-built binary can be substituted, which is how coverage of the
+	// server is collected: `go build -cover` produces a binary that writes
+	// a coverage profile as it exits, and the tests here run the server as
+	// a child process, so nothing the in-process instrumentation sees ever
+	// covers it. Opting in through the environment keeps the ordinary run
+	// building the ordinary binary at the ordinary speed.
+	if pre := os.Getenv("AUTHSTUNT_COVER_BIN"); pre != "" {
+		return pre
+	}
 	buildOnce.Do(func() {
 		dir, err := os.MkdirTemp("", "authstunt-build")
 		if err != nil {
@@ -181,6 +190,23 @@ func startBinary(t *testing.T, dataDir string, args ...string) *running {
 	// come from this test: the program is the binary it just built, and
 	// the arguments are its own literals.
 	cmd := exec.CommandContext(ctx, binary(t), full...)
+	// Cancellation asks the server to stop rather than killing it.
+	//
+	// The default Cancel is Process.Kill, which is SIGKILL at zero notice:
+	// the server never sees a signal, never runs its shutdown, and - the
+	// reason this matters here - a binary built with -cover writes its
+	// profile as it exits, so a killed child writes nothing at all and the
+	// coverage of every one of these tests would read as zero.
+	//
+	// Windows keeps the kill, because os/exec cannot deliver anything else
+	// there and a Cancel that returns an error would surface as a Wait
+	// failure on every test that stops a server.
+	cmd.Cancel = func() error {
+		if runtimeIsWindows() {
+			return cmd.Process.Kill()
+		}
+		return cmd.Process.Signal(syscall.SIGTERM)
+	}
 	// Without a WaitDelay, Wait blocks for as long as anything still holds
 	// the output pipe, which turns a server that fails to exit into a test
 	// that hangs instead of one that fails. The delay is deliberately
