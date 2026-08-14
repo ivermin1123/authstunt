@@ -36,6 +36,11 @@ type wedge struct {
 	ingest    *smtp.Ingest
 	svc       *personas.Service
 	projectID string
+	// dir is the store's data directory. It is kept so a failing test can
+	// snapshot the database before t.TempDir removes it; the directory
+	// holds the key file too, so a snapshot can be reopened with the real
+	// store API rather than only read as raw SQLite.
+	dir string
 }
 
 func newWedge(t *testing.T, opts ...func(*personas.Config)) *wedge {
@@ -97,7 +102,7 @@ func newWedge(t *testing.T, opts ...func(*personas.Config)) *wedge {
 	if err != nil {
 		t.Fatalf("service: %v", err)
 	}
-	return &wedge{t: t, store: st, bus: bus, ingest: ingest, svc: svc, projectID: project.ID}
+	return &wedge{t: t, store: st, bus: bus, ingest: ingest, svc: svc, projectID: project.ID, dir: dir}
 }
 
 // run creates a run and acquires one ephemeral lease of a role.

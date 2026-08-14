@@ -5,6 +5,9 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"io"
+	"os"
+	"path/filepath"
 	"strings"
 	"sync"
 	"testing"
@@ -36,6 +39,203 @@ func (w *wedge) elapseCooldown(ctx context.Context, identityID string) {
 		return tx.SetCooldown(ctx, identityID, time.Now().Add(-time.Second))
 	}); err != nil {
 		w.t.Fatalf("elapse cooldown: %v", err)
+	}
+}
+
+// storedLayout mirrors the unexported layout the store writes timestamps
+// with. Timestamps live in TEXT columns (schema_v3.sql: acquired_at,
+// released_at, received_at are all TEXT), so the comparison SQLite runs is
+// a byte comparison of strings in this shape. Reproducing the layout here
+// is what makes a dump show the resolution that actually decides the
+// query, rather than Go's own rendering of a time.Time.
+const storedLayout = "2006-01-02T15:04:05.000000000Z07:00"
+
+func stored(t time.Time) string {
+	if t.IsZero() {
+		return "NULL"
+	}
+	return t.UTC().Format(storedLayout)
+}
+
+// snapshotDir is where a failing iteration copies the store before the
+// test harness deletes it. Empty disables the copy, which is the default
+// for anyone running the suite normally: only the soak sets it.
+var snapshotDir = os.Getenv("AUTHSTUNT_FAIL_SNAPSHOT_DIR")
+
+// snapshotStore copies the whole data directory out of t.TempDir, which Go
+// removes the moment the test ends.
+//
+// The printed dump answers the three failure modes it was designed for. A
+// copy answers the ones nobody thought to print: it holds the WAL and the
+// shared-memory file so the database is readable, and the key file too, so
+// the snapshot can be reopened through the real store API instead of only
+// as raw SQLite.
+//
+// Runs on the failure path only, after the race has finished.
+func (w *wedge) snapshotStore(iter int) string {
+	w.t.Helper()
+	if snapshotDir == "" {
+		return ""
+	}
+	// The name has to be unique across invocations of the soak, which are
+	// separate processes: iteration alone would collide.
+	dst := filepath.Join(snapshotDir,
+		fmt.Sprintf("faildb-iter%d-pid%d", iter, os.Getpid()))
+	if err := os.MkdirAll(dst, 0o750); err != nil {
+		w.t.Logf("DUMP snapshot: mkdir failed: %v", err)
+		return ""
+	}
+	entries, err := os.ReadDir(w.dir)
+	if err != nil {
+		w.t.Logf("DUMP snapshot: read source failed: %v", err)
+		return ""
+	}
+	for _, e := range entries {
+		if err := copyPath(filepath.Join(w.dir, e.Name()), filepath.Join(dst, e.Name())); err != nil {
+			w.t.Logf("DUMP snapshot: copy %s failed: %v", e.Name(), err)
+		}
+	}
+	return dst
+}
+
+// copyPath copies a file, or a directory and everything under it. The key
+// material lives in a subdirectory, so a flat file copy would miss it.
+func copyPath(src, dst string) error {
+	info, err := os.Stat(src)
+	if err != nil {
+		return err
+	}
+	if info.IsDir() {
+		if err := os.MkdirAll(dst, 0o750); err != nil {
+			return err
+		}
+		entries, err := os.ReadDir(src)
+		if err != nil {
+			return err
+		}
+		for _, e := range entries {
+			if err := copyPath(filepath.Join(src, e.Name()), filepath.Join(dst, e.Name())); err != nil {
+				return err
+			}
+		}
+		return nil
+	}
+	in, err := os.Open(filepath.Clean(src))
+	if err != nil {
+		return err
+	}
+	defer func() { _ = in.Close() }()
+	out, err := os.OpenFile(filepath.Clean(dst), os.O_WRONLY|os.O_CREATE|os.O_TRUNC, info.Mode())
+	if err != nil {
+		return err
+	}
+	if _, err := io.Copy(out, in); err != nil {
+		_ = out.Close()
+		return err
+	}
+	return out.Close()
+}
+
+// dumpHandoverBinding prints everything needed to tell apart the three ways
+// this assertion can fail. It is called only after the count has already
+// been read, so it observes a finished race and cannot move it.
+//
+// Output goes through t.Logf rather than os.Stderr: under `go test -json`
+// a direct stderr write is not attributed to the test and interleaves with
+// the stream, while t.Logf lands in the stream as output events belonging
+// to this test, which is the artifact the soak keeps.
+func (w *wedge) dumpHandoverBinding(ctx context.Context, iter int, addr, code string,
+	testStart time.Time, grantA, grantB personas.Grant) {
+	w.t.Helper()
+	f := func(format string, a ...any) { w.t.Logf("DUMP "+format, a...) }
+
+	f("iteration=%d code=%s addr=%s", iter, code, addr)
+	if dst := w.snapshotStore(iter); dst != "" {
+		f("store snapshot written to %s (reopen with store.Open on that dir)", dst)
+	}
+	f("wall_now=%s elapsed=%s", stored(time.Now()), time.Since(testStart))
+	f("storage: acquired_at/released_at/received_at are TEXT; layout=%q (9 fractional digits)", storedLayout)
+	f("note: instants below are read back from the store, so they are wall clock with no monotonic reading; the monotonic part of the original time.Now() never reaches the query")
+
+	// The query the correlation rests on, verbatim from
+	// internal/store/leases.go LeaseAt, which is the exported twin of the
+	// unexported Tx.leaseAt that bound this message.
+	f("leaseAt SQL: SELECT ... FROM leases l JOIN identities i ON i.id = l.identity_id" +
+		" WHERE i.addr = ? AND l.acquired_at <= ? AND (l.released_at IS NULL OR ? < l.released_at)" +
+		" ORDER BY l.acquired_at DESC LIMIT 1")
+
+	for _, g := range []struct {
+		name  string
+		grant personas.Grant
+	}{{"A", grantA}, {"B", grantB}} {
+		l, err := w.store.Lease(ctx, g.grant.LeaseID)
+		if err != nil {
+			f("lease %s id=%s: READ FAILED: %v", g.name, g.grant.LeaseID, err)
+			continue
+		}
+		f("lease %s id=%s run=%s identity=%s state=%s in_cooldown=%t",
+			g.name, l.ID, l.RunID, l.IdentityID, l.State, l.InCooldown)
+		f("lease %s acquired_at=%s released_at=%s expires_at=%s",
+			g.name, stored(l.AcquiredAt), stored(l.ReleasedAt), stored(l.ExpiresAt))
+
+		lb, err := w.store.ListLeaseBindings(ctx, l.ID)
+		if err != nil {
+			f("lease %s bindings: READ FAILED: %v", g.name, err)
+			continue
+		}
+		f("lease %s binding_count=%d", g.name, len(lb))
+		for _, b := range lb {
+			f("lease %s binding message=%s addr=%s suspect=%q bound_at=%s",
+				g.name, b.MessageID, b.Addr, b.Suspect, stored(b.BoundAt))
+		}
+	}
+
+	// Newest first, capped: the iteration that failed is the newest, and a
+	// few predecessors give the handover rhythm to compare it against.
+	// Uncapped this would print one line per iteration already run, which
+	// at iteration 900 buries the four lines that matter.
+	msgs, err := w.store.ListMessages(ctx, store.MessageFilter{
+		ProjectID: w.projectID, To: addr, Limit: 4,
+	})
+	if err != nil {
+		f("messages: READ FAILED: %v", err)
+		return
+	}
+	f("message_count_for_addr=%d", len(msgs))
+	for _, m := range msgs {
+		f("message id=%s received_at=%s", m.ID, stored(m.ReceivedAt))
+
+		mb, err := w.store.ListMessageBindings(ctx, m.ID)
+		if err != nil {
+			f("message %s bindings: READ FAILED: %v", m.ID, err)
+			continue
+		}
+		f("message %s bound_to_count=%d", m.ID, len(mb))
+		for _, b := range mb {
+			f("message %s bound_to lease=%s run=%s suspect=%q bound_at=%s",
+				m.ID, b.LeaseID, b.RunID, b.Suspect, stored(b.BoundAt))
+		}
+
+		// Re-run the resolution with the instant the binder actually used.
+		// The race is over, so this answers what the row set says now, and
+		// disagreement with bound_to above is itself a finding.
+		owner, err := w.store.LeaseAt(ctx, addr, m.ReceivedAt)
+		switch {
+		case errors.Is(err, store.ErrNotFound):
+			f("message %s replay LeaseAt(received_at) -> NO LEASE MATCHED (the half-open interval has a hole here)", m.ID)
+		case err != nil:
+			f("message %s replay LeaseAt(received_at) -> READ FAILED: %v", m.ID, err)
+		default:
+			which := "neither A nor B"
+			switch owner.ID {
+			case grantA.LeaseID:
+				which = "lease A"
+			case grantB.LeaseID:
+				which = "lease B"
+			}
+			f("message %s replay LeaseAt(received_at) -> %s id=%s acquired_at=%s released_at=%s",
+				m.ID, which, owner.ID, stored(owner.AcquiredAt), stored(owner.ReleasedAt))
+		}
 	}
 }
 
@@ -342,6 +542,9 @@ func TestConcurrentHandoverNeverCrossClaims(t *testing.T) {
 	w := newWedge(t, withPooledPolicy(time.Second))
 	ctx := t.Context()
 	pooled := w.newPooledIdentity(ctx, "pooled-pro@demo.test", "pro")
+	// Read once, before the loop, so a failure can state how far into the
+	// run it landed. It is outside the per-iteration race entirely.
+	testStart := time.Now()
 
 	for i := range iterations {
 		code := fmt.Sprintf("%06d", 100000+i)
@@ -388,6 +591,10 @@ func TestConcurrentHandoverNeverCrossClaims(t *testing.T) {
 			t.Fatal(err)
 		}
 		if len(bindings) != 1 {
+			// The race is already over: both goroutines joined at wg.Wait
+			// above and the binding count has been read. Nothing below can
+			// perturb what it is describing.
+			w.dumpHandoverBinding(ctx, i, pooled.Addr, code, testStart, grantA, grantB)
 			t.Fatalf("iteration %d: B has %d bindings, want the late message visible", i, len(bindings))
 		}
 		if bindings[0].Suspect != store.SuspectPredatesLease {
