@@ -1,10 +1,24 @@
 # Action versions verified against latest releases on 2026-08-10.
 name: ci
 
+# WARNING before turning on branch protection: paths-ignore at the workflow
+# level means the workflow does not run at all, not that it runs and passes.
+# A required status check that never arrives blocks a merge forever. If any
+# of these jobs is ever made a required check, replace paths-ignore with a
+# path filter inside the jobs, or add a no-op job that reports the same check
+# name. Checked on 2026-08-14: main is not protected, so this is safe today.
 on:
   push:
     branches: [main]
+    paths-ignore:
+      - "**.md"
+      - "LICENSE"
+      - "docs/**"
   pull_request:
+    paths-ignore:
+      - "**.md"
+      - "LICENSE"
+      - "docs/**"
 
 permissions:
   contents: read
