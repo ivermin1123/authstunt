@@ -1,0 +1,79 @@
+# Soak runner for a flake that has been seen once.
+#
+# It is dispatched against a ref on purpose. A soak of HEAD alone cannot say
+# why a run failed: passing ten thousand times proves the failure is rare,
+# which was already known. Running the same soak against the tree the failure
+# was observed on and against HEAD is what turns it into a measurement.
+name: soak
+
+on:
+  workflow_dispatch:
+    inputs:
+      ref:
+        description: "Ref to soak (commit sha, tag or branch)"
+        required: true
+        type: string
+      count_per_invocation:
+        description: "go test -count per invocation. One count is 1000 iterations of the test; 2 keeps an invocation near 2-4 minutes on a runner."
+        required: false
+        default: "2"
+        type: string
+      budget_minutes:
+        description: "Wall clock budget for the soak loop"
+        required: false
+        default: "40"
+        type: string
+
+permissions:
+  contents: read
+
+jobs:
+  soak-ubuntu:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          ref: ${{ inputs.ref }}
+      - uses: actions/setup-go@v7
+        with:
+          go-version: "1.26.x"
+      - name: Record the environment
+        shell: bash
+        run: |
+          echo "ref=${{ inputs.ref }}"
+          echo "sha=$(git rev-parse HEAD)"
+          echo "nproc=$(nproc)"
+          go version
+      - name: Soak
+        shell: bash
+        run: |
+          set +e
+          deadline=$(( $(date +%s) + ${{ inputs.budget_minutes }} * 60 ))
+          i=0; fails=0
+          while [ "$(date +%s)" -lt "$deadline" ]; do
+            i=$((i+1))
+            go test -count=${{ inputs.count_per_invocation }} -race \
+              -run '^TestConcurrentHandoverNeverCrossClaims$' \
+              -json ./internal/personas/ > "/tmp/soak-$i.json" 2>&1
+            rc=$?
+            if [ "$rc" -ne 0 ]; then
+              fails=$((fails+1))
+              cp "/tmp/soak-$i.json" "soak-FAIL-$i.json"
+            else
+              rm -f "/tmp/soak-$i.json"
+            fi
+          done
+          echo "invocations=$i fails=$fails"
+          echo "ref=${{ inputs.ref }} sha=$(git rev-parse HEAD) nproc=$(nproc)" > soak-summary.txt
+          echo "count_per_invocation=${{ inputs.count_per_invocation }} budget_minutes=${{ inputs.budget_minutes }}" >> soak-summary.txt
+          echo "invocations=$i fails=$fails" >> soak-summary.txt
+          set -e
+      - name: Upload the soak result
+        if: always()
+        uses: actions/upload-artifact@v7
+        with:
+          name: soak-ubuntu-${{ inputs.ref }}
+          path: |
+            soak-summary.txt
+            soak-FAIL-*.json
+          if-no-files-found: warn
