@@ -46,7 +46,41 @@ jobs:
       - uses: actions/setup-go@v7
         with:
           go-version: "1.26.x"
-      - run: go test -race ./...
+      # Plain `go test` prints nothing about a skip, so this job reported ok
+      # whether a test ran or stepped aside. That is not a hypothetical: the
+      # SIGTERM tests skip here, and the log said the same thing either way.
+      # The JSON stream is parsed back into the human log, then asked which
+      # tests skipped.
+      - name: Test
+        shell: bash
+        run: |
+          set +e
+          go test -count=1 -race -json ./... > test-output.json 2> test-stderr.txt
+          status=$?
+          set -e
+
+          # dựng lại log người đọc được, y như bản không -json
+          jq -r 'select(.Action=="output") | .Output' test-output.json || true
+          cat test-stderr.txt
+
+          echo "===== SKIPPED ====="
+          jq -r 'select(.Action=="skip" and .Test != null) | "SKIP  \(.Package)  \(.Test)"' \
+            test-output.json | sort -u
+          jq -r 'select(.Action=="skip" and .Test == null) | "SKIP-PKG  \(.Package)"' \
+            test-output.json | sort -u
+
+          exit $status
+      # Uploaded even when the tests fail: the flake hunt needs the machine
+      # readable stream from the run that failed, not from a green rerun.
+      - name: Upload the test stream
+        if: always()
+        uses: actions/upload-artifact@v7
+        with:
+          name: test-output-windows
+          path: |
+            test-output.json
+            test-stderr.txt
+          if-no-files-found: warn
 
   build-matrix:
     runs-on: ubuntu-latest
