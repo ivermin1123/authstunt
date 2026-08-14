@@ -62,7 +62,15 @@ func Open(k *Key, container []byte) ([]byte, error) {
 	if container[0] != containerVersion {
 		return nil, fmt.Errorf("%w: unknown container version %d", ErrTampered, container[0])
 	}
-	if string(container[1:1+keyIDSize]) != string(k.ID[:]) {
+	// Read the id through KeyIDOf rather than slicing the header again.
+	// Both were doing the same arithmetic over the same layout, and a
+	// layout that is decoded in two places is one that can be changed in
+	// one of them.
+	id, err := KeyIDOf(container)
+	if err != nil {
+		return nil, err
+	}
+	if id != k.ID {
 		return nil, ErrKeyMismatch
 	}
 	gcm, err := newGCM(k)
@@ -77,8 +85,11 @@ func Open(k *Key, container []byte) ([]byte, error) {
 	return plaintext, nil
 }
 
-// KeyIDOf reports the key id embedded in a container without decrypting
-// it, so callers can pick the right key once rotation exists.
+// KeyIDOf reports the key id embedded in a container without decrypting it.
+//
+// Open uses it to decide whether this key is the right one, which is the
+// only decoding of that header field there is. Once rotation exists a caller
+// will use it to pick the key before opening anything.
 func KeyIDOf(container []byte) (KeyID, error) {
 	if len(container) < headerSize || container[0] != containerVersion {
 		return KeyID{}, ErrTampered
