@@ -20,6 +20,16 @@ on:
       - "LICENSE"
       - "docs/**"
 
+# Consecutive pushes to the same ref cancel the older run instead of stacking.
+# WARNING: this trades away per-commit CI history on the cancelled commits. If
+# main ever needs a green check on every individual commit (bisecting a CI
+# failure, a release audit trail), exclude it, for example by grouping on
+# github.ref and setting cancel-in-progress to
+# ${{ github.ref != 'refs/heads/main' }}. Solo repo today, so both are on.
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
+
 permissions:
   contents: read
 
