@@ -5,10 +5,12 @@ on:
   push:
     tags: ["v*"]
 
-# ci.yml stays read-only. Only this workflow needs write, and only to
-# create the draft release and upload its archives.
+# ci.yml stays read-only. Only this workflow needs write: contents to
+# create the draft release and upload its archives, packages to push the
+# Docker images to ghcr.io.
 permissions:
   contents: write
+  packages: write
 
 jobs:
   goreleaser:
@@ -23,6 +25,13 @@ jobs:
       - uses: actions/setup-go@v7
         with:
           go-version: "1.26.x"
+      # The Dockerfile is COPY-only (goreleaser cross-compiles the binary
+      # first), so the arm64 image builds here without QEMU.
+      - uses: docker/login-action@v4
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
       - uses: goreleaser/goreleaser-action@v7
         with:
           distribution: goreleaser

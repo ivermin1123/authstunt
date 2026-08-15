@@ -27,6 +27,31 @@ archives:
       - goos: windows
         formats: [zip]
 
+# One multi-platform image, amd64 and arm64 both, deliberately: a
+# single-arch image is invisible to half the audience (see MailHog #454,
+# open for years over exactly this). The Dockerfile is COPY-only, so
+# neither platform needs emulation. A snapshot builds per-platform images
+# locally and never pushes; the real push happens from release.yml.
+dockers_v2:
+  - ids: [authstunt]
+    dockerfile: Dockerfile
+    images:
+      - ghcr.io/ivermin1123/authstunt
+    tags:
+      - "{{ .Version }}"
+      - latest
+    platforms:
+      - linux/amd64
+      - linux/arm64
+    labels:
+      org.opencontainers.image.title: authstunt
+      org.opencontainers.image.licenses: MIT
+    annotations:
+      org.opencontainers.image.version: "{{ .Version }}"
+      org.opencontainers.image.revision: "{{ .FullCommit }}"
+      org.opencontainers.image.created: "{{ .Date }}"
+      org.opencontainers.image.source: https://github.com/ivermin1123/authstunt
+
 checksum:
   name_template: checksums.txt
 
