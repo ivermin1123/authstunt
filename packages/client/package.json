@@ -36,8 +36,10 @@
     "typecheck": "tsc -p tsconfig.json && tsc -p tsconfig.src.json --noEmit",
     "lint": "eslint .",
     "check:package": "publint && attw --pack .",
+    "smoke": "node -e \"const m = require('./dist/index.cjs'); if (typeof m.authstunt !== 'function' || typeof m.ClaimError !== 'function') { throw new Error('cjs smoke failed') }\" && node -e \"import('./dist/index.js').then((m) => { if (typeof m.authstunt !== 'function' || typeof m.ClaimError !== 'function') { throw new Error('esm smoke failed') } })\"",
     "test": "node --import tsx --test test/claims.test.ts test/retry.test.ts",
-    "verify": "npm run typecheck && npm run lint && npm run build && npm run check:package && npm run test"
+    "verify": "npm run typecheck && npm run lint && npm run build && npm run smoke && npm run check:package && npm run test",
+    "prepublishOnly": "npm run verify"
   },
   "keywords": [
     "email",

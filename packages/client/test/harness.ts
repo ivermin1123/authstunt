@@ -10,6 +10,8 @@ import { tmpdir } from 'node:os'
 import path from 'node:path'
 import type { Readable } from 'node:stream'
 
+// import.meta.dirname needs Node 20.11+. The shipped package runs on 18;
+// this file is dev-only and the gap is deliberate.
 const repoRoot = path.resolve(import.meta.dirname, '..', '..', '..')
 
 export interface ServerHandle {
@@ -66,10 +68,18 @@ export async function startServer(): Promise<ServerHandle> {
     smtpPort,
     bearer,
     stop: async (): Promise<void> => {
-      child.kill('SIGTERM')
-      await new Promise<void>((resolve) => {
+      // Resolve immediately if the child already exited (a crash mid-test
+      // fires 'exit' before stop() runs, and a listener added after the
+      // fact would wait forever).
+      const exited = new Promise<void>((resolve) => {
+        if (child.exitCode !== null || child.signalCode !== null) {
+          resolve()
+          return
+        }
         child.once('exit', () => { resolve() })
       })
+      child.kill('SIGTERM')
+      await exited
       await rm(dataDir, { recursive: true, force: true })
     },
   }
@@ -96,7 +106,10 @@ export async function evidence(
 
 // The startup line looks like:
 // authstunt serving project X, api 127.0.0.1:PORT, long-poll on, pooled off, seeder off, smtp 127.0.0.1:PORT
-const readyPattern = /^authstunt serving project .*, api ([^,]+),.*, smtp (.+)$/m
+// Anchored on a trailing newline, not $: with /m the $ also matches end of
+// input, and a chunk boundary inside the address would yield a truncated
+// port.
+const readyPattern = /authstunt serving project [^\n]*, api ([^,\n]+),[^\n]*, smtp ([^\n]+)\n/
 
 function readyLine(
   child: ChildProcessByStdio<null, Readable, Readable>,

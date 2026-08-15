@@ -4,6 +4,9 @@
 export interface HttpResult {
   status: number
   body: unknown
+  /** First 200 characters of the raw response text, for error messages
+   * when the body is not the JSON the contract promises. */
+  excerpt: string
 }
 
 /** The frozen error envelope, {"error":{"code","message"}}. */
@@ -45,7 +48,7 @@ export async function requestJson(args: RequestArgs): Promise<HttpResult> {
     }
     const response = await fetch(url, init)
     if (response.status === 204) {
-      return { status: 204, body: undefined }
+      return { status: 204, body: undefined, excerpt: '' }
     }
     const text = await response.text()
     let parsed: unknown
@@ -54,7 +57,7 @@ export async function requestJson(args: RequestArgs): Promise<HttpResult> {
     } catch {
       parsed = undefined
     }
-    return { status: response.status, body: parsed }
+    return { status: response.status, body: parsed, excerpt: text.slice(0, 200) }
   } finally {
     clearTimeout(watchdog)
   }
@@ -64,9 +67,24 @@ export async function requestJson(args: RequestArgs): Promise<HttpResult> {
  * envelope's code vocabulary is frozen; the message is prose. */
 export function apiError(args: RequestArgs, result: HttpResult): Error {
   const envelope = result.body as ErrorEnvelope | undefined
-  const code = envelope?.error?.code ?? 'unknown'
-  const message = envelope?.error?.message ?? 'no error body'
+  const code = envelope?.error?.code
+  const message = envelope?.error?.message
+  if (code !== undefined) {
+    return new Error(
+      `authstunt: ${code}: ${message ?? ''} (HTTP ${String(result.status)} ${args.method} ${args.path})`,
+    )
+  }
+  // Not the frozen envelope at all: name the status, the route and what
+  // actually came back, because "unknown" plus a TypeError three frames
+  // later is how a wrong baseUrl stays undiagnosed.
   return new Error(
-    `authstunt: ${code}: ${message} (HTTP ${String(result.status)} ${args.method} ${args.path})`,
+    `authstunt: unexpected response (HTTP ${String(result.status)} ${args.method} ${args.path}): ${result.excerpt === '' ? 'empty body' : result.excerpt}`,
+  )
+}
+
+/** Names a 2xx whose body is not the shape the frozen surface promises. */
+export function contractError(args: RequestArgs, result: HttpResult, wanted: string): Error {
+  return new Error(
+    `authstunt: the response is not the frozen ${wanted} shape (HTTP ${String(result.status)} ${args.method} ${args.path}): ${result.excerpt === '' ? 'empty body' : result.excerpt}`,
   )
 }

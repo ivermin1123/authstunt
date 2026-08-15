@@ -149,6 +149,10 @@ void test('RESEND: two codes in flight on one lease, then two claims', async () 
   // Observed server semantics (store/claims.go ClaimCandidates): oldest
   // first. The FIRST claim is backed by OTP #1, the message that arrived
   // first, and OTP #2 stays visible for the next claim.
+  //
+  // bound[] comes from the ledger (ordered by event ts) while candidates
+  // order by received_at; the two agree here only because the two SMTP
+  // dialogues were awaited sequentially, each past its 250 ack.
   const first = await lease.claim('email_otp', { timeoutMs: 5000 })
   assert.equal(first.value, '111111')
   assert.equal(first.messageId, bound[0])

@@ -57,7 +57,10 @@ await lease.release()
   never below it, so an honest long-poll is not misread as a dead socket. A
   socket that actually dies, or a 5xx, is retried up to two more times under
   the SAME idempotency key: the server replays the first answer instead of
-  consuming a second message. Only the claim route retries.
+  consuming a second message. Only the claim route retries. The whole call,
+  retries included, is hard-stopped at `timeoutMs` plus one 30s margin;
+  past that the caller gets a transport error rather than a late retry
+  that the server's 120s replay window may no longer answer.
 - The project bearer is used once, to create the run. Everything after runs
   on the run token the server minted for that run.
 
@@ -81,3 +84,6 @@ npm run verify   # typecheck, lint, build, publint + attw, tests
 The tests build and run the real server binary from this repository (Go
 toolchain required), provision a data dir with `--out`, drive real SMTP into
 it and claim through this client. No HTTP is mocked.
+
+Developing needs Node 20.11+ (the test harness uses `import.meta.dirname`);
+the shipped package itself runs on 18.

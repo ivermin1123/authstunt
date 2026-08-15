@@ -179,6 +179,9 @@ jobs:
   # Go jobs' caches or gates.
   client:
     runs-on: ubuntu-latest
+    # First job in this workflow that could hang unbounded: node:test has
+    # no default per-test timeout, unlike go test's 10 minute panic timer.
+    timeout-minutes: 15
     defaults:
       run:
         working-directory: packages/client
@@ -196,6 +199,9 @@ jobs:
       - run: npm run typecheck
       - run: npm run lint
       - run: npm run build
+      # The tests import src, so nothing else executes the built artifact;
+      # this does, under both module systems.
+      - run: npm run smoke
       # publint and arethetypeswrong gate the packaging itself: dual
       # ESM+CJS with a declaration file per format has to stay true under
       # every resolver, not just the one the tests happen to use.

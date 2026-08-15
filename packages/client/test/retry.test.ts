@@ -90,10 +90,14 @@ void test('a dropped socket is retried under the same idempotency key and replay
   const claim = await lease.claim('email_otp', { timeoutMs: 10_000 })
   assert.equal(claim.value, '314159')
 
-  // The client sent the claim twice, both times under one key.
+  // The client sent the claim twice, both times under one key. The
+  // destructure-after-length shape keeps these assertions from ever
+  // passing vacuously on undefined.
   assert.equal(claimBodies.length, 2)
-  assert.ok(claimBodies[0]?.idempotency_key !== '')
-  assert.equal(claimBodies[0]?.idempotency_key, claimBodies[1]?.idempotency_key)
+  const [firstBody, secondBody] = claimBodies
+  assert.ok(firstBody !== undefined && secondBody !== undefined)
+  assert.ok(firstBody.idempotency_key !== '')
+  assert.equal(firstBody.idempotency_key, secondBody.idempotency_key)
 
   // And the server saw a replay of one claim, not two claims: both settle
   // events carry the same claim id, and the value was handed over for one
@@ -103,8 +107,11 @@ void test('a dropped socket is retried under the same idempotency key and replay
     (e) => e.action === 'claim.settled' && e.detail['reason'] === 'claim_ok',
   )
   assert.equal(settled.length, 2)
-  assert.equal(settled[0]?.detail['claim_id'], settled[1]?.detail['claim_id'])
-  assert.equal(settled[0]?.detail['claim_id'], claim.claimId)
+  const [settledA, settledB] = settled
+  assert.ok(settledA !== undefined && settledB !== undefined)
+  assert.ok(typeof settledA.detail['claim_id'] === 'string' && settledA.detail['claim_id'] !== '')
+  assert.equal(settledA.detail['claim_id'], settledB.detail['claim_id'])
+  assert.equal(settledA.detail['claim_id'], claim.claimId)
 
   await lease.release()
 })

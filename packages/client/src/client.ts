@@ -5,7 +5,7 @@ import {
   type ClaimFailureReason,
   type ClaimKind,
 } from './errors.js'
-import { apiError, requestJson, type HttpResult, type RequestArgs } from './http.js'
+import { apiError, contractError, requestJson, type HttpResult, type RequestArgs } from './http.js'
 
 /** Default long-poll wait, and the server's hard cap on one wait. */
 const defaultTimeoutMs = 30_000
@@ -113,6 +113,18 @@ interface WireClaim {
 
 /** Builds a client. No connection is made until run() is called. */
 export function authstunt(options: AuthstuntOptions): AuthstuntClient {
+  // Fail here, not three retries deep: a malformed base URL or a bearer
+  // with stray whitespace (the classic trailing newline from a file read)
+  // would otherwise surface as a retried transport failure with the real
+  // cause buried underneath.
+  try {
+    void new URL(options.baseUrl)
+  } catch {
+    throw new Error(`authstunt: baseUrl is not a valid URL: ${options.baseUrl}`)
+  }
+  if (options.bearer === '' || /\s/.test(options.bearer)) {
+    throw new Error('authstunt: bearer must be a non-empty token without whitespace')
+  }
   return {
     run: async (): Promise<Run> => {
       const args: RequestArgs = {
@@ -126,8 +138,11 @@ export function authstunt(options: AuthstuntOptions): AuthstuntClient {
       if (result.status !== 201) {
         throw apiError(args, result)
       }
-      const wire = result.body as WireRun
-      return makeRun(options.baseUrl, wire)
+      const wire = result.body as Partial<WireRun> | undefined
+      if (typeof wire?.run_id !== 'string' || typeof wire.run_token !== 'string') {
+        throw contractError(args, result, 'run')
+      }
+      return makeRun(options.baseUrl, wire as WireRun)
     },
   }
 }
@@ -151,7 +166,11 @@ function makeRun(baseUrl: string, wire: WireRun): Run {
       if (result.status !== 201) {
         throw apiError(args, result)
       }
-      return makeLease(baseUrl, runToken, result.body as WireLease)
+      const lease = result.body as Partial<WireLease> | undefined
+      if (typeof lease?.lease_id !== 'string' || typeof lease.addr !== 'string') {
+        throw contractError(args, result, 'lease')
+      }
+      return makeLease(baseUrl, runToken, lease as WireLease)
     },
   }
 }
@@ -171,19 +190,29 @@ function makeLease(baseUrl: string, runToken: string, wire: WireLease): Lease {
     // key makes the server replay the first answer instead.
     const idempotencyKey = opts?.idempotencyKey ?? randomUUID()
     const deadline = Date.now() + timeoutMs
+    // The whole call, retries included, ends by hardStop: the requested
+    // wait plus ONE watchdog margin, not one margin per attempt. Two
+    // reasons. A caller's own step budget is set against timeoutMs, so
+    // the client must not quietly multiply it. And the server replays a
+    // recorded claim for 120s from the instant it committed; a retry
+    // fired later than that gets claim_expired for a message that was
+    // handed over, which reads like a refusal and is really a burn. Past
+    // hardStop the honest answer is a transport error.
+    const hardStop = deadline + watchdogMarginMs
 
     let lastFailure: unknown
     for (let attempt = 1; attempt <= maxClaimAttempts; attempt++) {
-      // A retry asks only for the wait that is left, so a flaky socket
-      // cannot stretch the caller's budget past what it asked for.
-      const remainingMs = attempt === 1 ? timeoutMs : Math.max(0, deadline - Date.now())
+      const now = Date.now()
+      // A retry asks only for the server-side wait that is left of the
+      // caller's budget, and its watchdog never reaches past hardStop.
+      const remainingMs = attempt === 1 ? timeoutMs : Math.max(0, deadline - now)
       const args: RequestArgs = {
         baseUrl,
         token: runToken,
         method: 'POST',
         path: `/api/v1/leases/${leaseId}/claims`,
         body: { kind, idempotency_key: idempotencyKey, timeout_ms: remainingMs },
-        watchdogMs: remainingMs + watchdogMarginMs,
+        watchdogMs: Math.max(1, Math.min(remainingMs + watchdogMarginMs, hardStop - now)),
       }
       let result: HttpResult
       try {
@@ -191,20 +220,20 @@ function makeLease(baseUrl: string, runToken: string, wire: WireLease): Lease {
       } catch (transport) {
         // The socket died. That is distinct from the server answering
         // timed_out: this attempt got no answer at all, so it is retried
-        // under the same key.
+        // under the same key while the budget allows.
         lastFailure = transport
-        if (attempt < maxClaimAttempts) {
+        if (attempt < maxClaimAttempts && Date.now() + retryDelayMs < hardStop) {
           await sleep(retryDelayMs)
           continue
         }
         throw new Error(
-          `authstunt: claim did not get an answer after ${String(attempt)} attempts - lease ${leaseId}`,
+          `authstunt: claim did not get an answer after ${String(attempt)} attempt(s) - lease ${leaseId}`,
           { cause: lastFailure },
         )
       }
       if (result.status >= 500) {
         lastFailure = apiError(args, result)
-        if (attempt < maxClaimAttempts) {
+        if (attempt < maxClaimAttempts && Date.now() + retryDelayMs < hardStop) {
           await sleep(retryDelayMs)
           continue
         }
@@ -213,7 +242,7 @@ function makeLease(baseUrl: string, runToken: string, wire: WireLease): Lease {
       if (result.status !== 200) {
         throw apiError(args, result)
       }
-      return outcomeOf(result.body as WireClaim)
+      return outcomeOf(args, result)
     }
     // Unreachable: every loop exit above returns or throws.
     throw new Error('authstunt: claim retry loop ended without an outcome')
@@ -250,14 +279,29 @@ function makeLease(baseUrl: string, runToken: string, wire: WireLease): Lease {
   }
 }
 
-function outcomeOf(wire: WireClaim): ClaimOutcome {
+function outcomeOf(args: RequestArgs, result: HttpResult): ClaimOutcome {
+  const wire = result.body as Partial<WireClaim> | undefined
+  if (typeof wire?.reason !== 'string') {
+    throw contractError(args, result, 'claim')
+  }
   if (wire.reason === 'claim_ok') {
+    // The freeze guarantees value and message_id are present exactly when
+    // the reason is claim_ok. Defaulting them to '' here would hand a test
+    // an empty OTP and let it fail three steps later with nothing pointing
+    // at the claim, so a violated guarantee fails loudly instead.
+    if (
+      typeof wire.value !== 'string' || wire.value === '' ||
+      typeof wire.message_id !== 'string' || wire.message_id === '' ||
+      typeof wire.claim_id !== 'string' || wire.claim_id === ''
+    ) {
+      throw contractError(args, result, 'claim_ok')
+    }
     return {
       reason: 'claim_ok',
-      value: wire.value ?? '',
-      messageId: wire.message_id ?? '',
-      claimId: wire.claim_id ?? '',
-      waitedMs: wire.waited_ms,
+      value: wire.value,
+      messageId: wire.message_id,
+      claimId: wire.claim_id,
+      waitedMs: wire.waited_ms ?? 0,
     }
   }
   return {
@@ -265,8 +309,8 @@ function outcomeOf(wire: WireClaim): ClaimOutcome {
     // this client shipped still flows through as a refusal rather than a
     // parse error.
     reason: wire.reason as ClaimFailureReason,
-    waitedMs: wire.waited_ms,
-    timedOut: wire.timed_out,
+    waitedMs: wire.waited_ms ?? 0,
+    timedOut: wire.timed_out ?? false,
   }
 }
 
