@@ -169,3 +169,35 @@ jobs:
         with:
           version: "~> v2"
           args: check
+
+  # Ubuntu only, on purpose: the package is plain TypeScript over global
+  # fetch with zero runtime dependencies, so there is no platform-specific
+  # code path a Windows or macOS runner would exercise. What IS platform
+  # sensitive lives in the Go binary, and the jobs above already run that
+  # on a Windows runner. The Go toolchain is here because the client tests
+  # build and drive the real server binary; nothing in this job touches the
+  # Go jobs' caches or gates.
+  client:
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: packages/client
+    steps:
+      - uses: actions/checkout@v7
+      - uses: actions/setup-go@v7
+        with:
+          go-version: "1.26.x"
+      - uses: actions/setup-node@v7
+        with:
+          node-version: "24"
+          cache: npm
+          cache-dependency-path: packages/client/package-lock.json
+      - run: npm ci
+      - run: npm run typecheck
+      - run: npm run lint
+      - run: npm run build
+      # publint and arethetypeswrong gate the packaging itself: dual
+      # ESM+CJS with a declaration file per format has to stay true under
+      # every resolver, not just the one the tests happen to use.
+      - run: npm run check:package
+      - run: npm test
