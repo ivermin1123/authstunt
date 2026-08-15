@@ -1,6 +1,6 @@
 {
   "name": "@authstunt/playwright",
-  "version": "0.0.0",
+  "version": "0.1.0",
   "description": "Playwright fixtures for AuthStunt: one run per worker, one identity per test, released even when the test fails.",
   "license": "MIT",
   "repository": {
@@ -52,11 +52,11 @@
   ],
   "peerDependencies": {
     "@playwright/test": ">=1.40.0 <2",
-    "@authstunt/client": "0.0.0"
+    "@authstunt/client": "^0.1.0"
   },
   "devDependencies": {
     "@arethetypeswrong/cli": "^0.18.5",
-    "@authstunt/client": "file:../client",
+    "@authstunt/client": "^0.1.0",
     "@playwright/test": "^1.62.1",
     "@types/node": "^26.2.0",
     "eslint": "^10.8.1",

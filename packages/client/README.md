@@ -3,7 +3,9 @@
 Typed, zero-dependency TypeScript client for the AuthStunt `/api/v1` surface:
 open a run, lease an identity, claim the one message a code is bound to.
 
-Not published yet. It ships alongside the first public release.
+```
+npm i -D @authstunt/client
+```
 
 ```ts
 const lease = await run.lease({ role: 'signup' })

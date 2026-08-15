@@ -1,6 +1,6 @@
 {
   "name": "@authstunt/client",
-  "version": "0.0.0",
+  "version": "0.1.0",
   "description": "Typed, zero-dependency TypeScript client for the AuthStunt /api/v1 surface: open a run, lease an identity, claim the one message a code is bound to.",
   "license": "MIT",
   "repository": {
