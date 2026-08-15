@@ -2,9 +2,11 @@ package personas_test
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"log/slog"
 	"path/filepath"
+	"runtime"
 	"slices"
 	"strings"
 	"sync"
@@ -26,6 +28,10 @@ import (
 // about the property that matters, which is that a message is never
 // stored without an owner already decided.
 
+// defaultSettleCeiling is how long a delivery is given to be reported
+// settled on the bus. Every test uses it unless it says otherwise.
+const defaultSettleCeiling = 5 * time.Second
+
 // wedge is one project with a live bus, a real ingest pipeline and a real
 // lease service, which is the smallest arrangement that can produce a
 // wrong secret if the design is wrong.
@@ -41,6 +47,51 @@ type wedge struct {
 	// holds the key file too, so a snapshot can be reopened with the real
 	// store API rather than only read as raw SQLite.
 	dir string
+	// settleCeiling bounds how long deliver waits for the bus to report
+	// the message settled. It is a field rather than a constant so a
+	// single test can widen it without moving the ceiling for every other
+	// test in the package; every wedge starts at the original value.
+	settleCeiling time.Duration
+	// settle, when non-nil, collects how long each successful settle
+	// actually took. A ceiling only says the wait did not run out; the
+	// distribution says how much room was left.
+	settle *settleLog
+}
+
+// settleLog accumulates successful settle durations. deliver is called
+// from concurrent goroutines, so the append is guarded; the lock is held
+// for a slice append against waits measured in milliseconds, which is why
+// a plain mutex is used rather than anything cleverer.
+type settleLog struct {
+	mu sync.Mutex
+	d  []time.Duration
+}
+
+func (s *settleLog) add(d time.Duration) {
+	s.mu.Lock()
+	s.d = append(s.d, d)
+	s.mu.Unlock()
+}
+
+// report logs the shape of the distribution against the ceiling in force.
+// The question it answers is how close the passing waits came to failing.
+func (s *settleLog) report(t *testing.T, ceiling time.Duration) {
+	t.Helper()
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	if len(s.d) == 0 {
+		t.Logf("SETTLE no successful settle was recorded")
+		return
+	}
+	d := slices.Clone(s.d)
+	slices.Sort(d)
+	at := func(q float64) time.Duration {
+		i := int(q * float64(len(d)-1))
+		return d[i]
+	}
+	maxd := d[len(d)-1]
+	t.Logf("SETTLE n=%d ceiling=%s p50=%s p95=%s p99=%s max=%s headroom_at_max=%s",
+		len(d), ceiling, at(0.50), at(0.95), at(0.99), maxd, ceiling-maxd)
 }
 
 func newWedge(t *testing.T, opts ...func(*personas.Config)) *wedge {
@@ -102,7 +153,10 @@ func newWedge(t *testing.T, opts ...func(*personas.Config)) *wedge {
 	if err != nil {
 		t.Fatalf("service: %v", err)
 	}
-	return &wedge{t: t, store: st, bus: bus, ingest: ingest, svc: svc, projectID: project.ID, dir: dir}
+	return &wedge{
+		t: t, store: st, bus: bus, ingest: ingest, svc: svc, projectID: project.ID, dir: dir,
+		settleCeiling: defaultSettleCeiling,
+	}
 }
 
 // run creates a run and acquires one ephemeral lease of a role.
@@ -186,10 +240,77 @@ func (w *wedge) deliver(ctx context.Context, to string, at time.Time, raw []byte
 	}); err != nil {
 		w.t.Fatalf("deliver: %v", err)
 	}
-	waitCtx, cancel := context.WithTimeout(ctx, 5*time.Second)
+	waitCtx, cancel := context.WithTimeout(ctx, w.settleCeiling)
 	defer cancel()
+	started := time.Now()
 	if _, ok := waiter.Wait(waitCtx); !ok {
+		// The wait has already run out, so nothing here can lengthen or
+		// shorten what it is describing.
+		w.dumpSettleFailure(ctx, to, at, time.Since(started))
 		w.t.Fatal("the message never settled")
+	}
+	if w.settle != nil {
+		w.settle.add(time.Since(started))
+	}
+}
+
+// dumpSettleFailure records what the store holds for an address whose mail
+// the bus never reported. The distinction it exists to draw: a message row
+// that is present says the write landed and only the notification was lost
+// or late, while no row at all says the delivery itself did not complete.
+//
+// The wall clock is printed because these timeouts have been seen to fire
+// in groups. A waiter here matches any message at all, so one settled
+// message releases every waiter parked at that moment; several deadlines
+// expiring within milliseconds of each other therefore means the whole
+// pipeline published nothing for the length of the ceiling, which is a
+// different fault from any one message going missing.
+//
+// GOMAXPROCS is printed because it sizes both the extraction worker pool
+// and the queue in front of it, so it is what decides how deep a burst of
+// concurrent deliveries has to sit before it is served.
+func (w *wedge) dumpSettleFailure(ctx context.Context, addr string, at time.Time, waited time.Duration) {
+	w.t.Helper()
+	f := func(format string, a ...any) { w.t.Logf("SETTLE-DUMP "+format, a...) }
+
+	f("addr=%s received_at_arg=%s waited=%s ceiling=%s", addr, stored(at), waited, w.settleCeiling)
+	f("wall_now=%s gomaxprocs=%d numcpu=%d", stored(time.Now()), runtime.GOMAXPROCS(0), runtime.NumCPU())
+	f("storage: acquired_at/released_at/received_at are TEXT; layout=%q (9 fractional digits)", storedLayout)
+
+	msgs, err := w.store.ListMessages(ctx, store.MessageFilter{
+		ProjectID: w.projectID, To: addr, Limit: 4,
+	})
+	if err != nil {
+		f("messages: READ FAILED: %v", err)
+		return
+	}
+	// The answer to "was it written at all" is this count, read after the
+	// wait gave up. Zero and non-zero point at different subsystems.
+	f("message_count_for_addr=%d", len(msgs))
+	for _, m := range msgs {
+		f("message id=%s received_at=%s", m.ID, stored(m.ReceivedAt))
+
+		mb, err := w.store.ListMessageBindings(ctx, m.ID)
+		if err != nil {
+			f("message %s bindings: READ FAILED: %v", m.ID, err)
+			continue
+		}
+		f("message %s bound_to_count=%d", m.ID, len(mb))
+		for _, b := range mb {
+			f("message %s bound_to lease=%s run=%s suspect=%q bound_at=%s",
+				m.ID, b.LeaseID, b.RunID, b.Suspect, stored(b.BoundAt))
+		}
+	}
+
+	owner, err := w.store.LeaseAt(ctx, addr, at)
+	switch {
+	case errors.Is(err, store.ErrNotFound):
+		f("LeaseAt(addr, received_at_arg) -> NO LEASE MATCHED")
+	case err != nil:
+		f("LeaseAt(addr, received_at_arg) -> READ FAILED: %v", err)
+	default:
+		f("LeaseAt(addr, received_at_arg) -> lease=%s run=%s acquired_at=%s released_at=%s",
+			owner.ID, owner.RunID, stored(owner.AcquiredAt), stored(owner.ReleasedAt))
 	}
 }
 
@@ -684,6 +805,12 @@ func TestTwoConcurrentRunsNeverCrossClaim(t *testing.T) {
 		iterations = 50
 	}
 	w := newWedge(t)
+	// This is the test that has been seen to run out of settle budget on
+	// the Windows runner. Recording the settles it already performs costs
+	// it nothing and turns every ordinary run into a measurement of how
+	// much of the ceiling is actually being used.
+	w.settle = &settleLog{}
+	t.Cleanup(func() { w.settle.report(t, w.settleCeiling) })
 	ctx := t.Context()
 
 	type pair struct {
