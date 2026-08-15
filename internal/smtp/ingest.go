@@ -155,11 +155,29 @@ func (i *Ingest) Stop() {
 // Deliver stores one message and hands it to extraction.
 //
 // The order here is the ack contract and is not an implementation detail:
-// blobs are written and synced, the row commits with a durable pending
-// extraction state, and only then does this return nil and the session
-// answer 250. Everything after the commit - the ledger event, the queue
-// handoff - cannot un-store the message, so none of it may turn into a
-// refusal.
+// blobs are written and synced, the row commits with a pending extraction
+// state, and only then does this return nil and the session answer 250.
+// Everything after the commit - the ledger event, the queue handoff -
+// cannot un-store the message, so none of it may turn into a refusal.
+//
+// What the 250 promises, exactly: the message survives this process
+// dying. It does not promise survival of power loss. The blobs are
+// fsynced, file and directory both, before the commit; the row commits
+// under WAL with synchronous=NORMAL, which does not fsync the WAL on
+// every commit, so a machine that loses power just after the 250 can come
+// back having lost the row while keeping the blobs. Saying "durable"
+// without that qualifier is what this comment used to do, and it was not
+// true of the case durability is usually asked about. The narrower claim
+// is: durable through process crash, and through power loss as of the
+// last checkpoint.
+//
+// The cost of closing that gap was measured rather than guessed (W-2):
+// synchronous=FULL costs about 1ms at p95 on one sequential message and
+// nothing outside noise on suite wall time, but ack latency is ~7ms at
+// p50 under NORMAL, FULL and OFF alike, because it is dominated by the
+// blob fsyncs above and by waiting for the single writer, not by the
+// commit barrier. The default stays NORMAL pending an owner decision
+// taken on those numbers.
 func (i *Ingest) Deliver(ctx context.Context, d Delivery) error {
 	parsed := parseMessage(d.Raw, i.logger)
 

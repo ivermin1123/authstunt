@@ -9,8 +9,11 @@
 //
 // That contract is the reason the split is worth having. A 250 is a promise
 // that losing the process cannot lose the mail, so Deliver returns nil only
-// after the blobs are synced and the row is committed with a durable pending
-// extraction state. Everything after that point - the ledger event, the
+// after the blobs are synced and the row is committed with a pending
+// extraction state. It is a promise about the process and not about the
+// machine: the row commits under WAL with synchronous=NORMAL, so power loss
+// is covered only as far as the last checkpoint. Everything after that
+// point - the ledger event, the
 // handoff to a worker, extraction itself - cannot un-store the message and
 // therefore cannot turn into a refusal. Extraction then settles exactly one
 // terminal state and the bus event follows that commit, so anything waiting

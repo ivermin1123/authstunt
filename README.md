@@ -254,6 +254,12 @@ extraction result is sealed with. Later runs may repeat the flags, which must
 match what is stored, or omit them; serve never silently reconciles a
 difference.
 
+An SMTP 250 means the message is stored and will survive the server process
+dying. It is not a promise about the machine: the database runs in WAL mode
+with `synchronous=NORMAL`, so a power cut is covered only as far as the last
+checkpoint, and a message acked just before one can be lost. That is the
+right trade for a test fixture and the wrong thing to discover by surprise.
+
 ## Development
 
 Requires Go 1.26+. `go build ./...` builds, `go test -race ./...` tests,

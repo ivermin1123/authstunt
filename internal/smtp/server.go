@@ -334,9 +334,11 @@ func (s *Server) reply(err error) error {
 // Data consumes the message and decides the reply.
 //
 // Every exit path here is the ack contract: nil means 250 and means the
-// message is durable, and any error means the client still owns the
-// message. Nothing between those two states is expressible in SMTP, so
-// nothing in between may be returned.
+// message is stored and survives this process dying, and any error means
+// the client still owns the message. Nothing between those two states is
+// expressible in SMTP, so nothing in between may be returned. The exact
+// reach of that promise, and where it stops short of power loss, is on
+// Ingest.Deliver.
 func (s *session) Data(r io.Reader) (err error) {
 	// A panic in parsing or storage must not take the process down with
 	// every other in-flight connection. It becomes 451: the message was
