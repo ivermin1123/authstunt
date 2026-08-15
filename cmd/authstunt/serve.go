@@ -37,6 +37,21 @@ const keyName = "project"
 // shutdownGrace bounds how long a stop waits for connections and workers.
 const shutdownGrace = 10 * time.Second
 
+// sweepInterval is how often expiry is enforced on a running server.
+//
+// Sweeping only at startup was enough while the only thing that could
+// leave work expired was a crash, because a crash is followed by a start.
+// It is not enough on a server that stays up: a run that ends by running
+// out of time, rather than by being ended, keeps its identities locked
+// until the next restart. A minute is far below any lease or run TTL, so
+// the window between a grant expiring and the pool getting it back is
+// bounded by this rather than by an operator's uptime.
+//
+// This does not make expiry safe - the claim path already fails closed on
+// an expired grant, and that is what keeps a secret from crossing a run
+// boundary. It makes expiry timely, which is a capacity property.
+const sweepInterval = 60 * time.Second
+
 // domainList collects a repeatable --domain flag in the order given,
 // because the allowlist is ordered and persona generation takes the first
 // entry.
@@ -215,6 +230,15 @@ func serve(ctx context.Context, opts serveOptions, dataDir string, logger *slog.
 	if err != nil {
 		return err
 	}
+	// The sweeper runs for as long as the server does. It is started after
+	// the listeners are built and before Serve blocks, so a tick can never
+	// land on a half-built service.
+	sweepDone := make(chan struct{})
+	go func() {
+		defer close(sweepDone)
+		sweepPeriodically(ctx, leases, logger)
+	}()
+
 	apiErr := make(chan error, 1)
 	if apiSrv != nil {
 		go func() {
@@ -277,7 +301,44 @@ func serve(ctx context.Context, opts serveOptions, dataDir string, logger *slog.
 		}
 	}
 	ingest.Stop()
+	// The sweeper stops on the same canceled context Serve returned for,
+	// so this waits on a goroutine that is already on its way out. It is
+	// waited on rather than abandoned so that a sweep in flight finishes
+	// its transaction before the store closes under it.
+	<-sweepDone
 	return serveErr
+}
+
+// sweepPeriodically enforces expiry until ctx is canceled.
+//
+// A failed sweep is logged and not returned. It is not a reason to stop
+// serving: expiry is enforced at every gate that reads a run or a lease,
+// so a sweep that does not happen costs capacity, not safety, and the
+// next tick tries again on whatever the last one left behind.
+func sweepPeriodically(ctx context.Context, leases *personas.Service, logger *slog.Logger) {
+	ticker := time.NewTicker(sweepInterval)
+	defer ticker.Stop()
+	for {
+		select {
+		case <-ctx.Done():
+			return
+		case <-ticker.C:
+			// A tick and a cancellation that arrive together are chosen
+			// between at random, so shutdown is checked again here rather
+			// than starting work that can only fail on a dead context.
+			if ctx.Err() != nil {
+				return
+			}
+			runs, held, err := leases.Sweep(ctx)
+			if err != nil {
+				logger.Error("serve: sweeping expired work failed", "error", err)
+				continue
+			}
+			if runs > 0 || held > 0 {
+				logger.Info("serve: swept expired work", "runs", runs, "leases", held)
+			}
+		}
+	}
 }
 
 // startAPI binds the HTTP surface.
