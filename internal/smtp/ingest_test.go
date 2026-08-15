@@ -569,21 +569,43 @@ func TestHTMLOnlyMessageExtractsFromHTML(t *testing.T) {
 	}
 }
 
+// assertLedgerAction waits for the entry rather than reading once.
+//
+// The wait is not slack in the assertion: the entry must still appear, and
+// a missing one still fails. It is there because the row and its ledger
+// entry are two commits, in that order - settleFailed writes the terminal
+// state, then appends to the ledger - and awaitSettled returns on the
+// first of those. Reading the ledger immediately after it therefore lands
+// inside a real window where the state is terminal and the entry is not
+// there yet.
+//
+// That window was always open; it was just too narrow to lose on a fast
+// runner. Making synchronous=FULL the default put an fsync in every
+// commit and widened it enough for a Windows CI runner to fall in
+// (observed settle p95 there: 32ms, against 1.7ms on Linux). The
+// production ordering is deliberate and is not what changes here.
 func assertLedgerAction(t *testing.T, h *harness, action, wantDetail string) {
 	t.Helper()
-	entries, err := h.store.ListLedger(t.Context(), store.LedgerFilter{ProjectID: h.projectID})
-	if err != nil {
-		t.Fatalf("ledger: %v", err)
-	}
-	for _, e := range entries {
-		if e.Action != action {
-			continue
+	deadline := time.Now().Add(5 * time.Second)
+	for {
+		entries, err := h.store.ListLedger(t.Context(), store.LedgerFilter{ProjectID: h.projectID})
+		if err != nil {
+			t.Fatalf("ledger: %v", err)
 		}
-		if wantDetail == "" || strings.Contains(e.DetailJSON, wantDetail) {
+		for _, e := range entries {
+			if e.Action != action {
+				continue
+			}
+			if wantDetail == "" || strings.Contains(e.DetailJSON, wantDetail) {
+				return
+			}
+		}
+		if !time.Now().Before(deadline) {
+			t.Errorf("no ledger entry with action %q and detail containing %q", action, wantDetail)
 			return
 		}
+		time.Sleep(5 * time.Millisecond)
 	}
-	t.Errorf("no ledger entry with action %q and detail containing %q", action, wantDetail)
 }
 
 // awaitEvent parks on a waiter with a bounded deadline, so a test that
