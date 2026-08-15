@@ -66,6 +66,14 @@ the API is provisional until the full freeze (the frozen fields are listed in
 is defined in the schema and refused by the surface, and YAML flows and the
 MCP server are not written.
 
+There is also no retention, and that is worth knowing before pointing a long
+running suite at an instance. Nothing is ever deleted: every message keeps its
+row, roughly two encrypted blob files, and its ledger entries for as long as
+the data directory exists. The periodic sweep expires runs and leases so their
+identities go back to the pool; it frees no disk. Sizing follows message
+volume rather than time, and the remedy today is to delete the data directory
+or to give each suite a fresh one.
+
 ## Install
 
 Download the archive for your platform from the [latest release][rel], verify
@@ -259,6 +267,12 @@ dying. It is not a promise about the machine: the database runs in WAL mode
 with `synchronous=NORMAL`, so a power cut is covered only as far as the last
 checkpoint, and a message acked just before one can be lost. That is the
 right trade for a test fixture and the wrong thing to discover by surprise.
+
+The directory only grows. A message costs one row, one blob for the raw
+message, a second blob when it carries HTML, and the ledger events describing
+its arrival, and none of that is reclaimed: there is no retention window, no
+cap, and no sweeper for blobs whose message is gone. Treat the size as a
+function of how much mail an instance has ever accepted.
 
 ## Development
 
