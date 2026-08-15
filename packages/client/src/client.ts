@@ -82,6 +82,16 @@ export interface Run {
   readonly checkpointAt: Date
   readonly expiresAt: Date
   lease(spec: LeaseSpec): Promise<Lease>
+  /** Ends the run and releases every identity it still holds, so the pool
+   * gets them back now rather than when the run's TTL expires. Safe to
+   * call in a teardown that may run twice or run late: a run that is
+   * already not active counts as ended.
+   *
+   * This is the one call here that is outside the frozen core - the route
+   * is provisional - so it may change shape in a v1 release when the rest
+   * cannot. It is worth having anyway, because the alternative for a
+   * fixture is holding identities until a TTL expires. */
+  end(): Promise<void>
 }
 
 export interface AuthstuntClient {
@@ -171,6 +181,31 @@ function makeRun(baseUrl: string, wire: WireRun): Run {
         throw contractError(args, result, 'lease')
       }
       return makeLease(baseUrl, runToken, lease as WireLease)
+    },
+    end: async (): Promise<void> => {
+      const args: RequestArgs = {
+        baseUrl,
+        token: runToken,
+        method: 'POST',
+        path: `/api/v1/runs/${wire.run_id}/end`,
+        body: {},
+        watchdogMs: watchdogMarginMs,
+      }
+      const result = await requestJson(args)
+      if (result.status === 200) {
+        return
+      }
+      // 409 run_not_active means the run already reached a terminal state,
+      // by an earlier end() or by the server's expiry sweep. The caller
+      // asked for a run that is no longer running and that is what it has,
+      // so this is not a failure of the call. Anything else is.
+      if (result.status === 409) {
+        const envelope = result.body as { error?: { code?: string } } | undefined
+        if (envelope?.error?.code === 'run_not_active') {
+          return
+        }
+      }
+      throw apiError(args, result)
     },
   }
 }

@@ -187,3 +187,23 @@ void test('one message, two claim calls: the second is claim_already_claimed', a
 
   await lease.release()
 })
+
+void test('end releases the run, and ending it twice is not an error', async () => {
+  const { run, lease } = await openLease()
+
+  await run.end()
+
+  // The identity went back with the run: a claim on a lease of an ended
+  // run is refused by name rather than parking until its deadline.
+  const after = await lease.tryClaim('email_otp', { timeoutMs: 0 })
+  assert.equal(after.reason, 'run_not_active')
+
+  // Teardown safety, which is the whole reason this method exists: a
+  // fixture that ends the run on a path that already ended it must not
+  // turn cleanup into a failure.
+  await run.end()
+
+  // Same for the lease underneath it. Release after the run is gone is
+  // the ordinary teardown order when a test failed early.
+  await lease.release()
+})
