@@ -170,21 +170,23 @@ jobs:
           version: "~> v2"
           args: check
 
-  # Ubuntu only, on purpose: the package is plain TypeScript over global
-  # fetch with zero runtime dependencies, so there is no platform-specific
-  # code path a Windows or macOS runner would exercise. What IS platform
-  # sensitive lives in the Go binary, and the jobs above already run that
-  # on a Windows runner. The Go toolchain is here because the client tests
-  # build and drive the real server binary; nothing in this job touches the
-  # Go jobs' caches or gates.
-  client:
+  # Ubuntu only, on purpose: both packages are plain TypeScript over global
+  # fetch, so there is no platform-specific code path a Windows or macOS
+  # runner would exercise. What IS platform sensitive lives in the Go
+  # binary, and the jobs above already run that on a Windows runner. The Go
+  # toolchain is here because both suites build and drive the real server
+  # binary; nothing in this job touches the Go jobs' caches or gates.
+  #
+  # One job rather than a matrix, because the order matters: @authstunt/
+  # playwright resolves the client through a file: link into ../client, so
+  # the client's dist has to exist before the playwright package is
+  # installed. A matrix would run them concurrently and that link would
+  # point at an empty directory.
+  packages:
     runs-on: ubuntu-latest
-    # First job in this workflow that could hang unbounded: node:test has
-    # no default per-test timeout, unlike go test's 10 minute panic timer.
-    timeout-minutes: 15
-    defaults:
-      run:
-        working-directory: packages/client
+    # node:test has no default per-test timeout, unlike go test's 10 minute
+    # panic timer, and the playwright suite waits on real mail.
+    timeout-minutes: 20
     steps:
       - uses: actions/checkout@v7
       - uses: actions/setup-go@v7
@@ -194,16 +196,59 @@ jobs:
         with:
           node-version: "24"
           cache: npm
-          cache-dependency-path: packages/client/package-lock.json
-      - run: npm ci
-      - run: npm run typecheck
-      - run: npm run lint
-      - run: npm run build
+          cache-dependency-path: |
+            packages/client/package-lock.json
+            packages/playwright/package-lock.json
+
+      - name: client - install
+        working-directory: packages/client
+        run: npm ci
+      - name: client - typecheck
+        working-directory: packages/client
+        run: npm run typecheck
+      - name: client - lint
+        working-directory: packages/client
+        run: npm run lint
+      - name: client - build
+        working-directory: packages/client
+        run: npm run build
       # The tests import src, so nothing else executes the built artifact;
       # this does, under both module systems.
-      - run: npm run smoke
+      - name: client - smoke
+        working-directory: packages/client
+        run: npm run smoke
       # publint and arethetypeswrong gate the packaging itself: dual
       # ESM+CJS with a declaration file per format has to stay true under
       # every resolver, not just the one the tests happen to use.
-      - run: npm run check:package
-      - run: npm test
+      - name: client - check package
+        working-directory: packages/client
+        run: npm run check:package
+      - name: client - test
+        working-directory: packages/client
+        run: npm test
+
+      # The playwright package installs after the client is built, for the
+      # file: link reason above. No browsers are downloaded: the suite
+      # drives fixtures and a real server, and declares no browser project,
+      # so `playwright install` would cost minutes and prove nothing.
+      - name: playwright - install
+        working-directory: packages/playwright
+        run: npm ci
+      - name: playwright - typecheck
+        working-directory: packages/playwright
+        run: npm run typecheck
+      - name: playwright - lint
+        working-directory: packages/playwright
+        run: npm run lint
+      - name: playwright - build
+        working-directory: packages/playwright
+        run: npm run build
+      - name: playwright - smoke
+        working-directory: packages/playwright
+        run: npm run smoke
+      - name: playwright - check package
+        working-directory: packages/playwright
+        run: npm run check:package
+      - name: playwright - test
+        working-directory: packages/playwright
+        run: npm test
