@@ -1,0 +1,44 @@
+name: Feature request
+description: Suggest something AuthStunt should do
+labels: ["enhancement"]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Some things are deliberately out of scope, with the reasons written
+        down. Worth a look before writing: the README explains what a claim
+        owns and what pooled mode does not do yet.
+
+  - type: textarea
+    id: problem
+    attributes:
+      label: The problem
+      description: >
+        What are you trying to test, and where does it break down today?
+        Describe the situation rather than the solution.
+      placeholder: >
+        Two workers signing up at the same time both need a code within the
+        same 30 second window, and ...
+    validations:
+      required: true
+
+  - type: textarea
+    id: today
+    attributes:
+      label: What you do about it now
+      description: >
+        The workaround, however ugly. This is usually the most useful part of
+        the report, because it shows the shape of the real requirement.
+    validations:
+      required: true
+
+  - type: textarea
+    id: proposal
+    attributes:
+      label: What you would like instead
+      description: >
+        Optional. If you have a shape in mind, describe it. If it touches the
+        HTTP API, note whether it fits the append-only rule in
+        `internal/api/doc.go`.
+    validations:
+      required: false

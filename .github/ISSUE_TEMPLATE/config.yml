@@ -1,0 +1,10 @@
+# Blank issues stay enabled on purpose: Discussions is not turned on, so a
+# question that fits neither template would otherwise have nowhere to go.
+# Set this to false once Discussions exists and the config links to it.
+blank_issues_enabled: true
+contact_links:
+  - name: Report a security vulnerability
+    url: https://github.com/ivermin1123/authstunt/blob/main/SECURITY.md
+    about: >
+      Do not open a public issue. Email security@authstunt.com. SECURITY.md
+      says what to include and what is in scope.

@@ -1,0 +1,74 @@
+name: Bug report
+description: Something behaves differently from what the docs say
+labels: ["bug"]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Please do not report a security vulnerability here. Email
+        security@authstunt.com instead. See SECURITY.md.
+
+  - type: textarea
+    id: what-happened
+    attributes:
+      label: What happened
+      description: What you did, what happened, and what you expected instead.
+      placeholder: |
+        A claim for a code that had already arrived returned claim_timeout
+        rather than claim_ok.
+    validations:
+      required: true
+
+  - type: textarea
+    id: ready-line
+    attributes:
+      label: The startup line
+      description: >
+        Paste the line `serve` printed when it started. It reports the
+        capabilities that are actually wired, which is usually the fastest way
+        to tell an instance running with less than expected from a real bug.
+      placeholder: authstunt serving project demo, api 127.0.0.1:8925, long-poll on, pooled off, seeder off, smtp 127.0.0.1:1025
+      render: text
+    validations:
+      required: true
+
+  - type: input
+    id: version
+    attributes:
+      label: Version
+      description: Output of `authstunt version`, or the image tag you ran.
+      placeholder: authstunt 0.1.0 (commit abc1234, built 2026-08-16)
+    validations:
+      required: true
+
+  - type: textarea
+    id: reproduction
+    attributes:
+      label: How to reproduce
+      description: >
+        The smallest sequence that shows it. Server flags, the calls made, and
+        the message sent if one was involved. Use an address under a domain you
+        control.
+      render: shell
+    validations:
+      required: true
+
+  - type: textarea
+    id: environment
+    attributes:
+      label: Environment
+      description: OS and architecture, and how you installed it.
+      placeholder: |
+        macOS 15.5 arm64, ghcr.io/ivermin1123/authstunt
+    validations:
+      required: false
+
+  - type: checkboxes
+    id: no-secrets
+    attributes:
+      label: Before you post
+      options:
+        - label: >
+            I have checked that this report contains no project bearer, no run
+            token, and no real person's mail.
+          required: true

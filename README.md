@@ -498,6 +498,13 @@ and quarantined: kept as evidence and held back from the automated read path, so
 a staging app that copies a real customer address cannot hand that person's mail
 to a test.
 
+## Security
+
+Report a vulnerability to **security@authstunt.com** rather than in a public
+issue. [SECURITY.md](SECURITY.md) says what is in scope and what is not, and
+the "out of scope, by design" part is the half worth reading first: the host is
+trusted, and the SMTP listener accepts every credential it is given.
+
 ## Layout
 
 - `cmd/authstunt` - main binary
