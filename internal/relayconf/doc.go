@@ -59,6 +59,21 @@
 // made after that relay exists and its own before/after captures have been run
 // through these rules.
 //
+// # Where the bundled fixtures came from
+//
+// Every .eml file in testdata is written by hand for this package. None is a
+// capture of real mail, and none is derived from one. Checked on 2026-08-15:
+// every domain is under example.com or example.net (RFC 2606), the only IP
+// literal is 203.0.113.9 (RFC 5737 TEST-NET-3), there is no DKIM-Signature,
+// and the Message-ID, Date and single Received hop are identical across all
+// five files, which no real corpus would be. The bodies carry invented names
+// and codes.
+//
+// This matters because the files are relay captures by shape, and a capture is
+// the kind of artifact that arrives holding someone's address, a routing path
+// and a signature over real content. Anything added here has to be synthesized
+// the same way, or sanitized before it lands.
+//
 // The package is maintainer-only by decision. There is no command that runs
 // it: the rules are exercised through `go test ./internal/relayconf/`, here
 // against the bundled fixtures and elsewhere against a caller's own captures.
