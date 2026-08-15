@@ -262,11 +262,21 @@ extraction result is sealed with. Later runs may repeat the flags, which must
 match what is stored, or omit them; serve never silently reconciles a
 difference.
 
-An SMTP 250 means the message is stored and will survive the server process
-dying. It is not a promise about the machine: the database runs in WAL mode
-with `synchronous=NORMAL`, so a power cut is covered only as far as the last
-checkpoint, and a message acked just before one can be lost. That is the
-right trade for a test fixture and the wrong thing to discover by surprise.
+An SMTP 250 means the message is on disk. It survives the server process
+dying and it survives the machine losing power: the database runs in WAL mode
+with `synchronous=FULL`, so the commit that backs the ack fsyncs the WAL, and
+the blobs are fsynced before it.
+
+`serve --sync-mode=normal` trades that back for the older, narrower promise -
+the process, not the machine, with power loss covered only as far as the last
+checkpoint. It is worth about 1ms at p95 per message and nothing outside
+noise on a whole suite, so take it only if you know why you want it. A server
+started that way announces `sync normal` on its startup line, so a CI log
+records the trade rather than hiding it.
+
+Ack latency itself is around 7ms at p50 and 9ms at p95 in either mode. It is
+set by the blob fsyncs and by waiting for the single writer, not by this
+pragma, so changing the mode is not the lever for making delivery faster.
 
 The directory only grows. A message costs one row, one blob for the raw
 message, a second blob when it carries HTML, and the ledger events describing

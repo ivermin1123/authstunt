@@ -61,11 +61,59 @@ type Store struct {
 	lastNow time.Time
 }
 
+// SyncMode selects the synchronous PRAGMA the database is opened with.
+//
+// The zero value is SyncFull, so a caller that says nothing gets the
+// durable setting. That direction is deliberate: forgetting to pass a
+// mode costs latency, which is visible, rather than durability, which is
+// only visible after the machine that lost power comes back.
+type SyncMode int
+
+const (
+	// SyncFull fsyncs the WAL at every commit, so a committed row
+	// survives power loss and not only a dying process.
+	SyncFull SyncMode = iota
+	// SyncNormal leaves the WAL fsync to the next checkpoint. A commit
+	// still survives the process dying, but power loss is covered only
+	// as far as the last checkpoint.
+	SyncNormal
+)
+
+// String returns the name the --sync-mode flag accepts, so the flag, the
+// startup line and this type never drift into three vocabularies.
+func (m SyncMode) String() string {
+	if m == SyncNormal {
+		return "normal"
+	}
+	return "full"
+}
+
+// ParseSyncMode maps a flag value onto a mode. An unknown value is an
+// error rather than a fallback: silently opening at a durability the
+// operator did not ask for is the failure this whole setting is about.
+func ParseSyncMode(v string) (SyncMode, error) {
+	switch v {
+	case "full":
+		return SyncFull, nil
+	case "normal":
+		return SyncNormal, nil
+	default:
+		return SyncFull, fmt.Errorf("store: unknown sync mode %q, want \"full\" or \"normal\"", v)
+	}
+}
+
+// pragma renders the mode as the DSN fragment openDB passes to the driver.
+func (m SyncMode) pragma() string {
+	return fmt.Sprintf("synchronous(%s)", m)
+}
+
 // Options configures Open. The zero value is valid.
 type Options struct {
 	// Now overrides the clock used for created_at and friends. Tests set
 	// it; production leaves it nil.
 	Now func() time.Time
+	// Sync selects the synchronous PRAGMA. The zero value opens FULL.
+	Sync SyncMode
 	// MaxReadConns caps the reader pool. Defaults to 8.
 	MaxReadConns int
 	// Logger receives the events a read path can only report, never fix:
@@ -111,13 +159,13 @@ func open(ctx context.Context, dataDir string, sealer BlobSealer, opts Options, 
 	}
 
 	dbPath := filepath.Join(dataDir, "authstunt.db")
-	write, err := openDB(dbPath, "immediate")
+	write, err := openDB(dbPath, "immediate", opts.Sync)
 	if err != nil {
 		return nil, err
 	}
 	write.SetMaxOpenConns(1)
 
-	read, err := openDB(dbPath, "deferred")
+	read, err := openDB(dbPath, "deferred", opts.Sync)
 	if err != nil {
 		_ = write.Close()
 		return nil, err
@@ -160,13 +208,13 @@ func (s *Store) init(ctx context.Context, dataDir string, sealer BlobSealer, tar
 // connection the pool opens later is configured the same way; setting
 // them once after sql.Open would only configure the first connection.
 // Order matters to the driver: busy_timeout comes first.
-func openDB(path, txlock string) (*sql.DB, error) {
+func openDB(path, txlock string, sync SyncMode) (*sql.DB, error) {
 	q := url.Values{}
 	q.Set("_txlock", txlock)
 	q["_pragma"] = []string{
 		fmt.Sprintf("busy_timeout(%d)", busyTimeout.Milliseconds()),
 		"journal_mode(wal)",
-		"synchronous(normal)",
+		sync.pragma(),
 		"foreign_keys(on)",
 	}
 	dsn := "file:" + url.PathEscape(path) + "?" + q.Encode()
@@ -287,13 +335,17 @@ func (s *Store) exec(ctx context.Context, query string, args ...any) error {
 // Pragmas reports the PRAGMA values in force on a pooled read
 // connection. Used by tests and the health endpoint.
 type Pragmas struct {
-	JournalMode  string
-	Synchronous  int
-	ForeignKeys  bool
-	BusyTimeout  int
-	UserVersion  int
-	IsWAL        bool
-	IsSyncNormal bool
+	JournalMode string
+	Synchronous int
+	ForeignKeys bool
+	BusyTimeout int
+	UserVersion int
+	IsWAL       bool
+	// IsSyncFull reports the durable setting, which is the default. It
+	// is named for what is expected rather than for what an opt-in
+	// leaves behind: a health check reads better asking "is this the
+	// safe mode" than asking "is this the fast one".
+	IsSyncFull bool
 }
 
 // ReadPragmas queries the live settings rather than trusting the DSN.
@@ -315,7 +367,7 @@ func (s *Store) ReadPragmas(ctx context.Context) (Pragmas, error) {
 		}
 	}
 	p.IsWAL = p.JournalMode == "wal"
-	p.IsSyncNormal = p.Synchronous == 1
+	p.IsSyncFull = p.Synchronous == 2
 	return p, nil
 }
 

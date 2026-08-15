@@ -56,9 +56,9 @@ type Delivery struct {
 // Deliverer takes one delivered message and is responsible for durability.
 //
 // The contract that makes the SMTP ack honest lives on this seam: Deliver
-// returns nil only once the message is stored durably enough that losing
-// the process cannot lose the mail. The session answers 250 on nil and
-// nothing else.
+// returns nil only once the message is on disk, so neither the process nor
+// the machine going away can lose the mail. The session answers 250 on nil
+// and nothing else.
 type Deliverer interface {
 	Deliver(ctx context.Context, d Delivery) error
 }
@@ -334,11 +334,10 @@ func (s *Server) reply(err error) error {
 // Data consumes the message and decides the reply.
 //
 // Every exit path here is the ack contract: nil means 250 and means the
-// message is stored and survives this process dying, and any error means
-// the client still owns the message. Nothing between those two states is
-// expressible in SMTP, so nothing in between may be returned. The exact
-// reach of that promise, and where it stops short of power loss, is on
-// Ingest.Deliver.
+// message is on disk, and any error means the client still owns the
+// message. Nothing between those two states is expressible in SMTP, so
+// nothing in between may be returned. The exact reach of that promise,
+// and the one flag that narrows it, is on Ingest.Deliver.
 func (s *session) Data(r io.Reader) (err error) {
 	// A panic in parsing or storage must not take the process down with
 	// every other in-flight connection. It becomes 451: the message was

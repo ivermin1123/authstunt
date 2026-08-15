@@ -79,6 +79,11 @@ type serveOptions struct {
 	poolCooldown time.Duration
 	pooledMaxLat time.Duration
 	rotateBearer bool
+	// syncMode is the raw --sync-mode flag; sync is what it parsed to.
+	// The flag is validated once, at parse time, so an unusable value
+	// stops the command before it opens anything.
+	syncMode string
+	sync     store.SyncMode
 }
 
 // runServe is the serve subcommand.
@@ -102,12 +107,19 @@ func runServe(args []string, stderr io.Writer) error {
 		"absolute http or https URL the application exposes to seed a leased identity; leaving it unset skips seeding")
 	fs.DurationVar(&opts.poolCooldown, "pool-cooldown", personas.DefaultPoolCooldown,
 		"how long a released pooled identity is held back before it can be leased again")
+	fs.StringVar(&opts.syncMode, "sync-mode", store.SyncFull.String(),
+		"database durability: \"full\" fsyncs the WAL at every commit, so an acked message survives power loss; \"normal\" leaves that to the checkpoint and covers only the process dying")
 	if err := fs.Parse(args); err != nil {
 		return err
 	}
 	if opts.rotateBearer {
 		return errRotateBearerRemoved
 	}
+	sync, err := store.ParseSyncMode(opts.syncMode)
+	if err != nil {
+		return err
+	}
+	opts.sync = sync
 
 	dataDir, err := resolveDataDir(opts)
 	if err != nil {
@@ -139,7 +151,7 @@ func resolveDataDir(opts serveOptions) (string, error) {
 // serve opens the data directory, applies the bootstrap contract, and runs
 // until the context is canceled.
 func serve(ctx context.Context, opts serveOptions, dataDir string, logger *slog.Logger) error {
-	st, err := openDataDir(ctx, dataDir, logger)
+	st, err := openDataDir(ctx, dataDir, opts.sync, logger)
 	if err != nil {
 		return fmt.Errorf("serve: %w", err)
 	}
@@ -264,11 +276,21 @@ func serve(ctx context.Context, opts serveOptions, dataDir string, logger *slog.
 	if apiListener != nil {
 		apiAddr = apiListener.Addr().String()
 	}
+	// Durability is announced only when it has been lowered. The others
+	// are printed either way because either way is a choice; this one has
+	// a safe default, and a line that says "sync full" on every ordinary
+	// start teaches the reader to skip it. Printing it only on the opt-in
+	// means the token appearing in a CI log is itself the evidence that
+	// someone traded durability away on purpose.
+	syncNote := ""
+	if opts.sync != store.SyncFull {
+		syncNote = "sync " + opts.sync.String() + ", "
+	}
 	caps := leases.Capabilities()
-	fmt.Printf("authstunt serving project %s, api %s, long-poll %s, pooled %s, seeder %s, smtp %s\n",
+	fmt.Printf("authstunt serving project %s, api %s, long-poll %s, pooled %s, seeder %s, %ssmtp %s\n",
 		project.Name, apiAddr,
 		onOff(caps.LongPoll), onOff(caps.Pooled), onOff(caps.Seeder),
-		srv.Addr())
+		syncNote, srv.Addr())
 
 	serveErr := srv.Serve(ctx)
 
@@ -532,12 +554,16 @@ func onOff(enabled bool) string {
 // file and the database are always opened the same way and in the same
 // order. Callers add their own prefix to the error: the failure is the
 // same, but which command hit it is not.
-func openDataDir(ctx context.Context, dataDir string, logger *slog.Logger) (*store.Store, error) {
+//
+// sync is taken rather than defaulted here so that the one command with a
+// --sync-mode flag passes what the operator asked for, and every other
+// caller passes the zero value and gets the durable default.
+func openDataDir(ctx context.Context, dataDir string, sync store.SyncMode, logger *slog.Logger) (*store.Store, error) {
 	key, err := secrets.LoadOrCreateKey(filepath.Join(dataDir, "keys"), keyName)
 	if err != nil {
 		return nil, err
 	}
-	st, err := store.Open(ctx, dataDir, key, store.Options{Logger: logger})
+	st, err := store.Open(ctx, dataDir, key, store.Options{Logger: logger, Sync: sync})
 	if err != nil {
 		return nil, err
 	}

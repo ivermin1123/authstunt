@@ -106,7 +106,9 @@ func runBearerOperation(ctx context.Context, operation string, opts bearerOption
 	// is written straight to stdout below, so no handler, formatter or
 	// future log destination is ever handed it.
 	logger := slog.New(slog.NewTextHandler(stderr, nil))
-	st, err := openDataDir(ctx, dataDir, logger)
+	// Minting a credential is not a hot path, and it is the one write
+	// nobody wants to redo, so it always takes the durable default.
+	st, err := openDataDir(ctx, dataDir, store.SyncFull, logger)
 	if err != nil {
 		return fmt.Errorf("project bearer: %w", err)
 	}

@@ -143,4 +143,24 @@ func TestTheReadyLineReportsTheCapabilitiesItWasGiven(t *testing.T) {
 			t.Errorf("the ready line does not report %q: %q", want, ready)
 		}
 	}
+	// Durability is the one field printed only when it was lowered, so a
+	// default start must stay silent about it. Without this half, the
+	// test below could pass on a line that always says "sync".
+	if strings.Contains(ready, "sync") {
+		t.Errorf("a default start announced a sync mode it did not change: %q", ready)
+	}
+}
+
+// TestLoweredDurabilityIsAnnounced pins the opt-in half: an operator who
+// trades the power-loss guarantee away leaves that fact in the log of
+// whatever started the server, rather than in someone's memory of the
+// command line.
+func TestLoweredDurabilityIsAnnounced(t *testing.T) {
+	dataDir := t.TempDir()
+	srv := startBinary(t, dataDir, "--project", "demo", "--domain", "demo.test",
+		"--sync-mode", "normal")
+
+	if ready := srv.stdout(); !strings.Contains(ready, "sync normal") {
+		t.Errorf("the ready line does not report the lowered durability: %q", ready)
+	}
 }

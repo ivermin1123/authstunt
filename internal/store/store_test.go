@@ -157,8 +157,8 @@ func TestPragmasActive(t *testing.T) {
 	if !p.IsWAL {
 		t.Errorf("journal_mode = %q, want wal", p.JournalMode)
 	}
-	if !p.IsSyncNormal {
-		t.Errorf("synchronous = %d, want 1 (normal)", p.Synchronous)
+	if !p.IsSyncFull {
+		t.Errorf("synchronous = %d, want 2 (full)", p.Synchronous)
 	}
 	if !p.ForeignKeys {
 		t.Error("foreign_keys is off")
@@ -168,6 +168,65 @@ func TestPragmasActive(t *testing.T) {
 	}
 	if p.UserVersion != store.SchemaVersion {
 		t.Errorf("user_version = %d, want %d", p.UserVersion, store.SchemaVersion)
+	}
+}
+
+// TestSyncModeOptInReachesTheDatabase is the negative control for the
+// assertion above: the default is FULL because the store opens it that
+// way, not because nothing can change it. Opting into NORMAL has to come
+// back out of the live PRAGMA, or the flag is decoration.
+func TestSyncModeOptInReachesTheDatabase(t *testing.T) {
+	dir := t.TempDir()
+	key, err := secrets.LoadOrCreateKey(filepath.Join(dir, "keys"), "test")
+	if err != nil {
+		t.Fatalf("key: %v", err)
+	}
+	s, err := store.Open(t.Context(), dir, key, store.Options{Sync: store.SyncNormal})
+	if err != nil {
+		t.Fatalf("open: %v", err)
+	}
+	t.Cleanup(func() {
+		if err := s.Close(); err != nil {
+			t.Errorf("close: %v", err)
+		}
+	})
+
+	p, err := s.ReadPragmas(t.Context())
+	if err != nil {
+		t.Fatalf("read pragmas: %v", err)
+	}
+	if p.IsSyncFull {
+		t.Errorf("synchronous = %d after opting into normal, want 1", p.Synchronous)
+	}
+	if p.Synchronous != 1 {
+		t.Errorf("synchronous = %d, want 1 (normal)", p.Synchronous)
+	}
+}
+
+func TestParseSyncMode(t *testing.T) {
+	for _, tc := range []struct {
+		in   string
+		want store.SyncMode
+	}{
+		{"full", store.SyncFull},
+		{"normal", store.SyncNormal},
+	} {
+		got, err := store.ParseSyncMode(tc.in)
+		if err != nil {
+			t.Fatalf("parse %q: %v", tc.in, err)
+		}
+		if got != tc.want {
+			t.Errorf("parse %q = %v, want %v", tc.in, got, tc.want)
+		}
+		if got.String() != tc.in {
+			t.Errorf("%v.String() = %q, want %q", got, got.String(), tc.in)
+		}
+	}
+	// An unknown value must not fall back. Falling back to the default
+	// would be the safe direction and still wrong: the operator asked
+	// for something this binary does not have.
+	if _, err := store.ParseSyncMode("off"); err == nil {
+		t.Error("parsing an unsupported mode succeeded, want an error")
 	}
 }
 
