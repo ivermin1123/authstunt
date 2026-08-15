@@ -52,14 +52,15 @@ jobs:
     if: inputs.target == 'ubuntu' || inputs.target == 'both'
     runs-on: ubuntu-latest
     steps:
+      # Two steps, for the reason spelled out on the windows job below:
+      # the action resolves `ref` as a branch or tag and rejects an
+      # abbreviated sha, so the clone takes no ref and git resolves it.
       - uses: actions/checkout@v7
         with:
-          ref: ${{ inputs.ref }}
-          # Full history, because the point of this workflow is to check out
-          # an old commit. The default shallow fetch resolves the ref as a
-          # branch or tag pattern, so an abbreviated sha fails to fetch at
-          # all rather than failing to find the commit.
           fetch-depth: 0
+      - name: Check out the ref
+        shell: bash
+        run: git checkout --detach "${{ inputs.ref }}"
       - uses: actions/setup-go@v7
         with:
           go-version: "1.26.x"
@@ -123,10 +124,25 @@ jobs:
     # the runner takes its output with it, and the output is the point.
     timeout-minutes: 120
     steps:
+      # Checked out in two steps, and the second one is the point.
+      #
+      # actions/checkout resolves `ref` as a branch or tag, so an
+      # abbreviated sha fails with "a branch or tag with the name X could
+      # not be found" - before a single test runs. fetch-depth: 0 was
+      # added for this in b97714d and is necessary but not sufficient: it
+      # made full shas work, and the two dispatches that proved the fix
+      # happened to pass 40 characters. A 7-character sha still died, on
+      # 2026-08-15, on a Windows runner, having run nothing.
+      #
+      # So the ref is not given to the action at all. The default branch
+      # is cloned whole and git resolves the ref itself, which it does
+      # for abbreviated shas, full shas, tags and branches alike.
       - uses: actions/checkout@v7
         with:
-          ref: ${{ inputs.ref }}
           fetch-depth: 0
+      - name: Check out the ref
+        shell: bash
+        run: git checkout --detach "${{ inputs.ref }}"
       - uses: actions/setup-go@v7
         with:
           go-version: "1.26.x"
