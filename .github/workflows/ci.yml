@@ -20,15 +20,20 @@ on:
       - "LICENSE"
       - "docs/**"
 
-# Consecutive pushes to the same ref cancel the older run instead of stacking.
-# WARNING: this trades away per-commit CI history on the cancelled commits. If
-# main ever needs a green check on every individual commit (bisecting a CI
-# failure, a release audit trail), exclude it, for example by grouping on
-# github.ref and setting cancel-in-progress to
-# ${{ github.ref != 'refs/heads/main' }}. Solo repo today, so both are on.
+# Consecutive pushes to the same ref cancel the older run instead of stacking,
+# except on main.
+#
+# Main is exempt for a reason that outranks the saved minutes: the Windows job
+# fails about one run in fifteen, and it is the only place that failure has
+# ever been seen. Every push to main is therefore a trial of it, and the tests
+# carry a dump that fires on that path. A cancelled run is a trial thrown away,
+# and it has already happened once - two pushes a minute apart on 2026-08-15
+# discarded the first one's Windows job. Per-commit history on main is worth
+# having for its own sake too, for bisecting a CI failure and for the audit
+# trail once the repo is public.
 concurrency:
   group: ci-${{ github.ref }}
-  cancel-in-progress: true
+  cancel-in-progress: ${{ github.ref != 'refs/heads/main' }}
 
 permissions:
   contents: read
