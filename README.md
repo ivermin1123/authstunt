@@ -59,10 +59,12 @@ be bound to one message and refused to everyone else.
 
 Early alpha. The mail path works end to end: the server accepts SMTP, stores
 the message encrypted, extracts the OTP and the links, and hands them to the
-run that leased the address. A provisional HTTP API is bound on loopback for
-validation work; its paths and fields are not frozen and may change. There is
-no dashboard and no client library yet, TOTP is defined in the schema and
-refused by the surface, and YAML flows and the MCP server are not written.
+run that leased the address. The HTTP API is bound on loopback for validation
+work. `/api/v1` run-create, lease, claim and release are frozen; the rest of
+the API is provisional until the full freeze (the frozen fields are listed in
+`internal/api/doc.go`). There is no dashboard and no client library yet, TOTP
+is defined in the schema and refused by the surface, and YAML flows and the
+MCP server are not written.
 
 ## Install
 
@@ -120,18 +122,19 @@ the credentials or keep them, since authentication is accepted either way.
 
 ## Getting a code out of a test
 
-The calls below are the provisional API described under Status: they work
-today, and their paths and fields may change before the surface is frozen.
+The calls below are the frozen `/api/v1` core described under Status: their
+paths and fields are a commitment, and they only ever grow new optional
+fields.
 `$BEARER` is the value provisioned above, and it buys a short-lived run token
 that every later call uses instead.
 
 Open a run, then lease an identity for it:
 
 ```
-curl -sX POST http://127.0.0.1:8925/api/runs \
+curl -sX POST http://127.0.0.1:8925/api/v1/runs \
   -H "Authorization: Bearer $BEARER"
 
-curl -sX POST http://127.0.0.1:8925/api/runs/$RUN_ID/leases \
+curl -sX POST http://127.0.0.1:8925/api/v1/runs/$RUN_ID/leases \
   -H "Authorization: Bearer $RUN_TOKEN" \
   -d '{"role":"signup"}'
 ```
@@ -154,7 +157,7 @@ code. The claim parks until the mail lands, so it can be issued straight after
 the signup rather than after a sleep:
 
 ```
-curl -sX POST http://127.0.0.1:8925/api/leases/$LEASE_ID/claims \
+curl -sX POST http://127.0.0.1:8925/api/v1/leases/$LEASE_ID/claims \
   -H "Authorization: Bearer $RUN_TOKEN" \
   -d '{"kind":"email_otp","idempotency_key":"signup-1","timeout_ms":15000}'
 ```

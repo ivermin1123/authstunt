@@ -30,7 +30,7 @@ Ma xac thuc cua ban la 481920. Ma het han sau 5 phut.
 // sent to, which the existing helper does not expose.
 func (h *harness) grant(runID, token, role string) (leaseID, addr string) {
 	h.t.Helper()
-	rec := h.do(http.MethodPost, "/api/runs/"+runID+"/leases", token,
+	rec := h.do(http.MethodPost, "/api/v1/runs/"+runID+"/leases", token,
 		map[string]string{"role": role})
 	if rec.Code != http.StatusCreated {
 		h.t.Fatalf("acquire: %d %s", rec.Code, rec.Body.String())
@@ -75,7 +75,7 @@ type claimBody struct {
 
 func (h *harness) claim(leaseID, token string, timeoutMS int64, key string) claimBody {
 	h.t.Helper()
-	rec := h.do(http.MethodPost, "/api/leases/"+leaseID+"/claims", token, map[string]any{
+	rec := h.do(http.MethodPost, "/api/v1/leases/"+leaseID+"/claims", token, map[string]any{
 		"kind": store.ClaimEmailOTP, "idempotency_key": key, "timeout_ms": timeoutMS,
 	})
 	if rec.Code != http.StatusOK {
@@ -171,7 +171,7 @@ func TestClaimTimeoutBoundsAreEnforced(t *testing.T) {
 	leaseID, _ := h.grant(runID, runToken, "signup")
 
 	for _, timeout := range []int64{-1, -60_000, 120_001, 600_000} {
-		rec := h.do(http.MethodPost, "/api/leases/"+leaseID+"/claims", runToken,
+		rec := h.do(http.MethodPost, "/api/v1/leases/"+leaseID+"/claims", runToken,
 			map[string]any{
 				"kind": store.ClaimEmailOTP, "idempotency_key": "bounds-1",
 				"timeout_ms": timeout,
@@ -201,7 +201,7 @@ func TestClaimTimeoutBoundsAreEnforced(t *testing.T) {
 		t.Fatalf("deliver: %v", err)
 	}
 
-	rec := h.do(http.MethodPost, "/api/leases/"+boundedLease+"/claims", runToken,
+	rec := h.do(http.MethodPost, "/api/v1/leases/"+boundedLease+"/claims", runToken,
 		map[string]any{
 			"kind": store.ClaimEmailOTP, "idempotency_key": "bounds-max",
 			"timeout_ms": 120_000,

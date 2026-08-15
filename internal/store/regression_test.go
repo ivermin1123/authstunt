@@ -132,7 +132,7 @@ func TestUnreadableRowStaysDeletable(t *testing.T) {
 }
 
 // TestQuarantinedMessageHiddenFromSingleRead covers the path behind
-// /api/messages/{id}, /otp and /links. Quarantine is unconditional
+// /api/v1/messages/{id}, /otp and /links. Quarantine is unconditional
 // outside the dashboard, so the default lookup must not serve one.
 func TestQuarantinedMessageHiddenFromSingleRead(t *testing.T) {
 	ctx := t.Context()

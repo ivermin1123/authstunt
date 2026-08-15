@@ -1,12 +1,3 @@
-// Package api serves the provisional HTTP surface a validation harness
-// drives AuthStunt through.
-//
-// PROVISIONAL (phase 4a). Paths, parameters and field names may change
-// without a major version until phase 4b freezes them. What is not
-// provisional is the security behavior: principal scoping, the loopback
-// default, the Host allowlist, the Origin check and redaction all ship
-// here in full, because a real application's real credentials pass
-// through this surface during gate A.
 package api
 
 import (
@@ -142,13 +133,13 @@ func (s *Server) routes() http.Handler {
 	mux.HandleFunc("GET /healthz", s.handleHealth)
 
 	authed := http.NewServeMux()
-	authed.HandleFunc("POST /api/runs", s.handleCreateRun)
-	authed.HandleFunc("POST /api/runs/{run_id}/end", s.handleEndRun)
-	authed.HandleFunc("GET /api/runs/{run_id}/evidence", s.handleRunEvidence)
-	authed.HandleFunc("POST /api/runs/{run_id}/leases", s.handleAcquireLease)
-	authed.HandleFunc("DELETE /api/leases/{lease_id}", s.handleReleaseLease)
-	authed.HandleFunc("POST /api/leases/{lease_id}/claims", s.handleClaim)
-	mux.Handle("/api/", s.authenticate(authed))
+	authed.HandleFunc("POST /api/v1/runs", s.handleCreateRun)
+	authed.HandleFunc("POST /api/v1/runs/{run_id}/end", s.handleEndRun)
+	authed.HandleFunc("GET /api/v1/runs/{run_id}/evidence", s.handleRunEvidence)
+	authed.HandleFunc("POST /api/v1/runs/{run_id}/leases", s.handleAcquireLease)
+	authed.HandleFunc("DELETE /api/v1/leases/{lease_id}", s.handleReleaseLease)
+	authed.HandleFunc("POST /api/v1/leases/{lease_id}/claims", s.handleClaim)
+	mux.Handle("/api/v1/", s.authenticate(authed))
 
 	return s.recoverPanic(s.checkHostAndOrigin(s.limitBody(mux)))
 }

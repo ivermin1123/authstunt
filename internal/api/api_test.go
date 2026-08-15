@@ -131,7 +131,7 @@ func (h *harness) do(method, path, token string, body any) *httptest.ResponseRec
 // newRun creates a run through the surface and returns its id and token.
 func (h *harness) newRun() (string, string) {
 	h.t.Helper()
-	rec := h.do(http.MethodPost, "/api/runs", h.bearer, nil)
+	rec := h.do(http.MethodPost, "/api/v1/runs", h.bearer, nil)
 	if rec.Code != http.StatusCreated {
 		h.t.Fatalf("create run: %d %s", rec.Code, rec.Body.String())
 	}
@@ -147,7 +147,7 @@ func (h *harness) newRun() (string, string) {
 
 func (h *harness) acquire(runID, token, role string) string {
 	h.t.Helper()
-	rec := h.do(http.MethodPost, "/api/runs/"+runID+"/leases", token,
+	rec := h.do(http.MethodPost, "/api/v1/runs/"+runID+"/leases", token,
 		map[string]string{"role": role})
 	if rec.Code != http.StatusCreated {
 		h.t.Fatalf("acquire: %d %s", rec.Code, rec.Body.String())
@@ -186,7 +186,7 @@ func TestRunLifecycleThroughTheSurface(t *testing.T) {
 
 	// The lease reports the mode actually served, and the default is
 	// ephemeral.
-	rec := h.do(http.MethodPost, "/api/runs/"+runID+"/leases", runToken,
+	rec := h.do(http.MethodPost, "/api/v1/runs/"+runID+"/leases", runToken,
 		map[string]string{"role": "gv-paid"})
 	var grant struct {
 		Mode         string `json:"mode"`
@@ -208,7 +208,7 @@ func TestRunLifecycleThroughTheSurface(t *testing.T) {
 
 	// Release is idempotent, because teardown paths overlap.
 	for range 2 {
-		rec := h.do(http.MethodDelete, "/api/leases/"+leaseID, runToken, nil)
+		rec := h.do(http.MethodDelete, "/api/v1/leases/"+leaseID, runToken, nil)
 		if rec.Code != http.StatusNoContent {
 			t.Fatalf("release: %d %s", rec.Code, rec.Body.String())
 		}
@@ -216,7 +216,7 @@ func TestRunLifecycleThroughTheSurface(t *testing.T) {
 
 	// Ending twice the same way is not an error either.
 	for range 2 {
-		rec := h.do(http.MethodPost, "/api/runs/"+runID+"/end", runToken,
+		rec := h.do(http.MethodPost, "/api/v1/runs/"+runID+"/end", runToken,
 			map[string]string{"state": store.RunComplete})
 		if rec.Code != http.StatusOK {
 			t.Fatalf("end run: %d %s", rec.Code, rec.Body.String())
@@ -224,7 +224,7 @@ func TestRunLifecycleThroughTheSurface(t *testing.T) {
 	}
 
 	// A terminal run refuses further work with its reason code.
-	rec = h.do(http.MethodPost, "/api/runs/"+runID+"/leases", runToken,
+	rec = h.do(http.MethodPost, "/api/v1/runs/"+runID+"/leases", runToken,
 		map[string]string{"role": "gv-free"})
 	if got := codeOf(t, rec); got != store.ReasonRunNotActive {
 		t.Fatalf("acquire on an ended run = %q, want %q", got, store.ReasonRunNotActive)
@@ -245,9 +245,9 @@ func TestRunTokenCannotReadAnotherRun(t *testing.T) {
 		path   string
 		body   any
 	}{
-		{http.MethodGet, "/api/runs/" + theirsID + "/evidence", nil},
-		{http.MethodPost, "/api/runs/" + theirsID + "/end", map[string]string{"state": store.RunComplete}},
-		{http.MethodPost, "/api/runs/" + theirsID + "/leases", map[string]string{"role": "gv-free"}},
+		{http.MethodGet, "/api/v1/runs/" + theirsID + "/evidence", nil},
+		{http.MethodPost, "/api/v1/runs/" + theirsID + "/end", map[string]string{"state": store.RunComplete}},
+		{http.MethodPost, "/api/v1/runs/" + theirsID + "/leases", map[string]string{"role": "gv-free"}},
 	}
 	for _, c := range cases {
 		rec := h.do(c.method, c.path, mineToken, c.body)
@@ -263,8 +263,8 @@ func TestRunTokenCannotReadAnotherRun(t *testing.T) {
 		path   string
 		body   any
 	}{
-		{http.MethodDelete, "/api/leases/" + theirLease, nil},
-		{http.MethodPost, "/api/leases/" + theirLease + "/claims", map[string]any{
+		{http.MethodDelete, "/api/v1/leases/" + theirLease, nil},
+		{http.MethodPost, "/api/v1/leases/" + theirLease + "/claims", map[string]any{
 			"kind": store.ClaimEmailOTP, "idempotency_key": "k",
 		}},
 	} {
@@ -276,7 +276,7 @@ func TestRunTokenCannotReadAnotherRun(t *testing.T) {
 
 	// And the run token cannot create a run: that is the bearer's job,
 	// and a token that could mint its own successor would be unbounded.
-	if rec := h.do(http.MethodPost, "/api/runs", mineToken, nil); rec.Code != http.StatusForbidden {
+	if rec := h.do(http.MethodPost, "/api/v1/runs", mineToken, nil); rec.Code != http.StatusForbidden {
 		t.Fatalf("create run with a run token = %d, want 403", rec.Code)
 	}
 	_ = mineID
@@ -287,7 +287,7 @@ func TestSecretReadsRequireAuthenticatedPrincipal(t *testing.T) {
 	runID, runToken := h.newRun()
 	leaseID := h.acquire(runID, runToken, "gv-free")
 
-	claimPath := "/api/leases/" + leaseID + "/claims"
+	claimPath := "/api/v1/leases/" + leaseID + "/claims"
 	claimBody := map[string]any{"kind": store.ClaimEmailOTP, "idempotency_key": "k"}
 
 	// No credential at all.
@@ -307,10 +307,10 @@ func TestSecretReadsRequireAuthenticatedPrincipal(t *testing.T) {
 
 	// Every authenticated route refuses an anonymous caller too.
 	for _, c := range []struct{ method, path string }{
-		{http.MethodPost, "/api/runs"},
-		{http.MethodGet, "/api/runs/" + runID + "/evidence"},
-		{http.MethodPost, "/api/runs/" + runID + "/leases"},
-		{http.MethodDelete, "/api/leases/" + leaseID},
+		{http.MethodPost, "/api/v1/runs"},
+		{http.MethodGet, "/api/v1/runs/" + runID + "/evidence"},
+		{http.MethodPost, "/api/v1/runs/" + runID + "/leases"},
+		{http.MethodDelete, "/api/v1/leases/" + leaseID},
 	} {
 		if rec := h.do(c.method, c.path, "", nil); rec.Code != http.StatusUnauthorized {
 			t.Fatalf("%s %s anonymous = %d, want 401", c.method, c.path, rec.Code)
@@ -325,7 +325,7 @@ func TestClaimReturnsNoSecretOnAnyFailurePath(t *testing.T) {
 
 	// No mail has arrived, so this is the no-binding path. It must carry
 	// its reason code and no value field at all.
-	rec := h.do(http.MethodPost, "/api/leases/"+leaseID+"/claims", runToken, map[string]any{
+	rec := h.do(http.MethodPost, "/api/v1/leases/"+leaseID+"/claims", runToken, map[string]any{
 		"kind": store.ClaimEmailOTP, "idempotency_key": "attempt-1", "timeout_ms": 0,
 	})
 	if rec.Code != http.StatusOK {
@@ -347,7 +347,7 @@ func TestClaimReturnsNoSecretOnAnyFailurePath(t *testing.T) {
 	}
 
 	// TOTP is a refused stub, not a silent failure.
-	rec = h.do(http.MethodPost, "/api/leases/"+leaseID+"/claims", runToken, map[string]any{
+	rec = h.do(http.MethodPost, "/api/v1/leases/"+leaseID+"/claims", runToken, map[string]any{
 		"kind": store.ClaimTOTP, "idempotency_key": "attempt-2",
 	})
 	if rec.Code != http.StatusNotImplemented {
@@ -356,7 +356,7 @@ func TestClaimReturnsNoSecretOnAnyFailurePath(t *testing.T) {
 
 	// An idempotency key is mandatory: without one a retry would consume
 	// a second message.
-	rec = h.do(http.MethodPost, "/api/leases/"+leaseID+"/claims", runToken, map[string]any{
+	rec = h.do(http.MethodPost, "/api/v1/leases/"+leaseID+"/claims", runToken, map[string]any{
 		"kind": store.ClaimEmailOTP,
 	})
 	if rec.Code != http.StatusBadRequest {
@@ -370,7 +370,7 @@ func TestEvidenceIsRedactedAndScoped(t *testing.T) {
 
 	// The granted address is read from the acquire response, because it
 	// is the exact string that must not reappear in evidence.
-	rec := h.do(http.MethodPost, "/api/runs/"+runID+"/leases", runToken,
+	rec := h.do(http.MethodPost, "/api/v1/runs/"+runID+"/leases", runToken,
 		map[string]string{"role": "gv-free"})
 	if rec.Code != http.StatusCreated {
 		t.Fatalf("acquire: %d %s", rec.Code, rec.Body.String())
@@ -386,7 +386,7 @@ func TestEvidenceIsRedactedAndScoped(t *testing.T) {
 		t.Fatalf("granted address %q has no local part", grant.Addr)
 	}
 
-	rec = h.do(http.MethodGet, "/api/runs/"+runID+"/evidence", runToken, nil)
+	rec = h.do(http.MethodGet, "/api/v1/runs/"+runID+"/evidence", runToken, nil)
 	if rec.Code != http.StatusOK {
 		t.Fatalf("evidence = %d %s", rec.Code, rec.Body.String())
 	}
@@ -424,7 +424,7 @@ func TestEvidenceIsRedactedAndScoped(t *testing.T) {
 	}
 
 	// The project bearer may read any run of its project.
-	if rec := h.do(http.MethodGet, "/api/runs/"+runID+"/evidence", h.bearer, nil); rec.Code != http.StatusOK {
+	if rec := h.do(http.MethodGet, "/api/v1/runs/"+runID+"/evidence", h.bearer, nil); rec.Code != http.StatusOK {
 		t.Fatalf("bearer evidence read = %d", rec.Code)
 	}
 }
@@ -464,7 +464,7 @@ func TestOriginCheckBlocksCrossSite(t *testing.T) {
 	// A browser page on another origin, holding a stolen token, is
 	// refused before the credential is even looked at.
 	for _, origin := range []string{"https://evil.example", "null", "http://127.0.0.1.evil.example"} {
-		req := httptest.NewRequestWithContext(context.Background(), http.MethodPost, "/api/runs", nil)
+		req := httptest.NewRequestWithContext(context.Background(), http.MethodPost, "/api/v1/runs", nil)
 		req.Host = "localhost:8925"
 		req.Header.Set("Origin", origin)
 		req.Header.Set("Authorization", "Bearer "+h.bearer)
@@ -477,7 +477,7 @@ func TestOriginCheckBlocksCrossSite(t *testing.T) {
 
 	// A same-origin browser request is fine, and so is a CLI that sends
 	// no Origin at all - which the rest of these tests already prove.
-	req := httptest.NewRequestWithContext(context.Background(), http.MethodPost, "/api/runs", nil)
+	req := httptest.NewRequestWithContext(context.Background(), http.MethodPost, "/api/v1/runs", nil)
 	req.Host = "localhost:8925"
 	req.Header.Set("Origin", "http://localhost:8925")
 	req.Header.Set("Authorization", "Bearer "+h.bearer)
@@ -493,7 +493,7 @@ func TestOversizedBodyRejected(t *testing.T) {
 	runID, runToken := h.newRun()
 
 	huge := strings.Repeat("a", api.MaxRequestBytes+1)
-	rec := h.do(http.MethodPost, "/api/runs/"+runID+"/leases", runToken,
+	rec := h.do(http.MethodPost, "/api/v1/runs/"+runID+"/leases", runToken,
 		map[string]string{"role": huge})
 	if rec.Code != http.StatusRequestEntityTooLarge {
 		t.Fatalf("oversized body = %d, want 413", rec.Code)
@@ -507,7 +507,7 @@ func TestPooledIsNeverServedWithoutAPolicy(t *testing.T) {
 	// The harness configures no pooled policy, so a pooled request is
 	// refused by name. What must never happen is a silent downgrade to
 	// ephemeral, which would hand back a working lease in the wrong mode.
-	rec := h.do(http.MethodPost, "/api/runs/"+runID+"/leases", runToken,
+	rec := h.do(http.MethodPost, "/api/v1/runs/"+runID+"/leases", runToken,
 		map[string]string{"role": "gv-free", "mode": store.ModePooled})
 	if rec.Code == http.StatusCreated {
 		t.Fatalf("a pooled request was served without a policy: %s", rec.Body.String())
@@ -517,7 +517,7 @@ func TestPooledIsNeverServedWithoutAPolicy(t *testing.T) {
 	}
 
 	// An unknown mode is refused rather than coerced.
-	rec = h.do(http.MethodPost, "/api/runs/"+runID+"/leases", runToken,
+	rec = h.do(http.MethodPost, "/api/v1/runs/"+runID+"/leases", runToken,
 		map[string]string{"role": "gv-free", "mode": "whatever"})
 	if rec.Code != http.StatusBadRequest {
 		t.Fatalf("unknown mode = %d, want 400", rec.Code)

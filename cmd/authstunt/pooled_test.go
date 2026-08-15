@@ -105,10 +105,10 @@ func TestPooledPolicyReachesTheServiceFromTheFlag(t *testing.T) {
 // is why it reports not_found rather than a failure to prepare an account.
 func pooledRefusal(t *testing.T, apiAddr, bearer string) string {
 	t.Helper()
-	run := apiCall(t, apiAddr, http.MethodPost, "/api/runs", bearer, nil)
+	run := apiCall(t, apiAddr, http.MethodPost, "/api/v1/runs", bearer, nil)
 	runID, runToken := str(t, run, "run_id"), str(t, run, "run_token")
 
-	_, err := apiRequest(apiAddr, http.MethodPost, "/api/runs/"+runID+"/leases",
+	_, err := apiRequest(apiAddr, http.MethodPost, "/api/v1/runs/"+runID+"/leases",
 		runToken, map[string]string{"role": "signup", "mode": store.ModePooled})
 	if err == nil {
 		t.Fatal("a pooled lease succeeded, which means the pool can now be " +

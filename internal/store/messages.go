@@ -91,7 +91,7 @@ func (t *Tx) InsertMessage(ctx context.Context, m Message) (Message, error) {
 // ErrNotFound for a quarantined one.
 //
 // Quarantine is invisible to everything except the dashboard, and that
-// includes single-message reads: /api/messages/{id}, /otp, and /links all
+// includes single-message reads: /api/v1/messages/{id}, /otp, and /links all
 // land here. Making the safe behavior the default one keeps the rule from
 // depending on each handler remembering to check a flag.
 // A row whose payload no longer opens reports ErrUnreadableMessage, per

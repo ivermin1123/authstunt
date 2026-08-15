@@ -108,11 +108,11 @@ func TestClaimWaitsForMailThatArrivesAfterTheClaimOpens(t *testing.T) {
 		t.Fatal("the ready line carried no API address")
 	}
 
-	run := apiCall(t, srv.apiAddr, http.MethodPost, "/api/runs", bearer, nil)
+	run := apiCall(t, srv.apiAddr, http.MethodPost, "/api/v1/runs", bearer, nil)
 	runID, runToken := str(t, run, "run_id"), str(t, run, "run_token")
 
 	lease := apiCall(t, srv.apiAddr, http.MethodPost,
-		"/api/runs/"+runID+"/leases", runToken, map[string]string{"role": "signup"})
+		"/api/v1/runs/"+runID+"/leases", runToken, map[string]string{"role": "signup"})
 	leaseID, addr := str(t, lease, "lease_id"), str(t, lease, "addr")
 
 	// The claim runs on its own goroutine so the delivery can happen while
@@ -128,7 +128,7 @@ func TestClaimWaitsForMailThatArrivesAfterTheClaimOpens(t *testing.T) {
 	go func() {
 		started := time.Now()
 		body, err := apiRequest(srv.apiAddr, http.MethodPost,
-			"/api/leases/"+leaseID+"/claims", runToken, map[string]any{
+			"/api/v1/leases/"+leaseID+"/claims", runToken, map[string]any{
 				"kind": "email_otp", "idempotency_key": "wiring-1",
 				"timeout_ms": 30000,
 			})

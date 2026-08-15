@@ -76,7 +76,7 @@ func runServe(args []string, stderr io.Writer) error {
 	fs.StringVar(&opts.dataDir, "data-dir", "", "data directory (default ~/.authstunt/<project>)")
 	fs.StringVar(&opts.smtpListen, "smtp-listen", "127.0.0.1:1025", "SMTP listen address")
 	fs.StringVar(&opts.apiListen, "api-listen", api.DefaultAddr,
-		"HTTP API listen address (PROVISIONAL surface: paths and fields may change before the phase 4b freeze)")
+		"HTTP API listen address (the /api/v1 run-create, lease, claim and release routes are frozen; the rest of the API is provisional)")
 	fs.Var(&opts.apiHosts, "api-host",
 		"additional Host header value the API accepts, repeatable; required to bind the API off loopback")
 	fs.DurationVar(&opts.pooledMaxLat, "pooled-max-delivery-latency", 0,
@@ -280,7 +280,7 @@ func serve(ctx context.Context, opts serveOptions, dataDir string, logger *slog.
 	return serveErr
 }
 
-// startAPI binds the provisional HTTP surface.
+// startAPI binds the HTTP surface.
 //
 // It returns a nil server when --api-listen is empty, which is how an
 // operator runs a mail-catcher-only instance.
