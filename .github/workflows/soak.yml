@@ -13,22 +13,43 @@ on:
         description: "Ref to soak (commit sha, tag or branch)"
         required: true
         type: string
+      target:
+        description: "Which soak to run. windows hunts the open W-1 flake and is the expensive one (Windows minutes bill at 2x); ubuntu re-runs the pooled-handover loop, which is already bounded."
+        required: false
+        default: "windows"
+        type: choice
+        options:
+          - windows
+          - ubuntu
+          - both
       count_per_invocation:
-        description: "go test -count per invocation. One count is 1000 iterations of the test; 2 keeps an invocation near 2-4 minutes on a runner."
+        description: "ubuntu only. go test -count per invocation. One count is 1000 iterations of the test; 2 keeps an invocation near 2-4 minutes on a runner."
         required: false
         default: "2"
         type: string
       budget_minutes:
-        description: "Wall clock budget for the soak loop"
+        description: "ubuntu only. Wall clock budget for the soak loop"
         required: false
         default: "40"
+        type: string
+      windows_count:
+        description: "windows only. go test -count for the single invocation. 30 counts is ~30x164s of test on a runner, inside the 120 minute job ceiling."
+        required: false
+        default: "30"
         type: string
 
 permissions:
   contents: read
 
 jobs:
+  # The pooled-handover loop this workflow was built for. The flake it
+  # hunts was real - seen once at iteration 501 of 1000 - and it is now
+  # bounded rather than open: 1 event in 1,495,133 iterations across four
+  # branches, closed on 2026-08-15. It is kept because a bounded rate is
+  # still worth re-measuring against a tree, not because it is the open
+  # question. The open one is on Windows, below.
   soak-ubuntu:
+    if: inputs.target == 'ubuntu' || inputs.target == 'both'
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v7
@@ -81,4 +102,85 @@ jobs:
           path: |
             soak-summary.txt
             soak-FAIL-*.json
+          if-no-files-found: warn
+
+  # The open W-1 question: TestTwoConcurrentRunsNeverCrossClaim has failed
+  # on the Windows runner and nowhere else, at roughly 6.7% of runs, and
+  # that failure has never been caught with a dump attached. Every passive
+  # chance to catch one is a push to main; there are only a few of those
+  # left before C, which is about an 18% chance of ever seeing it. Thirty
+  # counts here is about 87%.
+  #
+  # One job, one invocation. Setup - checkout, toolchain, compile - is
+  # paid once instead of thirty times, which is what makes this
+  # affordable on a runner that bills Windows minutes at 2x. Budgeted at
+  # ~184 billed minutes, about 6% of the monthly allowance.
+  soak-windows:
+    if: inputs.target == 'windows' || inputs.target == 'both'
+    runs-on: windows-latest
+    # The hard ceiling. The go test timeout below sits under it so the
+    # test binary panics with its own stack dump first: a job killed by
+    # the runner takes its output with it, and the output is the point.
+    timeout-minutes: 120
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          ref: ${{ inputs.ref }}
+          fetch-depth: 0
+      - uses: actions/setup-go@v7
+        with:
+          go-version: "1.26.x"
+      - name: Record the environment
+        shell: bash
+        run: |
+          echo "ref=${{ inputs.ref }}"
+          echo "sha=$(git rev-parse HEAD)"
+          echo "cpus=$NUMBER_OF_PROCESSORS"
+          go version
+      - name: Soak
+        shell: bash
+        run: |
+          set +e
+          # No -failfast, deliberately. Each additional red is another
+          # dump, and dumps are the reason this runs at all.
+          #
+          # -timeout has to be set explicitly: go test defaults to a 10
+          # minute panic timer, and this invocation is planned to run for
+          # over an hour, so the default would kill it mid-soak and look
+          # exactly like the flake reproducing when nothing of the sort
+          # happened. It sits under the job ceiling so the binary's own
+          # panic - carrying every goroutine stack - reaches the log
+          # before the runner takes the machine away.
+          go test -count=${{ inputs.windows_count }} -race -timeout 110m \
+            -run '^TestTwoConcurrentRunsNeverCrossClaim$' \
+            -json ./internal/personas/ > soak-windows.json 2> soak-windows-stderr.txt
+          rc=$?
+          set -e
+
+          # Rebuild the human-readable log next to the raw stream. The
+          # dump is t.Log output, so it lives in the output actions.
+          jq -r 'select(.Action=="output") | .Output' soak-windows.json > soak-windows.log || true
+          tail -n 100 soak-windows.log
+          cat soak-windows-stderr.txt
+
+          {
+            echo "ref=${{ inputs.ref }} sha=$(git rev-parse HEAD) cpus=$NUMBER_OF_PROCESSORS"
+            echo "count=${{ inputs.windows_count }} rc=$rc"
+            echo "fail_lines=$(grep -c -- '--- FAIL' soak-windows.log || true)"
+            echo "settle_lines=$(grep -c 'SETTLE n=' soak-windows.log || true)"
+          } > soak-windows-summary.txt
+          cat soak-windows-summary.txt
+      # Everything, not just the failures. A dump that exists only in the
+      # step log is one retention policy away from being gone, and this
+      # run is too expensive to repeat for want of an upload.
+      - name: Upload the soak result
+        if: always()
+        uses: actions/upload-artifact@v7
+        with:
+          name: soak-windows-${{ inputs.ref }}
+          path: |
+            soak-windows-summary.txt
+            soak-windows.log
+            soak-windows.json
+            soak-windows-stderr.txt
           if-no-files-found: warn
