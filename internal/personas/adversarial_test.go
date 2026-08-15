@@ -8,6 +8,7 @@ import (
 	"path/filepath"
 	"runtime"
 	"slices"
+	"strconv"
 	"strings"
 	"sync"
 	"testing"
@@ -90,8 +91,13 @@ func (s *settleLog) report(t *testing.T, ceiling time.Duration) {
 		return d[i]
 	}
 	maxd := d[len(d)-1]
+	// Every duration goes through asciiDuration for the reason spelled
+	// out there: this line is read off a Windows console, and p50 is
+	// routinely sub-millisecond, which is exactly where Duration.String()
+	// reaches for a micro sign.
 	t.Logf("SETTLE n=%d ceiling=%s p50=%s p95=%s p99=%s max=%s headroom_at_max=%s",
-		len(d), ceiling, at(0.50), at(0.95), at(0.99), maxd, ceiling-maxd)
+		len(d), asciiDuration(ceiling), asciiDuration(at(0.50)), asciiDuration(at(0.95)),
+		asciiDuration(at(0.99)), asciiDuration(maxd), asciiDuration(ceiling-maxd))
 }
 
 func newWedge(t *testing.T, opts ...func(*personas.Config)) *wedge {
@@ -241,13 +247,23 @@ func (w *wedge) sendUndated(ctx context.Context, to, code string) {
 	w.deliver(ctx, to, time.Now(), []byte(fmt.Sprintf(undatedTemplate, to, code)))
 }
 
+// deliver fails with Errorf and returns, never Fatal.
+//
+// The gating test sends its batch from one goroutine per message, and
+// t.Fatal outside the goroutine that runs the test does not stop the
+// test: it calls runtime.Goexit on the caller only, so the test carries
+// on with one sender silently gone. That is not theory - a single run
+// accumulated 206 never-settled reports, every one of them a Fatal that
+// stopped nothing. Errorf marks the test failed, the return ends this
+// delivery, and the batch its caller is waiting on still completes.
 func (w *wedge) deliver(ctx context.Context, to string, at time.Time, raw []byte) {
 	w.t.Helper()
 	waiter, err := w.bus.SubscribeMatch(ctx, func(ev sse.Event) bool {
 		return ev.Message != nil
 	})
 	if err != nil {
-		w.t.Fatalf("subscribe: %v", err)
+		w.t.Errorf("subscribe for %s: %v", to, err)
+		return
 	}
 	defer waiter.Close()
 
@@ -257,7 +273,8 @@ func (w *wedge) deliver(ctx context.Context, to string, at time.Time, raw []byte
 		Raw:        raw,
 		ReceivedAt: at,
 	}); err != nil {
-		w.t.Fatalf("deliver: %v", err)
+		w.t.Errorf("deliver to %s: %v", to, err)
+		return
 	}
 	waitCtx, cancel := context.WithTimeout(ctx, w.settleCeiling)
 	defer cancel()
@@ -266,7 +283,8 @@ func (w *wedge) deliver(ctx context.Context, to string, at time.Time, raw []byte
 		// The wait has already run out, so nothing here can lengthen or
 		// shorten what it is describing.
 		w.dumpSettleFailure(ctx, to, at, time.Since(started))
-		w.t.Fatal("the message never settled")
+		w.t.Errorf("the message to %s never settled", to)
+		return
 	}
 	if w.settle != nil {
 		w.settle.add(time.Since(started))
@@ -288,11 +306,29 @@ func (w *wedge) deliver(ctx context.Context, to string, at time.Time, raw []byte
 // GOMAXPROCS is printed because it sizes both the extraction worker pool
 // and the queue in front of it, so it is what decides how deep a burst of
 // concurrent deliveries has to sit before it is served.
+// The dump is assembled in full and emitted through a SINGLE Logf.
+// testing serializes each Logf call, not each dump, so a dump written a
+// line at a time interleaves with any other dump running at the same
+// moment - measured at 60-64% of lines when four deliveries time out
+// together, which is exactly the shape the CI red of 2026-08-14 had.
+// A dump that has to be unscrambled before it can be read is not
+// evidence. One call, one block, no interleaving.
+//
+// Every line that answers a question carries the address it answers it
+// for, because the count that matters most is zero, and a bare
+// "message_count_for_addr=0" in a log with four dumps in it names
+// nothing.
 func (w *wedge) dumpSettleFailure(ctx context.Context, addr string, at time.Time, waited time.Duration) {
 	w.t.Helper()
-	f := func(format string, a ...any) { w.t.Logf("SETTLE-DUMP "+format, a...) }
+	var b strings.Builder
+	f := func(format string, a ...any) {
+		b.WriteString("SETTLE-DUMP ")
+		fmt.Fprintf(&b, format, a...)
+		b.WriteByte('\n')
+	}
 
-	f("addr=%s received_at_arg=%s waited=%s ceiling=%s", addr, stored(at), waited, w.settleCeiling)
+	f("addr=%s received_at_arg=%s waited=%s ceiling=%s",
+		addr, stored(at), asciiDuration(waited), asciiDuration(w.settleCeiling))
 	f("wall_now=%s gomaxprocs=%d numcpu=%d", stored(time.Now()), runtime.GOMAXPROCS(0), runtime.NumCPU())
 	f("storage: acquired_at/released_at/received_at are TEXT; layout=%q (9 fractional digits)", storedLayout)
 
@@ -300,12 +336,13 @@ func (w *wedge) dumpSettleFailure(ctx context.Context, addr string, at time.Time
 		ProjectID: w.projectID, To: addr, Limit: 4,
 	})
 	if err != nil {
-		f("messages: READ FAILED: %v", err)
+		f("messages for addr=%s: READ FAILED: %v", addr, err)
+		w.t.Log(b.String())
 		return
 	}
 	// The answer to "was it written at all" is this count, read after the
 	// wait gave up. Zero and non-zero point at different subsystems.
-	f("message_count_for_addr=%d", len(msgs))
+	f("message_count_for_addr=%d addr=%s", len(msgs), addr)
 	for _, m := range msgs {
 		f("message id=%s received_at=%s", m.ID, stored(m.ReceivedAt))
 
@@ -324,13 +361,33 @@ func (w *wedge) dumpSettleFailure(ctx context.Context, addr string, at time.Time
 	owner, err := w.store.LeaseAt(ctx, addr, at)
 	switch {
 	case errors.Is(err, store.ErrNotFound):
-		f("LeaseAt(addr, received_at_arg) -> NO LEASE MATCHED")
+		f("LeaseAt(addr=%s, received_at_arg) -> NO LEASE MATCHED", addr)
 	case err != nil:
-		f("LeaseAt(addr, received_at_arg) -> READ FAILED: %v", err)
+		f("LeaseAt(addr=%s, received_at_arg) -> READ FAILED: %v", addr, err)
 	default:
-		f("LeaseAt(addr, received_at_arg) -> lease=%s run=%s acquired_at=%s released_at=%s",
-			owner.ID, owner.RunID, stored(owner.AcquiredAt), stored(owner.ReleasedAt))
+		f("LeaseAt(addr=%s, received_at_arg) -> lease=%s run=%s acquired_at=%s released_at=%s",
+			addr, owner.ID, owner.RunID, stored(owner.AcquiredAt), stored(owner.ReleasedAt))
 	}
+
+	w.t.Log(b.String())
+}
+
+// asciiDuration renders a duration without Go's sub-millisecond units.
+//
+// Duration.String() prints "292ns" and "1.5µs", and the µ is U+00B5. The
+// console this dump is read from is a Windows runner, which encodes
+// output as code page 437, where that byte sequence arrives as mojibake -
+// observed as "┬║". A number that has to be decoded before it can be
+// compared is a number nobody compares.
+//
+// CI writes the stream to a file as well, and a file could carry UTF-8
+// safely, but ASCII closes the question everywhere at once and costs
+// nothing: no reader of this output has to know which path it took.
+func asciiDuration(d time.Duration) string {
+	if d >= time.Second {
+		return strconv.FormatFloat(d.Seconds(), 'f', 3, 64) + "s"
+	}
+	return strconv.FormatFloat(float64(d)/float64(time.Millisecond), 'f', 3, 64) + "ms"
 }
 
 // claim is the short form used everywhere below.
