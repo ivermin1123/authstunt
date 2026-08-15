@@ -80,7 +80,7 @@ func runServe(args []string, stderr io.Writer) error {
 	fs.Var(&opts.apiHosts, "api-host",
 		"additional Host header value the API accepts, repeatable; required to bind the API off loopback")
 	fs.DurationVar(&opts.pooledMaxLat, "pooled-max-delivery-latency", 0,
-		"declared upper bound on the application's mail delivery latency; enables pooled mode, which stays experimental")
+		"declared upper bound on the application's mail delivery latency; enables pooled mode, which is UNSUPPORTED: a handover can leave a message invisible to the run that owns it (see the pooled handover known issue)")
 	fs.BoolVar(&opts.rotateBearer, "rotate-bearer", false,
 		"REMOVED: use `authstunt project bearer rotate` instead; serve never mints or prints a credential")
 	fs.StringVar(&opts.seedURL, "seed-url", "",

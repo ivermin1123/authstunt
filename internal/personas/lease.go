@@ -429,6 +429,17 @@ func (s *Service) reserveEphemeral(ctx context.Context, runID, role string) (sto
 	return lease, identity, nil
 }
 
+// reservePooled takes a pooled lease.
+//
+// Pooled mode is unsupported. A soak of the concurrent handover gate found
+// one run where the incoming run saw no binding for a message that arrived
+// while it held the address: 1 failure in 1,495,133 iterations, so at 95%
+// confidence the rate is at most 1 in 268,000. The mechanism is not known,
+// and a rate that low is exactly the rate at which a wrong fix looks like a
+// right one. Ephemeral mode is unaffected and is not a workaround but the
+// default: its addresses are minted per run and never reused, so the
+// correlation this failure lives in has nothing to get wrong. See the
+// pooled handover known issue.
 func (s *Service) reservePooled(ctx context.Context, runID, role string) (store.Lease, store.Identity, error) {
 	// The policy gate comes before the pool is even listed. A pooled
 	// address outlives the run that used it, and without a declared
