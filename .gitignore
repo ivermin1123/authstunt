@@ -7,6 +7,11 @@ node_modules/
 # packages/ are tracked; dist is rebuilt from them and never committed.
 packages/*/dist/
 *.tsbuildinfo
+# Playwright writes its run artifacts next to the suite. They are outputs of
+# a run, never inputs to one, so no run depends on a committed copy.
+packages/playwright/test-results/
+packages/playwright/playwright-report/
+packages/playwright/blob-report/
 
 # Data and secrets
 *.db
