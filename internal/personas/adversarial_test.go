@@ -193,6 +193,25 @@ const undatedTemplate = "From: app@acme.example\r\n" +
 	"\r\n" +
 	"Your code is %s. It expires in ten minutes.\r\n"
 
+// welcomeTemplate is mail to a leased address that carries no code of any
+// kind. It exists to be noise: it binds to the lease, it publishes an
+// event, and it is not what a claim is waiting for. There is no digit run
+// anywhere in it, so the extractor finds no candidate at all rather than
+// finding a weak one.
+const welcomeTemplate = "From: app@acme.example\r\n" +
+	"To: %s\r\n" +
+	"Date: %s\r\n" +
+	"Subject: Welcome to Acme\r\n" +
+	"\r\n" +
+	"Thanks for signing up. Nothing in this message needs to be typed in.\r\n"
+
+// sendNoise delivers mail the claim must ignore and keep waiting through.
+func (w *wedge) sendNoise(ctx context.Context, to string) {
+	w.t.Helper()
+	at := time.Now()
+	w.deliver(ctx, to, at, []byte(fmt.Sprintf(welcomeTemplate, to, at.Format(time.RFC1123Z))))
+}
+
 // send delivers one OTP mail through the real pipeline and waits for the
 // extraction to settle, so a claim that follows is racing nothing.
 func (w *wedge) send(ctx context.Context, to, code string) {
@@ -792,6 +811,81 @@ func TestClaimWakesOnMailThatArrivesWhileWaiting(t *testing.T) {
 	}
 	if got.Waited > 4*time.Second {
 		t.Errorf("the claim waited %s for mail that arrived immediately", got.Waited)
+	}
+}
+
+// TestClaimKeepsWaitingThroughNoiseMail is the regression test for the
+// one-shot subscription: a claim that is woken by mail it cannot use must
+// still be woken by the mail it can.
+//
+// The shape under test is Mesa condition-variable discipline. A wakeup is
+// a hint, so the claim re-checks in a loop; that half was always right.
+// What was wrong is that the subscription did not survive the first hint,
+// so the second message arrived to an empty registry and the caller slept
+// out its whole budget for mail that was already stored.
+//
+// Why this runs in rounds rather than once: nothing can synchronize the
+// noise against the claim's registration from outside the service, and a
+// round whose noise lands before the claim subscribes is a round that
+// would pass either way. A round is only ever a false pass, never a false
+// failure, so repeating it is what makes the test discriminate - with the
+// bug present essentially every round fails, and with it fixed no round
+// can fail whatever the order turns out to be.
+func TestClaimKeepsWaitingThroughNoiseMail(t *testing.T) {
+	// Short enough that a regression costs rounds x budget rather than
+	// minutes, and still two orders of magnitude above the measured
+	// settle (p99 ~20ms, max 35ms).
+	const (
+		rounds = 8
+		budget = 2 * time.Second
+		// A claim that answered from the bus never comes close to this.
+		// A claim that slept out its budget is far past it.
+		prompt = 500 * time.Millisecond
+	)
+
+	w := newWedge(t)
+	ctx := t.Context()
+
+	for i := range rounds {
+		_, grant := w.run(ctx, "pro")
+		code := fmt.Sprintf("77%04d", i)
+
+		var (
+			wg  sync.WaitGroup
+			got personas.Claimed
+			err error
+		)
+		wg.Add(1)
+		go func() {
+			defer wg.Done()
+			got, err = w.svc.Claim(ctx, personas.ClaimRequest{
+				LeaseID: grant.LeaseID, Kind: store.ClaimEmailOTP,
+				IdempotencyKey: fmt.Sprintf("noise-then-code-%d", i),
+				Timeout:        budget,
+			})
+		}()
+
+		// The welcome mail is addressed to the same lease, so it matches
+		// the claim's predicate and wakes it. It carries nothing of the
+		// claimed kind, so the claim has to go back to waiting.
+		w.sendNoise(ctx, grant.Addr)
+		w.send(ctx, grant.Addr, code)
+		wg.Wait()
+
+		if err != nil {
+			t.Fatalf("round %d: claim: %v", i, err)
+		}
+		if !got.OK() {
+			t.Fatalf("round %d: reason = %s, want claim_ok: the code arrived after noise woke the claim",
+				i, got.Reason)
+		}
+		if got.Value != code {
+			t.Errorf("round %d: value = %q, want %q", i, got.Value, code)
+		}
+		if got.Waited > prompt {
+			t.Errorf("round %d: the claim waited %s for a code that was already delivered, budget %s",
+				i, got.Waited, budget)
+		}
 	}
 }
 

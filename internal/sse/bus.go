@@ -150,10 +150,13 @@ func (b *Bus) Run(ctx context.Context) {
 			for w := range waiters {
 				if w.match(ev) {
 					w.deliver(ev)
-					// One shot. First match wins, and the waiter is gone
-					// from the registry before the next event is assigned
-					// an id.
-					delete(waiters, w)
+					// The waiter stays registered until its owner
+					// closes it. A caller that parks in a loop -
+					// claim does, because mail matching its address
+					// need not be mail it can use - would otherwise be
+					// woken by the first message to arrive and by
+					// nothing after it, then sleep out its whole
+					// deadline for a code already in the store.
 				}
 			}
 			for s := range subscribers {

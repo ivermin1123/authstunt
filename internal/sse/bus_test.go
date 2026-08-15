@@ -209,10 +209,50 @@ func TestEveryMatchingWaiterWakes(t *testing.T) {
 	})
 }
 
-// TestWaiterTakesFirstMatchOnly: a woken waiter leaves the registry, so the
-// next message does not queue up behind a request that has already been
-// answered.
-func TestWaiterTakesFirstMatchOnly(t *testing.T) {
+// TestWaiterKeepsMatchingUntilClosed: answering a waiter does not
+// unsubscribe it. A caller that has to reject what it was woken by, which
+// is every caller waiting for one kind of mail on an address that receives
+// several, has to still be reachable by the message it wanted.
+func TestWaiterKeepsMatchingUntilClosed(t *testing.T) {
+	synctest.Test(t, func(t *testing.T) {
+		b := startBus(t, 1)
+		w, err := b.SubscribeMatch(context.Background(), matchTo("a@x.test"))
+		if err != nil {
+			t.Fatalf("subscribe: %v", err)
+		}
+		defer w.Close()
+
+		ctx, cancel := context.WithTimeout(context.Background(), time.Second)
+		defer cancel()
+
+		publishTo(t, b, "first", "a@x.test")
+		synctest.Wait()
+		ev, ok := w.Wait(ctx)
+		if !ok || ev.Message.ID != "first" {
+			t.Fatalf("first wake returned (%v, %v), want the first message", ev.Message, ok)
+		}
+
+		// The waiter has read its first event and parked again. Before,
+		// it was gone from the registry by now and this second message
+		// woke nobody.
+		publishTo(t, b, "second", "a@x.test")
+		synctest.Wait()
+		ev, ok = w.Wait(ctx)
+		if !ok {
+			t.Fatal("the waiter was not woken by a second matching message")
+		}
+		if ev.Message.ID != "second" {
+			t.Errorf("second wake returned %q, want the second message", ev.Message.ID)
+		}
+	})
+}
+
+// TestWaiterCoalescesHintsItHasNotRead pins the other half of the buffer
+// contract: what a waiter carries is a hint that something matched, not a
+// queue of everything that did. A second event arriving before the caller
+// has read the first is dropped, and dropping it loses nothing, because
+// the caller re-queries the store on the hint it does read and finds both.
+func TestWaiterCoalescesHintsItHasNotRead(t *testing.T) {
 	synctest.Test(t, func(t *testing.T) {
 		b := startBus(t, 1)
 		w, err := b.SubscribeMatch(context.Background(), matchTo("a@x.test"))
@@ -232,7 +272,7 @@ func TestWaiterTakesFirstMatchOnly(t *testing.T) {
 			t.Fatalf("first wake returned (%v, %v), want the first message", ev.Message, ok)
 		}
 		if _, ok := w.Wait(ctx); ok {
-			t.Error("the waiter matched a second message after being answered")
+			t.Error("a hint the caller never read was queued instead of coalesced")
 		}
 	})
 }

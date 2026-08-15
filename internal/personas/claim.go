@@ -142,7 +142,7 @@ func (s *Service) Claim(ctx context.Context, req ClaimRequest) (Claimed, error) 
 		}
 	}
 
-	final, err := s.explain(ctx, lease, req, lower)
+	final, err := s.explain(ctx, run, lease, req, lower)
 	if err != nil {
 		return Claimed{}, err
 	}
@@ -239,6 +239,15 @@ func (s *Service) attempt(ctx context.Context, run store.Run, lease store.Lease,
 	if err != nil {
 		return Claimed{}, err
 	}
+	return s.take(ctx, run, lease, req, candidates)
+}
+
+// take walks candidates oldest-first and records the first one that
+// carries a value of the claimed kind. An empty reason means none did.
+//
+// It is separate from the query so that the explain path can decide on
+// the candidates it has already read rather than reading them twice.
+func (s *Service) take(ctx context.Context, run store.Run, lease store.Lease, req ClaimRequest, candidates []store.Candidate) (Claimed, error) {
 	for _, candidate := range candidates {
 		value := valueFor(candidate.ExtractedJSON, req.Kind)
 		if value == "" {
@@ -303,18 +312,32 @@ func endOfGrant(run store.Run, lease store.Lease) time.Time {
 // explain decides what to report when the deadline passed with nothing
 // handed over.
 //
-// The order is most specific first. A bare timeout is the weakest answer
-// this can give, so it is the last one: an operator debugging a missing
-// code needs to know the mail arrived and was refused, and why, rather
-// than that the wait ran out.
-func (s *Service) explain(ctx context.Context, lease store.Lease, req ClaimRequest, lower time.Time) (Claimed, error) {
-	_, refused, err := s.store.ClaimCandidates(ctx, store.CandidateFilter{
+// It attempts once more before it reports anything. The read it needs for
+// the refusal counts returns the claimable candidates alongside them, so a
+// code that is sitting in the store at this instant costs nothing to
+// notice - and reporting a timeout while holding a usable candidate is
+// wrong however the claim came to be here. This is the net under the
+// waiting path rather than a part of it: every future way of missing a
+// wakeup ends in this function, and ends in a late claim_ok instead of a
+// timeout that contradicts the store.
+//
+// After that the order is most specific first. A bare timeout is the
+// weakest answer this can give, so it is the last one: an operator
+// debugging a missing code needs to know the mail arrived and was refused,
+// and why, rather than that the wait ran out.
+func (s *Service) explain(ctx context.Context, run store.Run, lease store.Lease, req ClaimRequest, lower time.Time) (Claimed, error) {
+	candidates, refused, err := s.store.ClaimCandidates(ctx, store.CandidateFilter{
 		LeaseID:   lease.ID,
 		Kind:      req.Kind,
 		NotBefore: lower,
 	})
 	if err != nil {
 		return Claimed{}, err
+	}
+	if late, err := s.take(ctx, run, lease, req, candidates); err != nil {
+		return Claimed{}, err
+	} else if late.Reason != "" {
+		return late, nil
 	}
 	switch {
 	case refused.Suspect > 0:

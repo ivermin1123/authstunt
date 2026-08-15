@@ -22,6 +22,14 @@ import "context"
 // this waiter's buffer while the query is still running, and Wait returns it
 // immediately.
 //
+// A waiter stays registered until Close, so it can be waited on more than
+// once. That is what lets a caller loop: a wakeup says only that something
+// matching arrived, never that it was the thing the caller wanted, and a
+// caller that has to reject one message and keep waiting must still be
+// reachable by the next. This is Mesa discipline (Lampson and Redell 1980) -
+// the wakeup is a hint and the caller re-checks - and the hint has to keep
+// being delivered for the loop to terminate on anything but the deadline.
+//
 // Composing the two halves is the API layer's job; this package deliberately
 // knows nothing about the store.
 type Waiter struct {
@@ -55,10 +63,16 @@ func (w *Waiter) Close() {
 	}
 }
 
-// deliver is called on the bus goroutine. The buffer holds one event and the
-// bus drops the waiter from the registry immediately afterwards, so the send
-// cannot block; the default case is here because a bus that could be stalled
-// by one waiter would be the wrong shape whatever the arithmetic says.
+// deliver is called on the bus goroutine and never blocks it: a waiter that
+// is not draining loses the event rather than stalling every other
+// subscriber.
+//
+// Dropping is safe because the buffered event is a hint, not the payload.
+// A caller that is between wakeups already has one queued and will re-query
+// when it reads it; a second hint arriving before it does would tell it
+// nothing the re-query does not already find. What may never be dropped is
+// the last hint after the caller has parked again, and it cannot be: the
+// buffer is empty by then, because parking means the caller has read it.
 func (w *Waiter) deliver(ev Event) {
 	select {
 	case w.events <- ev:
