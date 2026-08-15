@@ -3,6 +3,10 @@
 /dist/
 web/dist/
 node_modules/
+# npm package build output: only sources, configs and lockfiles under
+# packages/ are tracked; dist is rebuilt from them and never committed.
+packages/*/dist/
+*.tsbuildinfo
 
 # Data and secrets
 *.db
