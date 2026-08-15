@@ -2,8 +2,10 @@ package main_test
 
 import (
 	"log/slog"
+	"os"
 	"os/exec"
 	"path/filepath"
+	"runtime"
 	"strings"
 	"testing"
 
@@ -228,6 +230,93 @@ func TestBearerRevokeStopsAuthenticationAndTheAPI(t *testing.T) {
 	}
 	if !strings.Contains(out, "project bearer provision") {
 		t.Errorf("the refusal did not name the provisioning command: %q", out)
+	}
+}
+
+// TestBearerProvisionOutWritesTheFileAndNothingElse covers the CI path:
+// the value lands in the named file with owner-only permissions, and no
+// stream carries anything bearer-shaped, because a runner archives every
+// stream it sees.
+func TestBearerProvisionOutWritesTheFileAndNothingElse(t *testing.T) {
+	dataDir := t.TempDir()
+	outPath := filepath.Join(t.TempDir(), "bearer")
+	stdout, stderr, err := bearerCmd(t, dataDir, "provision",
+		append(initFlags(), "--out", outPath)...)
+	if err != nil {
+		t.Fatalf("provision --out: %v\n%s", err, stderr)
+	}
+	for stream, body := range map[string]string{"stdout": stdout, "stderr": stderr} {
+		if strings.Contains(body, store.ProjectBearerPrefix) {
+			t.Errorf("--out still wrote something bearer-shaped to %s: %q", stream, body)
+		}
+	}
+
+	// nolint:gosec // G304 flags the variable path, but it is this test's
+	// own literal under t.TempDir.
+	raw, err := os.ReadFile(outPath)
+	if err != nil {
+		t.Fatalf("read the out file: %v", err)
+	}
+	token := strings.TrimSpace(string(raw))
+	if !strings.HasPrefix(token, store.ProjectBearerPrefix) {
+		t.Fatalf("the out file does not hold a bearer: %q", token)
+	}
+	if !authenticates(t, dataDir, token) {
+		t.Error("the written credential does not authenticate")
+	}
+	if runtime.GOOS != "windows" {
+		// Windows expresses file protection as a DACL, not mode bits.
+		info, err := os.Stat(outPath)
+		if err != nil {
+			t.Fatalf("stat the out file: %v", err)
+		}
+		if perm := info.Mode().Perm(); perm != 0o600 {
+			t.Errorf("out file mode = %o, want 0600", perm)
+		}
+	}
+	assertNotOnDisk(t, dataDir, token)
+}
+
+// TestBearerOutRefusesAnExistingFileBeforeMinting pins the ordering that
+// makes the refusal safe, the same one the reveal check keeps: a rotation
+// whose destination cannot be secured must leave the current credential
+// working and the existing file untouched.
+func TestBearerOutRefusesAnExistingFileBeforeMinting(t *testing.T) {
+	dataDir := t.TempDir()
+	token := provisionBearer(t, dataDir, initFlags()...)
+	outPath := filepath.Join(t.TempDir(), "bearer")
+	if err := os.WriteFile(outPath, []byte("sentinel\n"), 0o600); err != nil {
+		t.Fatalf("plant the existing file: %v", err)
+	}
+
+	_, stderr, err := bearerCmd(t, dataDir, "rotate", "--out", outPath)
+	if err == nil {
+		t.Fatal("rotate overwrote an existing out file")
+	}
+	if !strings.Contains(stderr, "--out") {
+		t.Errorf("the refusal did not name --out: %q", stderr)
+	}
+	if !authenticates(t, dataDir, token) {
+		t.Error("a refused --out rotation destroyed the working credential")
+	}
+	// nolint:gosec // G304 flags the variable path, but it is this test's
+	// own literal under t.TempDir.
+	if raw, err := os.ReadFile(outPath); err != nil || string(raw) != "sentinel\n" {
+		t.Errorf("the existing file was touched: %q, %v", raw, err)
+	}
+}
+
+// TestBearerRevokeRefusesOut keeps the flag honest: revoke produces no
+// credential, so accepting a destination for one would be a lie.
+func TestBearerRevokeRefusesOut(t *testing.T) {
+	dataDir := t.TempDir()
+	provisionBearer(t, dataDir, initFlags()...)
+	_, stderr, err := bearerCmd(t, dataDir, "revoke", "--out", filepath.Join(t.TempDir(), "bearer"))
+	if err == nil {
+		t.Fatal("revoke accepted --out")
+	}
+	if !strings.Contains(stderr, "no credential") {
+		t.Errorf("the refusal did not say why: %q", stderr)
 	}
 }
 

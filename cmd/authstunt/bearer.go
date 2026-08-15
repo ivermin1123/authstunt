@@ -18,8 +18,8 @@ import (
 const projectUsage = `authstunt project bearer - manage the project's API credential
 
 Usage:
-  authstunt project bearer provision [--data-dir <path>] [--project <name>] [--domain <pattern>]...
-  authstunt project bearer rotate    [--data-dir <path>] [--project <name>]
+  authstunt project bearer provision [--data-dir <path>] [--project <name>] [--domain <pattern>]... [--out <path>]
+  authstunt project bearer rotate    [--data-dir <path>] [--project <name>] [--out <path>]
   authstunt project bearer revoke    [--data-dir <path>] [--project <name>]
 
 provision mints the credential the HTTP API authenticates with, rotate
@@ -35,6 +35,11 @@ By default the value is only shown on a terminal. A pipe, a file, or a CI
 job is refused, because the value would land in whatever collects that
 output. --allow-non-tty-reveal overrides the refusal and makes the caller
 responsible for where the value goes.
+
+--out skips stdout entirely and writes the value to a file created with
+mode 0600. The path must not already exist. It is the way to provision
+where no terminal exists, like a CI job: the value never touches a stream
+anything else collects, and the file lives and dies with the runner.
 `
 
 // bearerOptions is the flag set the three operations share.
@@ -45,6 +50,8 @@ type bearerOptions struct {
 	// allowNonTTY is the operator taking responsibility for a sink this
 	// program cannot inspect.
 	allowNonTTY bool
+	// outPath, when set, receives the minted value instead of stdout.
+	outPath string
 }
 
 // runProject is the `project` subcommand tree.
@@ -76,8 +83,13 @@ func runProject(args []string, stdout, stderr io.Writer) error {
 		"allowlisted domain pattern, repeatable; required to initialize an empty data dir")
 	fs.BoolVar(&opts.allowNonTTY, "allow-non-tty-reveal", false,
 		"print the credential even when the output is not a terminal; the caller owns wherever it lands")
+	fs.StringVar(&opts.outPath, "out", "",
+		"write the credential to this file (created 0600, must not exist) instead of stdout; for provisioning without a terminal, like CI")
 	if err := fs.Parse(args[2:]); err != nil {
 		return err
+	}
+	if operation == "revoke" && opts.outPath != "" {
+		return errors.New("project bearer: revoke produces no credential, so --out has nothing to write")
 	}
 
 	dataDir, err := resolveDataDir(serveOptions{project: opts.project, dataDir: opts.dataDir})
@@ -163,12 +175,27 @@ var errRevealRefused = errors.New(
 // which is a self-inflicted lockout dressed as a safety check.
 func mintBearer(ctx context.Context, st *store.Store, project store.Project,
 	operation string, opts bearerOptions, stdout, stderr io.Writer) error {
-	if !revealPermitted(opts.allowNonTTY) {
-		return errRevealRefused
-	}
-	if opts.allowNonTTY && !revealPermitted(false) {
-		note(stderr, "authstunt: warning: --allow-non-tty-reveal is printing a credential to a "+
-			"destination this program cannot see the far end of. Whoever captures this output now holds it.")
+	// Securing the destination always happens before the mint, whichever
+	// destination it is: a refused reveal or an unopenable file must never
+	// leave a fresh credential nobody can read, or a dead previous one.
+	var sink *os.File
+	if opts.outPath != "" {
+		// O_EXCL refuses an existing path, so a re-run cannot clobber a
+		// value somebody already collected, and a planted symlink is not
+		// followed into a destination the caller never named.
+		f, err := os.OpenFile(opts.outPath, os.O_WRONLY|os.O_CREATE|os.O_EXCL, 0o600)
+		if err != nil {
+			return fmt.Errorf("project bearer: --out: %w", err)
+		}
+		sink = f
+	} else {
+		if !revealPermitted(opts.allowNonTTY) {
+			return errRevealRefused
+		}
+		if opts.allowNonTTY && !revealPermitted(false) {
+			note(stderr, "authstunt: warning: --allow-non-tty-reveal is printing a credential to a "+
+				"destination this program cannot see the far end of. Whoever captures this output now holds it.")
+		}
 	}
 
 	var token string
@@ -191,6 +218,24 @@ func mintBearer(ctx context.Context, st *store.Store, project store.Project,
 
 	if operation == ledger.BearerRotated {
 		note(stderr, "authstunt: the previous bearer no longer authenticates.")
+	}
+	if sink != nil {
+		// The file, like stdout below, is the only place the raw value is
+		// written; the logger never sees it. A failed write is reported the
+		// same way as a failed print: the credential already replaced its
+		// predecessor, so the only way out is rotating again. The partial
+		// file is removed so half a secret does not linger at a path the
+		// caller is about to trust.
+		_, werr := fmt.Fprintln(sink, token)
+		if err := errors.Join(werr, sink.Close()); err != nil {
+			_ = os.Remove(opts.outPath)
+			return fmt.Errorf(
+				"project bearer: the credential was written to the database but could not be written to %s, "+
+					"so it is now unrecoverable; rotate again: %w", opts.outPath, err)
+		}
+		note(stderr, "authstunt: the credential is in "+opts.outPath+
+			" (mode 0600). It cannot be shown again; read it, then delete the file.")
+		return nil
 	}
 	note(stderr, "authstunt: store this now, it cannot be shown again:")
 	// The only place a raw credential is ever written. It goes to stdout
