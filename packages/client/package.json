@@ -1,0 +1,60 @@
+{
+  "name": "@authstunt/client",
+  "version": "0.0.0",
+  "description": "Typed, zero-dependency TypeScript client for the AuthStunt /api/v1 surface: open a run, lease an identity, claim the one message a code is bound to.",
+  "license": "MIT",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/ivermin1123/authstunt.git",
+    "directory": "packages/client"
+  },
+  "type": "module",
+  "engines": {
+    "node": ">=18"
+  },
+  "files": [
+    "dist"
+  ],
+  "main": "./dist/index.cjs",
+  "module": "./dist/index.js",
+  "types": "./dist/index.d.ts",
+  "exports": {
+    ".": {
+      "import": {
+        "types": "./dist/index.d.ts",
+        "default": "./dist/index.js"
+      },
+      "require": {
+        "types": "./dist/index.d.cts",
+        "default": "./dist/index.cjs"
+      }
+    }
+  },
+  "sideEffects": false,
+  "scripts": {
+    "build": "tsup",
+    "typecheck": "tsc -p tsconfig.json && tsc -p tsconfig.src.json --noEmit",
+    "lint": "eslint .",
+    "check:package": "publint && attw --pack .",
+    "test": "node --import tsx --test test/claims.test.ts test/retry.test.ts",
+    "verify": "npm run typecheck && npm run lint && npm run build && npm run check:package && npm run test"
+  },
+  "keywords": [
+    "email",
+    "otp",
+    "magic-link",
+    "testing",
+    "e2e",
+    "smtp"
+  ],
+  "devDependencies": {
+    "@arethetypeswrong/cli": "^0.18.5",
+    "@types/node": "^26.2.0",
+    "eslint": "^10.8.1",
+    "publint": "^0.3.23",
+    "tsup": "^8.5.1",
+    "tsx": "^4.23.12",
+    "typescript": "^5.9.3",
+    "typescript-eslint": "^8.67.0"
+  }
+}
