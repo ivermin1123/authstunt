@@ -232,6 +232,23 @@ func (s *Store) ListMessages(ctx context.Context, f MessageFilter) ([]Message, e
 	return out, nil
 }
 
+// pendingExtractionsQuery reads the recovery backlog.
+//
+// The state is written into the SQL as a literal instead of being bound as
+// a parameter, and that is load-bearing rather than a style choice.
+// messages_extraction_pending is a partial index (schema_v2.sql:65), and
+// SQLite may only use a partial index when it can prove, while preparing
+// the statement, that the query implies the index predicate. A bound `?`
+// is not known then, so the planner cannot make that proof and reads every
+// message row instead - the exact O(messages)-per-boot cost the partial
+// index was added to remove. The value is a package constant and never
+// input, so there is nothing here for a caller to inject.
+//
+// queryPlanUsesPendingIndex pins this; changing the literal back to a
+// parameter fails that test rather than quietly slowing every boot down.
+const pendingExtractionsQuery = `SELECT ` + messageColumnsAliased + ` FROM messages m
+		WHERE m.extraction_state = '` + ExtractionPending + `' ORDER BY m.received_at, m.id`
+
 // ListPendingExtractions returns the messages whose extraction never
 // reached a terminal state, oldest first, for the startup recovery pass of
 // design 4.2 item 6.
@@ -242,9 +259,8 @@ func (s *Store) ListMessages(ctx context.Context, f MessageFilter) ([]Message, e
 // cost. Oldest first because recovery publishes as it goes, and an inbox
 // that fills in backwards reads as if history were arriving now.
 func (s *Store) ListPendingExtractions(ctx context.Context, limit int) ([]Message, error) {
-	query := `SELECT ` + messageColumnsAliased + ` FROM messages m
-		WHERE m.extraction_state = ? ORDER BY m.received_at, m.id`
-	args := []any{ExtractionPending}
+	query := pendingExtractionsQuery
+	var args []any
 	if limit > 0 {
 		query += " LIMIT ?"
 		args = append(args, limit)
