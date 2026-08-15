@@ -10,17 +10,21 @@ Playwright's authentication guide hands you the shape for one account per
 parallel worker and then stops:
 
 ```ts
-const account = await acquireAccount(id);
 // Acquire a unique account, for example create a new one.
+// Alternatively, you can have a list of precreated accounts for testing.
+// Make sure that accounts are unique, so that multiple team members
+// can run tests at the same time without interference.
+const account = await acquireAccount(id);
 ```
 
-The function is yours to build. [Issue #18062][pw18062] asked Playwright for a
-synchronized user pool ("if a worker is using one user, don't make them
-available for another"), was assigned to a maintainer, and was closed in
-September 2025 with the note that it lacked "engagement (upvotes/activity)" and
-was of "insufficient actionability". Four more issues ([#27749][pw27749],
-[#27213][pw27213], [#35111][pw35111], [#30566][pw30566]) are people failing to
-write it themselves.
+The function is yours to build. [Issue #18062][pw18062] asked Playwright for
+exactly that handout, in the words of somebody whose parallel workers were
+burning the same OTP: "if a worker is using one user, don't make them available
+for another user, instead provide them next user from the test data". It was
+assigned to a maintainer and closed in September 2025 "due to limited engagement
+(upvotes/activity), lack of recent activity, and insufficient actionability".
+Four more issues ([#27749][pw27749], [#27213][pw27213], [#35111][pw35111],
+[#30566][pw30566]) are people failing to write it themselves.
 
 AuthStunt is that function, packaged. One self-hosted binary owns the test
 identities, catches their mail over real SMTP, extracts the code, and hands it
@@ -499,13 +503,11 @@ to a test.
 - `cmd/authstunt` - main binary
 - `internal/*` - server internals: smtp, extract, api, store, secrets,
   personas, ledger, sse, relayconf, fsutil
-- `internal/mcp` - MCP server (not yet written)
-- `internal/flows` - YAML flow loading and lint (not yet written)
 - `packages/client` - `@authstunt/client`, the typed TypeScript client
 - `packages/playwright` - `@authstunt/playwright`, the fixtures
-- `web/` - dashboard (not yet written)
-- `examples/demo-app` - demo target app for integration tests (not yet written)
-- `docs/` - documentation (not yet written)
+
+Planned, not yet written: `web/` dashboard · `internal/flows` · `internal/mcp` ·
+`examples/`, `docs/`
 
 ## Development
 
