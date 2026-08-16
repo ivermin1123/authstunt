@@ -141,6 +141,67 @@ jobs:
             test-stderr.txt
           if-no-files-found: warn
 
+  # A coverage floor for cmd/authstunt, and only for that package.
+  #
+  # Its tests drive the real binary as a child process, so the in-process
+  # instrumentation behind `go test -cover` never sees a line of it: measured
+  # the ordinary way the package reads 0.0%, which is why no floor could be
+  # put under it before. A binary built with `go build -cover` writes a
+  # profile as it exits instead, and serve_test.go accepts such a binary
+  # through AUTHSTUNT_COVER_BIN, leaving the ordinary test path untouched.
+  #
+  # Ubuntu only, and not by preference. The profile is written at exit, so
+  # the child has to be asked to stop rather than killed. The harness sends
+  # SIGTERM on unix; on Windows os/exec can send nothing but a kill, so a
+  # Windows run would write no profile at all and read 0.0%.
+  coverage:
+    runs-on: ubuntu-latest
+    env:
+      # A floor, not a target. One point under the measurement taken when
+      # the gate was turned on (77.5% on 2026-08-16, one uncovered function:
+      # bearer.go inCI) so ordinary churn does not fail a build, while a real
+      # loss of a covered path is larger than a point. Raise it deliberately
+      # in its own commit when the measurement moves up, never as a side
+      # effect of another change.
+      COVERAGE_FLOOR: "76.5"
+    steps:
+      - uses: actions/checkout@v7
+      - uses: actions/setup-go@v7
+        with:
+          go-version: "1.26.x"
+      - name: Coverage floor for cmd/authstunt
+        shell: bash
+        run: |
+          set -euo pipefail
+
+          covdir="$RUNNER_TEMP/covdata"
+          mkdir -p "$covdir"
+          go build -cover -o "$RUNNER_TEMP/authstunt-cover" ./cmd/authstunt
+          AUTHSTUNT_COVER_BIN="$RUNNER_TEMP/authstunt-cover" GOCOVERDIR="$covdir" \
+            go test -count=1 ./cmd/authstunt/
+
+          go tool covdata percent -i="$covdir"
+
+          pct=$(go tool covdata percent -i="$covdir" \
+            | awk '$1 == "github.com/ivermin1123/authstunt/cmd/authstunt" { print $3 }' \
+            | tr -d '%')
+
+          # An empty reading is a failure, not a pass. If the harness ever
+          # stops handing the binary a chance to exit cleanly, no profile is
+          # written, covdata reports nothing, and a gate that compared an
+          # empty string would wave the change through while measuring
+          # nothing at all.
+          if [ -z "$pct" ]; then
+            echo "no coverage profile for cmd/authstunt: the binary wrote nothing on exit"
+            exit 1
+          fi
+
+          echo "cmd/authstunt=$pct% floor=$COVERAGE_FLOOR%"
+          awk -v p="$pct" -v f="$COVERAGE_FLOOR" 'BEGIN { exit !(p + 0 >= f + 0) }' || {
+            echo "cmd/authstunt coverage $pct% is under the $COVERAGE_FLOOR% floor"
+            exit 1
+          }
+
   build-matrix:
     runs-on: ubuntu-latest
     strategy:
