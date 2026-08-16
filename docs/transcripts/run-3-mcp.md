@@ -1,4 +1,4 @@
-# P1 transcript - run 3 (pass, with one claim in the report that is false)
+# P1 transcript - run 3 (pass, and the one wrong line in the report started with us)
 
 **Date:** 2026-08-16. **Setup:** fresh Claude Code session, an empty stage, the same kind of
 neutral prompt as runs 1 and 2: no tool names, no reason codes, no ordering, and no mention of
@@ -26,8 +26,12 @@ of the repository, so Claude Code offers the four tools before the agent has rea
 README, and picking them up proves the harness works, not that the document teaches. Second,
 one line of the report is wrong. `/healthz` is deliberately unauthenticated and answers 200
 with no credential, with a wrong credential, and through either host spelling, all of which was
-rechecked against this running instance. The report states the opposite as settled fact.
-Everything else in it was verified against the server's audit ledger and matched.
+rechecked against this running instance. The report says the opposite, and says it flatly. It
+is worth being exact about how that line came to be, because the short version is unfair to the
+agent and lets us off: it did not invent the result. It probed a different route, got a real
+refusal, and generalised from it, and the route it probed was the one this repository had
+pointed it at. Everything else in the report was verified against the server's audit ledger and
+matched.
 
 **The gate is closed by counting, not by recollection.** The rule fixed before the run was that
 one sentence of human help fails the run, whatever the outcome. The session file holds 32
@@ -43,6 +47,15 @@ mail received at `10:10:43Z` and bound to the lease, `claim_ok` at `10:10:47Z`,
 `10:11:48Z`. The claim row carries the idempotency key `mcp:956547bca7ed:email_otp:1`, which is
 the server's own record that the claim arrived over MCP. Forty two seconds from opening a run to
 holding the code. No file in the repository changed.
+
+**What the ledger did not do, said plainly.** It did not catch the wrong line, and it could not
+have. The trail holds nine rows for this run and none of them concerns health, a refused
+request, or any HTTP call that never reached an authenticated handler: an unauthenticated probe
+leaves no row, by design, because there is no principal to scope one to. What caught the wrong
+line was the session transcript, which shows which URL was actually requested, plus a manual
+recheck against the running server. So the honest claim for this ledger is that it independently
+confirmed every checkable identifier in the report. It is not a lie detector, and this run is
+not evidence that it is one.
 
 ---
 
@@ -140,9 +153,9 @@ fixed at `b5d8f8c`: the bearer sentence now names `/api/v1`, the provisional lis
 claiming that prefix covers everything, and `Operating it` carries a health route section that
 gives the path, the body, and what it withholds.
 
-It is still the only sentence in the report asserted rather than checked, and that is worth
-naming, because the rest of the report earns its confidence and this line borrows it. But the
-agent was not being careless, and it was not skimming either. The session file settles that
+It is still the only sentence in the report that reaches past what was actually checked, and
+that is worth naming, because the rest of the report earns its confidence and this line borrows
+it. But the agent was not being careless, and it was not skimming either. The session file settles that
 too: its first action, before any probe and before any tool, was to read this README end to
 end. It then went looking for the route the document had told it to expect, in the place the
 document had put it. The bearer section opened with "the HTTP API authenticates callers with a
