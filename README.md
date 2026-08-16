@@ -31,6 +31,19 @@ identities, catches their mail over real SMTP, extracts the code, and hands it
 to exactly one claimant. `@authstunt/playwright` wires it in as fixtures: **one
 run per worker, one identity per test, released even when the test fails**.
 
+Two benefits come with that, in the order most suites need them:
+
+1. **A real message travels the real path.** Your template renders, your
+   provider or relay carries it, and the code your test types is the code that
+   was really delivered. A provider test mode that answers with a fixed code
+   proves the form posts and nothing after it.
+2. **Exclusivity.** A claim binds one message, so two parallel workers cannot
+   burn the same code.
+
+The second is why the Playwright issue above exists. The first is why this is
+worth running even at `workers: 1`: **a serial suite gets nothing from
+exclusivity and everything from the mail being real.**
+
 You never write Go. You run a container and install a package.
 
 Scope, said narrowly: this covers the **signup and verification** half of
@@ -98,6 +111,11 @@ test('a new user verifies with the code that was emailed', async ({ page, lease 
 Point your application's SMTP at `127.0.0.1:1025`. Credentials are accepted or
 omitted, either way, because the point of a test relay is not to be picky.
 
+If your application has no SMTP host to repoint - because it sends over an HTTP
+API, or because a provider or another team sends for it - that line does not
+fit you, and the fix is a paragraph away in
+[four mail paths](#four-mail-paths-and-which-one-you-are-on).
+
 Run it with `npx playwright test --workers=4` and every worker gets its own run,
 every test its own identity, and every identity is handed back when the test
 ends, pass or fail.
@@ -112,13 +130,90 @@ ends, pass or fail.
 > hunting, which lives in the template, the relay, the link, or the inbox. A
 > green test on `424242` proves the form posts.
 
-**If your auth provider sends the mail for you, start here.** Clerk and Auth0 in
-their hosted default deliver their own messages, and there is no SMTP host to
-repoint at AuthStunt. Clerk has no custom SMTP setting at all: sending it
-yourself means turning off ["Delivered by Clerk"][clerk-templates] per template
-and listening for the `email.created` webhook to send from [your own
-infrastructure][clerk-deliverability]. Until you make that switch, use your
-provider's test mode. AuthStunt becomes useful the day you own the sending.
+### Four mail paths, and which one you are on
+
+The Quickstart line above - repoint SMTP at `127.0.0.1:1025` - assumes you have
+an SMTP host to repoint. Often you do not. The question that actually decides
+whether this tool fits is not which provider you use, it is **who can change
+where your test mail goes.** There are four answers.
+
+**1. You send over SMTP yourself.** The Quickstart is the whole setup. Change
+the host and port in your test environment and stop reading here.
+
+**2. You send over an HTTP API: Resend, Postmark, SES, SendGrid, Mailgun.**
+This is the common shape now, and it is the case the Quickstart line does not
+cover: there is no SMTP host in your configuration to repoint. It is not a
+dead end, because every one of those providers also runs an SMTP relay. In your
+test environment you swap the transport, not the provider.
+
+| Provider | SMTP relay host | Ports | Credentials |
+|---|---|---|---|
+| Resend | `smtp.resend.com` | 25, 465, 587, 2465, 2587 | user `resend`, password is your API key |
+| Postmark | `smtp.postmarkapp.com` | 25, 587, 2525 | the server API token as both user and password |
+| Amazon SES | the SMTP endpoint for your region | 25, 587, 2587 (STARTTLS), 465, 2465 (TLS wrapper) | SES SMTP credentials, which are not your AWS access keys |
+| SendGrid | `smtp.sendgrid.net` | 587 | user `apikey`, password is your API key |
+| Mailgun | `smtp.mailgun.org` | 25, 465, 587, 2525 | per-domain SMTP credentials |
+
+Read from each provider's own documentation on 2026-08-16.
+
+That swap gives you two routes, and they are not worth the same:
+
+- **Through the provider.** Send over the provider's SMTP relay exactly as
+  production does, addressed to a test domain whose MX lands on infrastructure
+  you control and forwards into the network where AuthStunt runs. The message
+  still renders through your template and still passes through the provider, so
+  a test on this path is evidence about your template and your provider, not
+  only about your code. This is the honest path, not a workaround.
+- **Straight at AuthStunt.** Point the SMTP transport at `127.0.0.1:1025` and
+  skip the provider. It needs no DNS and no MX, which makes it the right way to
+  iterate, but it removes the template rendering and provider hops that most
+  auth-mail bugs live in. A green test here says less than one on the route
+  above, and it is worth saying so out loud in your own notes.
+
+The receiving side of the first route is a real cost, and it is the reason the
+second exists. Do not answer it by putting the SMTP listener on the public
+internet: it accepts every credential it is given by design, so anyone who
+reaches it can inject a message and make a test pass for the wrong reason. See
+[SECURITY.md](SECURITY.md).
+
+**3. Your provider sends the mail for you.** Clerk and Auth0 in their hosted
+default deliver their own messages, and there is no SMTP host anywhere in your
+configuration. Clerk has no custom SMTP setting at all: sending it yourself
+means turning off ["Delivered by Clerk"][clerk-templates] per template and
+listening for the `email.created` webhook to send from [your own
+infrastructure][clerk-deliverability].
+
+Rather than a list of vendors, which will always be missing yours, three
+questions to put to whichever one you use:
+
+- Can I set a custom SMTP host, on a per-environment or per-template basis?
+- Is there a webhook that fires **at send time** and carries the message, so I
+  can send it myself?
+- Can the provider's own delivery be turned off for a template or an
+  environment, so a message is not sent twice?
+
+A yes to the first is case 1. A yes to the second and third together is case 2.
+Three noes means your provider's test mode is what you have today, and
+AuthStunt becomes useful the day you own the sending.
+
+**4. Your company sends it, and you are not your company.** The most common
+wall in a team of any size, and the one nothing technical solves: the mail goes
+out through a backend, a platform team, or a shared mail service in a repository
+you do not own. Nothing above is available to you, because none of it is yours
+to change.
+
+What this actually needs is small, and naming it that way is what gets it
+approved:
+
+- **Who has to agree.** Whoever owns the sending service's test or staging
+  configuration. Not a security review, not a procurement cycle.
+- **What to ask for.** One SMTP host and port, overridable in the test
+  environment only. That is the entire ask. No production change, no new vendor,
+  no data leaving the company, and no dependency added to their service.
+- **What to do while you wait.** Point AuthStunt at whatever you *do* control
+  and get the identity half working: leases, addresses and claim reason codes
+  are testable against `examples/demo-app` without your company's mail path.
+  When the variable lands, the tests are already written.
 
 **If you would rather not run anything, run nothing.** A hosted inbox service
 (Mailosaur, Mailtrap) gives you addresses, a dashboard, and support, with no
@@ -208,16 +303,108 @@ Compare that with a `seen` flag, which is display state, not ownership: two
 waiters filtering the same way both get handed the same message, and neither is
 told that it happened.
 
+### What extraction reads, exactly
+
+You cannot estimate the work of adopting this without knowing whether the
+extractor can read *your* template, and that question has to be answerable
+before you install anything. So here is the contract, stated narrowly enough to
+be wrong if it is wrong. The behavior below was read from `internal/extract` and
+`internal/smtp` and checked by running them on 2026-08-16.
+
+**Which parts get read.** Both. The first `text/html` part and the first
+`text/plain` part of the message, whichever exist. An HTML-only message is a
+first-class case, not a degraded one, and so is a text-only one. Attachments are
+skipped. Transfer encodings are decoded, so quoted-printable and base64 bodies
+arrive as text; so are character sets, including legacy ones such as
+windows-1258 and ISO-8859-1, not only UTF-8.
+
+**Subjects, including non-ASCII ones.** RFC 2047 encoded-words in the `Subject`
+header are decoded, in both the `B` and the `Q` forms, so
+`=?UTF-8?B?TcOjIHjDoWMgdGjhu7FjOiA0ODI5MTM=?=` is read as `Mã xác thực: 482913`
+and the code in it is found. A subject sent as raw UTF-8 with no encoded-word
+works too. A subject that fails to decode is kept exactly as it arrived rather
+than dropped, because a code in an undecodable subject is still a code.
+
+**Subject or body.** Both, and it is worth being precise about what happens when
+a template puts the code in both places, which most do. The subject, the plain
+text and the visible text of the HTML are scanned together, in that order. Codes
+are then deduplicated by their digits: the same code in the subject and the body
+is **one** candidate, not two, keeping the better-placed occurrence. Two
+*different* numbers stay two candidates.
+
+**How a code is chosen.** A candidate is a standalone run of four to eight ASCII
+digits, not glued to a letter or another digit, and not inside a URL. Candidates
+are ranked by how close they sit to a context word - `code`, `otp`, `passcode`,
+`verification`, and the Vietnamese `mã xác thực`, `mã xác nhận`, `mã đăng nhập`
+and others - with a bonus for a word immediately in front of the digits, a bonus
+for six digits, and a heavy penalty for something that looks like a year.
+
+Matching is diacritic-folded and case-folded, so one keyword list covers
+`mã xác thực` and `ma xac thuc` alike, and everything is normalized to NFC first
+so a decomposed and a precomposed spelling behave the same. **Extraction is not
+language-independent in general; it is English and Vietnamese.** A template in
+another language whose only cue is a word not on that list still lists its number
+as a candidate, but `otp_best` stays empty, because `otp_best` is only filled by
+a positively scored candidate. That is deliberate: reporting a number as the code
+because it was the only number in the message turns a missing code into a
+confusing failure somewhere else.
+
+**Links, and what `magic_link` gives you.** Every `href` is recorded, along with
+URLs spelled out in plain text, deduplicated by URL. Each one is classified
+`verify`, `magic`, `reset` or `other` from the URL and its anchor text, and
+marked actionable only when it is `http` or `https` with a host - a
+`javascript:`, `data:` or relative href is recorded and never actionable.
+
+Claiming `magic_link` returns **the full URL, not a token**: it is the first
+actionable `verify` link, falling back to the first actionable `magic` link,
+never a `reset` link. Entities in an HTML `href` are unescaped, so
+`?token=abc&amp;u=1` is claimed as `?token=abc&u=1` and is ready to open.
+
+**Known limitations.** These are real, they are current, and each has a backlog
+entry rather than a softer sentence:
+
+- **`&amp;` is only unescaped in HTML.** A URL written out in a `text/plain`
+  body with a literal `&amp;` in it is claimed with the `&amp;` still there,
+  because nothing in a plain-text part is HTML and unescaping it would corrupt a
+  URL that legitimately contains that text. If your plain-text alternative
+  carries HTML-escaped links, use the HTML part or fix the template.
+- **`magic_link` prefers a `verify` link over a `magic` one.** A message that
+  carries both, a passwordless sign-in link and a separate confirm-address link,
+  hands back the `verify` one. Templates that send a single link are unaffected.
+- **Only the first part of each type is read.** A message with two `text/html`
+  parts is read from the first; the second is stored but not extracted.
+- **The keyword lists are English and Vietnamese only.** See above.
+
+**Checking it against your own mail.** Two ways, and neither needs you to read
+Go. Against a running server, using only frozen routes:
+
+```
+RUN=$(curl -sX POST $URL/api/v1/runs -H "Authorization: Bearer $BEARER")
+# lease an identity, send your real template to the address it returns, then:
+curl -sX POST $URL/api/v1/leases/$LEASE_ID/claims -H "Authorization: Bearer $RUN_TOKEN" \
+  -d '{"kind":"email_otp","idempotency_key":"probe-1","timeout_ms":15000}'
+```
+
+Or, without sending anything at all, drop one JSON file holding your own
+subject, text and HTML into `internal/extract/testdata/corpus/` with the result
+you expect, and run `go test ./internal/extract/`. The corpus is picked up by
+glob, so a new file needs no registration, and a disagreement between your
+template and this contract prints as a diff.
+
 ## Where it sits
 
 |  | Provider test mode | Mail catcher | Hosted inbox service | AuthStunt |
 |---|---|---|---|---|
-| Examples | Clerk, Supabase, better-auth test utils | Mailpit, MailHog, maildev, smtp4dev | Mailosaur, Mailtrap | this |
 | Does a real message travel the real path? | No. Fixed code, nothing sent | Yes, to a local catcher | Yes, to their domain | Yes, to a server you run |
+| Examples | Clerk, Supabase, better-auth test utils | Mailpit, MailHog, maildev, smtp4dev | Mailosaur, Mailtrap | this |
 | Who owns the address? | The provider's fixture list | Nobody. One shared catch-all | Your account | A lease held by one run, with an expiry |
 | Two workers, two codes in flight | Same fixed code for everyone | Both can read the same message | Unique addresses are easy; message ownership is yours to arrange | Each claim binds one message; the next gets `claim_already_claimed` |
 | Offline, no account, no domain | Yes | Yes | No | Yes |
 | Cost per message | None | None | Per plan | None |
+
+The first row is deliberately the first row. Exclusivity is what the Playwright
+issue asked for, but it only pays when workers run in parallel; the real message
+on the real path pays whatever your worker count is.
 
 The mail catchers are why this category exists at all, and their numbers say the
 audience is real: the Mailpit image has been pulled about 212 million times and
@@ -337,6 +524,23 @@ curl -sX POST http://127.0.0.1:8925/api/v1/runs/$RUN_ID/leases \
   "expires_at": "2026-08-16T15:37:47.830Z"
 }
 ```
+
+Three fields in that response are worth naming, because they show up in output
+before anything explains them:
+
+- **`role`** is the free-form string you asked for. It is not an enum and there
+  is no fixed vocabulary: `signup`, `admin`, `teacher-with-no-credits` are all
+  valid. It is required and must not be empty. In ephemeral mode it is lowercased
+  and stripped to `a-z`, `0-9`, `-` and `_` to become the local part prefix of
+  the minted address, which is why `signup` produced
+  `signup-8627b23ca1e5@demo.test` above. In pooled mode it is the key the pool
+  is searched by, and a role with no free identity is refused rather than
+  substituted.
+- **`mode`** is `ephemeral` (the default) or `pooled`, read back from the stored
+  identity rather than echoed from your request, so it says what was served.
+- **`seed_state`** is the answer to "was this account prepared before I got it",
+  and it is `skipped` here because no seed endpoint is configured. See
+  [seeding an identity](#seeding-an-identity-before-it-is-handed-over) below.
 
 Sign that address up in the application under test, then ask the lease for the
 code:
@@ -473,13 +677,9 @@ part of the freeze.
 
 **Not written yet.** The dashboard, the YAML flow loader, and TOTP.
 
-**No retention, and this is worth knowing before you point a long-running suite
-at an instance.** Nothing is ever deleted. Every message keeps its row, roughly
-two encrypted blob files, and its ledger entries for as long as the data
-directory exists. The periodic sweep expires runs and leases so their identities
-return to the pool; it frees no disk. Size tracks how much mail an instance has
-ever accepted, not how old it is, and the remedy today is to delete the data
-directory or give each suite a fresh one.
+**No retention.** Nothing is ever deleted, and there is no purge command. That
+is a storage fact and a privacy one, so it is written out under
+[retention and deletion](#retention-and-deletion) in Security rather than here.
 
 ## Operating it
 
@@ -560,6 +760,71 @@ Ack latency itself is around 7ms at p50 and 9ms at p95 in either mode. It is set
 by the blob fsyncs and by waiting for the single writer, not by this pragma, so
 changing the mode is not the lever for making delivery faster.
 
+### Seeding an identity before it is handed over
+
+A leased address is an address, and quite often a test needs more than that: an
+account that already exists, a user with a subscription, a teacher whose credits
+have run out. `--seed-url` is the hook for that, and it exists today - it is not
+planned work.
+
+```
+authstunt serve --project demo --domain demo.test \
+  --seed-url http://127.0.0.1:3000/api/test/seed
+```
+
+The URL must be absolute, `http` or `https`, must carry no userinfo, and is
+fixed at startup rather than taken per request, so a caller holding a run token
+can never choose where this process sends a POST. A bad value fails at startup
+instead of at the first lease. Redirects are refused for the same reason.
+
+Every acquire then POSTs to that endpoint before the lease is handed back, with
+an `Idempotency-Key` header holding the lease id:
+
+```json
+{
+  "run_id": "…", "lease_id": "…", "identity_id": "…",
+  "addr": "signup-8627b23ca1e5@demo.test", "role": "signup", "mode": "ephemeral"
+}
+```
+
+Your application creates whatever `role` means to it and answers:
+
+```json
+{ "status": "seeded", "fingerprint": "user_8412" }
+```
+
+`status` must be `seeded` or `skipped`. `fingerprint` is optional, free-form, and
+recorded on the lease and in the audit ledger so a run can be traced back to the
+row it touched; it is not returned to the caller. There is no shell on this path
+by design: a seed hook that ran a command would turn a configuration file into
+arbitrary code execution, and a postcondition is something an HTTP call states
+just as well.
+
+That is what `seed_state` reports back on the lease:
+
+- **`skipped`** - no `--seed-url` is configured, or your endpoint answered
+  `skipped`. This is what an out-of-the-box instance always returns.
+- **`seeded`** - your endpoint ran and reported the account ready.
+
+A lease never comes back `pending`: the acquire has already settled by the time
+it returns, so a caller never has to ask whether the account it was handed is
+ready. Every failure is the same failure - a non-200, a timeout, a redirect, an
+oversized body, a body that is not JSON, a status the schema does not name - and
+all of them refuse the acquire with `lease_seed_failed` rather than handing back
+an identity that is not known to be prepared. The endpoint's URL and response are
+logged, not returned, because they belong to the application under test.
+
+`internal/personas` is the package all of this lives in: it turns a request for
+an identity of some role into a lease, mints ephemeral addresses, walks the
+pooled candidates, and calls the seed hook. It appears in `Layout` above and is
+named here so the two match.
+
+One limitation, stated plainly: **nothing in this binary puts an identity into
+the pool.** The pool is only ever read, so `mode: "pooled"` on a server with an
+empty pool refuses every lease. Seeding prepares an identity that has already
+been leased; it is not a way to populate a pool. Pooled mode is accepted but
+unsupported, and this is part of why.
+
 ### Mail for an address you did not allow
 
 A message addressed to any recipient outside the allowlist is accepted, stored,
@@ -574,6 +839,46 @@ issue. [SECURITY.md](SECURITY.md) says what is in scope and what is not, and
 the "out of scope, by design" part is the half worth reading first: the host is
 trusted, and the SMTP listener accepts every credential it is given.
 
+### Retention and deletion
+
+**Nothing is ever deleted.** Every message keeps its row, roughly two encrypted
+blob files, and its ledger entries for as long as the data directory exists. The
+periodic sweep expires runs and leases so their identities return to the pool; it
+frees no disk. Size tracks how much mail an instance has ever accepted, not how
+old it is.
+
+That is a storage note for a suite you point at one long-lived instance. It is a
+more serious note if your mail carries personal data, and auth mail usually does:
+
+- The **raw message** is stored, not just the extracted code. Subject, bodies,
+  `From`, `To` and `Cc` - whatever your template puts in a message about a real
+  person is what lands on disk.
+- **Quarantined mail is stored too.** Mail to an address outside the allowlist is
+  held back from the automated read path, which is the point, but it is kept as
+  evidence. A staging application that copies a real customer means that
+  customer's mail is on your disk until you remove it.
+- Bodies and extraction results are **encrypted at rest** with a key in the data
+  directory. That protects the files if they are copied off the host. It is not
+  deletion, and it is not a defense against anyone who can read the data
+  directory, because the key is in it.
+
+**How to delete, today.** Delete the data directory. That is the whole mechanism,
+and there is no finer-grained one: no retention window, no per-message delete, no
+`authstunt purge`. So the deletion story is a layout decision you make up front
+rather than an operation you run later:
+
+- Give each suite, or each CI job, its own `--data-dir` and remove it in
+  teardown. An ephemeral container volume does this for you, and it is the
+  reason the Quickstart uses one.
+- Keep a shared long-lived instance only for a domain you own end to end, and put
+  removing its data directory on a schedule somebody actually owns.
+- If your organization has a data retention policy that applies to test systems,
+  this instrument does not enforce it for you. Assume the directory is the unit
+  of compliance.
+
+A finer-grained retention or purge surface is open backlog, not a planned
+release.
+
 ## Layout
 
 - `cmd/authstunt` - main binary
@@ -582,8 +887,9 @@ trusted, and the SMTP listener accepts every credential it is given.
 - `packages/client` - `@authstunt/client`, the typed TypeScript client
 - `packages/playwright` - `@authstunt/playwright`, the fixtures
 - `examples/demo-app` - a signup flow with an emailed code, to test against
+- `docs/transcripts` - recorded agent runs against the MCP surface
 
-Planned, not yet written: `web/` dashboard · `internal/flows` · `docs/`
+Planned, not yet written: `web/` dashboard · `internal/flows`
 
 ## Development
 
