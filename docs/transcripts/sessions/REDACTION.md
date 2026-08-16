@@ -1,8 +1,18 @@
 # Redaction policy for the published session files
 
-The three `.jsonl` files here are the raw session records of the blind agent runs written up in
-`../runs-4-to-6-one-patch-three-runs.md`. They are published so that every count in that
-document can be checked by someone who does not trust it.
+The `.jsonl` files here are the raw session records of the blind agent runs. `run-4`, `run-5` and
+`run-6` are written up in `../runs-4-to-6-one-patch-three-runs.md`; `run-3` is the run those three
+were the answer to. They are published so that every count in those documents can be checked by
+someone who does not trust it.
+
+`run-3` was redacted and published later than the other three, and it is worth saying why rather
+than letting the timestamps imply something. The other three were published as the evidence that a
+documentation patch worked. run-3 is the evidence that it was needed: it holds the one call the
+whole account turns on, an agent building `http://127.0.0.1:8925/api/v1/healthz` out of two
+fragments the README handed it separately, and getting `unauthorized` from a route that does not
+exist. While that file was unpublished, the central claim rested on a summary of it. A later
+verification pass over the published material flagged exactly that, so the file was redacted by the
+same two scripts, against the same checks, and added here.
 
 They are redacted, because a session file also records the machine it ran on. The rule is
 **keep the structure, hide the content**.
@@ -32,7 +42,7 @@ in its own output, is replaced with `[redacted]`.
 
 Mechanically, by two scripts kept in the private repository next to the originals:
 `redact-session.py` performs the transformation and `verify-redaction.py` checks it. The check
-fails unless all of the following hold, and it passed on all three files:
+fails unless all of the following hold, and it passed on all four files:
 
 1. same line count
 2. same message count per `type`
@@ -63,6 +73,7 @@ The originals stay in the private repository and are not published. Their SHA-25
 recorded here so that a redacted file can later be shown to derive from a specific original:
 
 ```
+4c6c2bc19c717d8efc6d23be445f66aea6928172eeb2462b5c6c3e5048c7dde0  run-3 (original)
 69913bb5920f7845bf56ba582e6a2927c417bd706d563a9296f7d6588a1cc815  run-4 (original)
 0a54c238c198fc9c0ee2c2dd4644140a84b4fdd39792a8c7b0296e9cc42d1ee8  run-5 (original)
 9eb940d2da7dd22a1ddbaaf270906a109c62aa8f1f09805a8c602a8602df3925  run-6 (original)
