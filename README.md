@@ -375,8 +375,9 @@ entry rather than a softer sentence:
   parts is read from the first; the second is stored but not extracted.
 - **The keyword lists are English and Vietnamese only.** See above.
 
-**Checking it against your own mail.** Two ways, and neither needs you to read
-Go. Against a running server, using only frozen routes:
+**Checking it against your own mail.** Two ways. The first needs no Go at all:
+send a real message through a running server and read what comes back, using
+only frozen routes.
 
 ```
 RUN=$(curl -sX POST $URL/api/v1/runs -H "Authorization: Bearer $BEARER")
@@ -385,11 +386,12 @@ curl -sX POST $URL/api/v1/leases/$LEASE_ID/claims -H "Authorization: Bearer $RUN
   -d '{"kind":"email_otp","idempotency_key":"probe-1","timeout_ms":15000}'
 ```
 
-Or, without sending anything at all, drop one JSON file holding your own
-subject, text and HTML into `internal/extract/testdata/corpus/` with the result
-you expect, and run `go test ./internal/extract/`. The corpus is picked up by
-glob, so a new file needs no registration, and a disagreement between your
-template and this contract prints as a diff.
+The second sends nothing and needs a clone and a Go toolchain, but no Go you
+write: drop one JSON file holding your own subject, text and HTML into
+`internal/extract/testdata/corpus/` alongside the result you expect, and run
+`go test ./internal/extract/`. The corpus is loaded by glob, so a new file needs
+no registration, and a disagreement between your template and this contract
+prints as a diff.
 
 ## Where it sits
 
