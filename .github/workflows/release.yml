@@ -22,9 +22,13 @@ jobs:
           # clone yields a wrong changelog silently, it does not fail, so
           # the full history is required rather than merely nice to have.
           fetch-depth: 0
+      # From go.mod, for the reason spelled out in ci.yml: a named "1.26.x"
+      # resolves to whatever the runner has cached, and a release is the last
+      # place to ship a binary built with an older standard library than the
+      # module asked for.
       - uses: actions/setup-go@v7
         with:
-          go-version: "1.26.x"
+          go-version-file: go.mod
       # The Dockerfile is COPY-only (goreleaser cross-compiles the binary
       # first), so the arm64 image builds here without QEMU.
       #

@@ -24,7 +24,33 @@ golangci-lint run
 ```
 
 Every test run uses `-race`. The lint config is `.golangci.yml`, pinned to
-golangci-lint v2. A `//nolint` needs a comment saying why.
+golangci-lint v2. A `//nolint` needs a comment saying why. The toolchain comes
+from `go.mod`, which is also what CI installs, so a version bump moves the
+module and every job at once.
+
+Two more gates run in CI and are worth knowing about, though neither usually
+needs running by hand:
+
+```
+govulncheck ./...
+```
+
+That scans the module against the Go vulnerability database, on every pull
+request and again once a week, because the database moves when the code does
+not.
+
+```
+go build -cover -o /tmp/authstunt-cover ./cmd/authstunt
+AUTHSTUNT_COVER_BIN=/tmp/authstunt-cover GOCOVERDIR=/tmp/covdata \
+  go test -count=1 ./cmd/authstunt/
+go tool covdata percent -i=/tmp/covdata
+```
+
+That is the coverage floor under `cmd/authstunt`. The package's tests drive the
+real binary as a child process, so ordinary `go test -cover` sees none of it and
+reports 0.0%; a binary built with `-cover` writes a profile as it exits instead.
+The floor is set one point under the reading taken when the gate went in, and is
+raised deliberately, never as a side effect.
 
 The TypeScript packages each carry their own gate:
 

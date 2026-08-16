@@ -61,9 +61,12 @@ jobs:
       - name: Check out the ref
         shell: bash
         run: git checkout --detach "${{ inputs.ref }}"
+      # After the checkout, deliberately. A soak measures a tree, so it should
+      # compile with the toolchain that tree named, not with whatever the
+      # runner happened to have cached.
       - uses: actions/setup-go@v7
         with:
-          go-version: "1.26.x"
+          go-version-file: go.mod
       - name: Record the environment
         shell: bash
         run: |
@@ -145,7 +148,7 @@ jobs:
         run: git checkout --detach "${{ inputs.ref }}"
       - uses: actions/setup-go@v7
         with:
-          go-version: "1.26.x"
+          go-version-file: go.mod
       - name: Record the environment
         shell: bash
         run: |
