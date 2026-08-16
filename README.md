@@ -291,7 +291,7 @@ from the [latest release][rel], verify it, and extract it:
 
 ```
 shasum -a 256 -c checksums.txt --ignore-missing
-tar xzf authstunt_0.1.1_darwin_arm64.tar.gz
+tar xzf authstunt_0.2.0_darwin_arm64.tar.gz
 ./authstunt version
 ```
 
@@ -399,13 +399,18 @@ because your application has to be able to send mail there.
       "command": "authstunt",
       "args": ["mcp"],
       "env": {
-        "AUTHSTUNT_URL": "http://127.0.0.1:8925",
+        "AUTHSTUNT_URL": "${AUTHSTUNT_URL:-http://127.0.0.1:8925}",
         "AUTHSTUNT_BEARER": "${AUTHSTUNT_BEARER}"
       }
     }
   }
 }
 ```
+
+That block is checked in as [`.mcp.json`](.mcp.json) at the root of this
+repository, so a clone opened in Claude Code offers the server on the spot -
+export `AUTHSTUNT_BEARER` first, and the file holds no secret of its own.
+Copy it into your own project to get the same thing there.
 
 The bearer travels through the process environment and nothing else. No tool
 takes a credential as a parameter, no result carries one, and the run token

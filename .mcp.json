@@ -1,0 +1,12 @@
+{
+  "mcpServers": {
+    "authstunt": {
+      "command": "authstunt",
+      "args": ["mcp"],
+      "env": {
+        "AUTHSTUNT_URL": "${AUTHSTUNT_URL:-http://127.0.0.1:8925}",
+        "AUTHSTUNT_BEARER": "${AUTHSTUNT_BEARER}"
+      }
+    }
+  }
+}
