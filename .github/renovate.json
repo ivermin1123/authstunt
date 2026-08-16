@@ -1,0 +1,24 @@
+{
+  "$schema": "https://docs.renovatebot.com/renovate-schema.json",
+  "extends": ["config:recommended"],
+  "timezone": "Etc/UTC",
+  "schedule": ["before 6am on monday"],
+  "packageRules": [
+    {
+      "description": "One pull request a week for everything that is not a major bump. Separate pull requests per dependency would arrive faster and be read less carefully; a weekly batch is small enough to review and rare enough not to become noise. Digest bumps ride along because a repinned action is the same action.",
+      "matchUpdateTypes": ["minor", "patch", "digest"],
+      "groupName": "all minor, patch and digest"
+    },
+    {
+      "description": "Pin GitHub Actions to a commit digest. A tag is mutable and points at whatever its owner last moved it to, which is the whole supply chain question for a workflow that runs with repository credentials. Renovate keeps the readable version in a trailing comment and bumps the digest on the weekly schedule above.",
+      "matchManagers": ["github-actions"],
+      "pinDigests": true
+    },
+    {
+      "description": "The Go toolchain gets its own pull request, never a group. It moves the compiler under every job at once, so when a build turns red on the week a toolchain bump lands, the pull request that changed it should be the one thing in it.",
+      "matchManagers": ["gomod"],
+      "matchDepNames": ["go", "toolchain"],
+      "groupName": "go toolchain"
+    }
+  ]
+}
