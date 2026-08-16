@@ -291,7 +291,7 @@ from the [latest release][rel], verify it, and extract it:
 
 ```
 shasum -a 256 -c checksums.txt --ignore-missing
-tar xzf authstunt_0.1.0_darwin_arm64.tar.gz
+tar xzf authstunt_0.1.1_darwin_arm64.tar.gz
 ./authstunt version
 ```
 
