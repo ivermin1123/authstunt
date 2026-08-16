@@ -1,0 +1,24 @@
+{
+  "name": "authstunt-demo-app",
+  "version": "0.0.0",
+  "private": true,
+  "description": "A minimal Express signup flow with email OTP, used as the application under test in the AuthStunt quickstart.",
+  "license": "MIT",
+  "type": "module",
+  "engines": {
+    "node": ">=20.11"
+  },
+  "scripts": {
+    "start": "node server.js",
+    "test": "playwright test"
+  },
+  "dependencies": {
+    "express": "^5.2.1",
+    "nodemailer": "^9.0.5"
+  },
+  "devDependencies": {
+    "@authstunt/client": "^0.1.0",
+    "@authstunt/playwright": "^0.1.0",
+    "@playwright/test": "^1.62.1"
+  }
+}

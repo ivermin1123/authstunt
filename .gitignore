@@ -12,6 +12,9 @@ packages/*/dist/
 packages/playwright/test-results/
 packages/playwright/playwright-report/
 packages/playwright/blob-report/
+examples/demo-app/test-results/
+examples/demo-app/playwright-report/
+examples/demo-app/blob-report/
 
 # Data and secrets
 *.db
