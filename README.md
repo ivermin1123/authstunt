@@ -659,7 +659,7 @@ renamed, retyped, repurposed or removed, and a documented status code does not
 change. A client that ignores fields it has not heard of stays correct across
 every v1 release. The full text is in `internal/api/doc.go`.
 
-**Provisional.** Everything else under `/api/v1`: ending a run, the evidence
+**Provisional.** Everything else this server answers: ending a run, the evidence
 route, the healthz body, and the `totp` claim kind. Paths and fields there may
 still change. `@authstunt/client` touches exactly one provisional route,
 `run.end()`, and says so in the comment above it.
@@ -687,11 +687,13 @@ is a storage fact and a privacy one, so it is written out under
 
 ### The project bearer
 
-The HTTP API authenticates callers with a project bearer, and serve refuses to
-bind the API for a project that has none. serve never creates one and never
-prints one: it is a long-running process, so its output ends up in a CI log, a
-supervisor journal or a log shipper, and a credential must not be carried into
-any of them.
+Every route under `/api/v1` authenticates callers with a project bearer, and
+serve refuses to bind the API for a project that has none. There is one route
+outside that prefix and it is deliberately open: see
+[the health route](#the-health-route) below. serve never creates a bearer and
+never prints one: it is a long-running process, so its output ends up in a CI
+log, a supervisor journal or a log shipper, and a credential must not be carried
+into any of them.
 
 Provisioning is a command an operator runs once, deliberately:
 
@@ -722,6 +724,31 @@ operation alone, so the trail says a credential changed, never which one.
 
 An instance that serves no API needs no bearer: `--api-listen ""` runs it as a
 mail catcher only.
+
+### The health route
+
+`GET /healthz` is the one route that takes no credential, on purpose, because it
+is what a supervisor polls and a supervisor has no bearer to give it.
+
+```
+curl -s http://127.0.0.1:8925/healthz
+```
+
+```json
+{"status":"ok","version":"…","schema_version":6,"surface":"provisional-4a",
+ "default_mode":"ephemeral","pooled_configured":false}
+```
+
+It answers only what a caller learns by connecting anyway: that the process is
+up, which contract it speaks, and whether pooled mode is configured. Absent by
+design are the project id and name, every address, and any count of runs, leases,
+identities or messages, because a count is a side channel about activity and this
+route has no principal to scope one to. A 200 here says the process is alive; it
+says nothing about whether your bearer is right, so a preflight that only checks
+health has not checked authentication.
+
+The body is not frozen, and [Status and stability](#status-and-stability) above
+says so.
 
 ### Running it without Docker
 
