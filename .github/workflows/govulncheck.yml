@@ -1,0 +1,45 @@
+# Action versions verified against latest releases on 2026-08-16.
+name: govulncheck
+
+# Twice for two different questions. On a pull request it answers "does this
+# change pull in a known vulnerable path", which is about the diff. On the
+# weekly run it answers "has the world learned something about the code that
+# was already merged", which no push can trigger because nothing in the repo
+# changed - the vulnerability database did.
+#
+# The same paths-ignore caveat as ci.yml applies: at the workflow level it
+# means the workflow does not run at all, so a required status check would
+# never arrive. Docs-only changes cannot move the module graph, and the
+# weekly run covers database drift regardless of what anyone pushes.
+on:
+  pull_request:
+    paths-ignore:
+      - "**.md"
+      - "LICENSE"
+      - "docs/**"
+  schedule:
+    # Monday, early UTC. Scheduled runs only ever fire on the default branch.
+    - cron: "17 6 * * 1"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  govulncheck:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v7
+      - uses: actions/setup-go@v7
+        with:
+          go-version: "1.26.x"
+      # Unpinned on purpose, and it is the one tool in this repo that is.
+      # Everything else is pinned so a build is reproducible; a scanner that
+      # is reproducible is a scanner that has gone stale, and reporting last
+      # quarter's vulnerabilities as if they were today's is the failure mode
+      # worth avoiding here. The scanner is also not part of the artifact: it
+      # reads the code, it never enters it.
+      - name: govulncheck
+        run: |
+          go install golang.org/x/vuln/cmd/govulncheck@latest
+          govulncheck ./...
