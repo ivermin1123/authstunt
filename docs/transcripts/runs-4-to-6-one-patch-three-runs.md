@@ -115,6 +115,39 @@ only thing that changed was the README.
 clean. Runs 5 and 6 were fully blind to it. Anyone who counts only the blind samples gets 2/2
 and the same conclusion one notch weaker, and that is a legitimate way to count.
 
+### The harness these runs were measured through, and what it costs the result
+
+All four runs, run 3 included, received the prompt through a personal workflow command rather
+than typed bare. That command carries a skill whose instructions **require scanning the
+codebase before acting**. It is in the published session files, in the `isMeta` message next to
+the prompt, so this is checkable rather than asserted.
+
+Two consequences follow, and neither is comfortable.
+
+**The result is conditional on the harness.** "3/3 clean" is a statement about this prompt
+delivered this way. Someone who runs plain `claude` in a clone of this repository and pastes
+the same prompt may or may not reproduce it, and nothing here entitles us to say they will. The
+honest scope of the claim is: under a harness that pushes an agent to read first, the patched
+wording produced correct behavior three times out of three, where the unpatched wording
+produced the misreading.
+
+**The early full read of the README is not the README's achievement.** Run 4 read this file end
+to end as its first action, and it is entirely plausible that the skill's scan-first rule is
+why, not any pull of the document. Runs 5 and 6 read it more selectively, headings first, which
+looks more like a choice than a reflex, but none of that separates cleanly from the harness
+either. So the reading behavior in these runs should not be quoted as evidence that this README
+draws readers in. Only the health route behavior is being claimed, because that is the one
+place where the patched and unpatched wording can be compared with everything else held
+constant.
+
+**We chose not to run a bare-harness fourth condition now, and the reason is the same one that
+made us run three trials in the first place.** A single bare run would be n=1 under a different
+harness, which cannot be compared cleanly against these three, and cannot be compared against
+run 3 either, since run 3 was itself run through the command. It would produce a number that
+looks like a comparison and is not one. Doing it properly means three bare runs and a rule
+fixed in advance, which is a separate experiment with its own cost. Until someone pays that
+cost, the conditional scope stated above is the whole of the claim.
+
 ---
 
 ## The refusal, measured rather than argued
@@ -171,7 +204,7 @@ would change a frozen contract, so it is filed rather than fixed.
 
 ## Raw material
 
-The three session files are committed next to this document, unedited:
+The three session files are committed next to this document:
 
 - `sessions/run-4.jsonl`
 - `sessions/run-5.jsonl`
@@ -180,5 +213,12 @@ The three session files are committed next to this document, unedited:
 They are the primary evidence for every count above: the human turn, the absence of
 interruptions, the exact URLs, the reading strategies, and the order things happened in.
 Nothing here asks to be taken on trust.
+
+They are redacted, and `sessions/REDACTION.md` says exactly how. No message was deleted,
+reordered or retimed; what was replaced is the operator's machine, meaning absolute paths,
+their private workflow skill text, their session hook output and their installed tool
+inventory, each behind a labelled marker. The gate count, the URLs and the prompt all survive
+verbatim, which was checked mechanically rather than by eye. The checksums of the unredacted
+originals are recorded there too.
 
 The per-run stores are kept as well, so the ledgers can be read against these claims.
