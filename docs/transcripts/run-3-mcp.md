@@ -53,9 +53,9 @@ have. The trail holds nine rows for this run and none of them concerns health, a
 request, or any HTTP call that never reached an authenticated handler: an unauthenticated probe
 leaves no row, by design, because there is no principal to scope one to. What caught the wrong
 line was the session transcript, which shows which URL was actually requested, plus a manual
-recheck against the running server. So the honest claim for this ledger is that it independently
-confirmed every checkable identifier in the report. It is not a lie detector, and this run is
-not evidence that it is one.
+recheck against the running server. So the honest claim for this ledger is that it
+independently confirmed every checkable identifier in the report. It is not a lie detector, and
+this run is not evidence that it is one.
 
 ---
 
@@ -140,18 +140,29 @@ connecting. Rechecked against this instance: no credential, 200. A wrong bearer,
 `localhost` instead of `127.0.0.1`, 200. An `Origin` header, 200.
 
 **It is worse than a wrong line, and the session file says how.** The agent never called
-`/healthz`. Its fourth action was `GET /api/v1/health`, which is not a route this server has,
-so the authenticated group answered it the way it answers anything under that prefix without a
-credential: `unauthorized`, `this route needs a project bearer or a run token`. From that the
-report generalised to "that route needs a bearer too" and dropped HTTP. Where the wrong path
-came from is not a guess either. At the time of the run the word `healthz` appeared exactly
-once in the README, in the provisional list, filed under the sentence `Everything else under
-/api/v1`. A reader who trusts that sentence looks for health under `/api/v1`, and there is
-nothing there. So the document did not merely fail to say the route was open, it pointed at a
-prefix the route does not sit on, and the agent went where it was pointed. Both halves are
-fixed at `b5d8f8c`: the bearer sentence now names `/api/v1`, the provisional list stops
-claiming that prefix covers everything, and `Operating it` carries a health route section that
-gives the path, the body, and what it withholds.
+`/healthz`. Its fourth action was `GET /api/v1/healthz`, without a credential. Read that path
+slowly, because it is the whole story in one string: the route **name** is right, and the
+**prefix** is wrong. At the time of the run the word `healthz` appeared exactly once in this
+README, in the provisional list, filed under the sentence `Everything else under /api/v1`. The
+agent took the name from the only place the document offered it, and took the prefix from the
+same sentence. It went where it had been sent, found nothing there, and the authenticated group
+answered an unauthenticated caller the way it answers any unknown path under that prefix:
+`unauthorized`, `this route needs a project bearer or a run token`. From that the report
+generalised to "that route needs a bearer too" and dropped HTTP.
+
+So the document did not merely fail to say the route was open. It named the route once and
+filed it under a prefix the route does not sit on, and a careful reader assembled exactly the
+wrong URL out of the two halves it was handed. Both are fixed at `b5d8f8c`: the bearer sentence
+now names `/api/v1`, the provisional list stops claiming that prefix covers everything, and
+`Operating it` carries a health route section that gives the path, the body, and what it
+withholds.
+
+**The refusal is narrower than it looks, and that was measured too.** On a throwaway instance,
+`GET /api/v1/healthz` **with a valid bearer answers 404**, as does every other unknown path
+under that prefix. The `401` is reserved for callers who have not authenticated, where
+withholding the route map is a deliberate choice rather than a misleading one. Run 3 met the
+`401` because it probed without a credential, which is the one case where this server answers
+"you are not allowed" to a question whose real answer is "there is nothing here".
 
 It is still the only sentence in the report that reaches past what was actually checked, and
 that is worth naming, because the rest of the report earns its confidence and this line borrows
