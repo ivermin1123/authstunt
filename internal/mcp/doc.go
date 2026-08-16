@@ -88,11 +88,13 @@
 // official SDK, which would have added eight modules to serve, in the
 // main, the parts of the protocol this package refuses on purpose.
 //
-// # Experimental
+// # Tool names
 //
-// Tool names and input shapes are not part of the /api/v1 freeze and may
-// change. Result bodies are, because they are the HTTP bodies. The names
-// freeze once a real agent has been recorded completing a signup through
-// them, and not before: freezing is a promise, and there is no evidence
-// yet to make it against.
+// The four tool names are frozen as of v0.2.0: open_run, lease_identity,
+// claim_code and release_lease. Any future rename is an append-only alias,
+// so a name already in a config keeps working. They froze on evidence
+// rather than on schedule: the transcripts in docs/transcripts record real
+// agents completing a signup through them. Result bodies were always
+// frozen, because they are the HTTP bodies. Input shapes are not part of
+// the /api/v1 freeze.
 package mcp

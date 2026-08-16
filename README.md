@@ -376,7 +376,7 @@ curl -sX DELETE http://127.0.0.1:8925/api/v1/leases/$LEASE_ID \
 
 Releasing twice is not an error.
 
-## Giving the same contract to an agent (MCP, experimental)
+## Giving the same contract to an agent (MCP)
 
 `authstunt mcp` serves the same four routes to an AI agent as Model Context
 Protocol tools, over stdio. The point is not that there is an MCP server; it is
@@ -435,9 +435,9 @@ Two more things worth knowing before you wire it up:
   code, not as errors, so the agent branches on the code rather than retrying
   blindly. Only a refused request is an error.
 
-Tool names and input shapes are experimental and may change; result bodies are
-the frozen `/api/v1` bodies and will not. `examples/demo-app` is a signup flow
-to point it at.
+Tool names are frozen since v0.2.0; any future rename is an append-only alias.
+Result bodies are the frozen `/api/v1` bodies. `examples/demo-app` is a signup
+flow to point it at, and `docs/transcripts` records real agents walking it.
 
 ## Status and stability
 
@@ -464,10 +464,12 @@ means handing the same address to one run after another, which needs a cooldown
 policy that has no safe default; treat it as reserved surface rather than a
 feature.
 
-**Experimental.** The MCP server (`authstunt mcp`). Its tool names and input
-shapes are not part of the freeze and may change; the bodies its tools return
-are the frozen `/api/v1` bodies. The names freeze once a real agent has been
-recorded completing a signup through them.
+**Frozen names.** MCP tool names are frozen since v0.2.0 (open_run ·
+lease_identity · claim_code · release_lease); any future rename is an
+append-only alias. They froze on evidence rather than on schedule:
+`docs/transcripts` records real agents completing a signup through them. The
+bodies the tools return are the frozen `/api/v1` bodies. Input shapes are not
+part of the freeze.
 
 **Not written yet.** The dashboard, the YAML flow loader, and TOTP.
 

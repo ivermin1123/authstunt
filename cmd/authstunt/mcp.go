@@ -33,8 +33,8 @@ Environment:
   AUTHSTUNT_BEARER  the project bearer, from "authstunt project bearer provision".
                     Required. Its value is never printed, here or anywhere else.
 
-Tool names and input shapes are experimental and may change. Result bodies
-are the frozen /api/v1 bodies and will not.
+Tool names are frozen since v0.2.0; any future rename is an append-only
+alias. Result bodies are the frozen /api/v1 bodies.
 `
 
 // runMCP is the mcp subcommand.
