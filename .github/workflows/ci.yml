@@ -325,3 +325,39 @@ jobs:
       - name: playwright - test
         working-directory: packages/playwright
         run: npm test
+
+  # The example application, tested the way a reader would test their own.
+  #
+  # Separate from the packages job, and ubuntu only, for two different
+  # reasons. It is the only suite that downloads a browser, which is minutes
+  # this repository does not spend anywhere else, so it fails on its own
+  # rather than inside a job that proves several other things. And it depends
+  # on the published packages from the registry, not on the sources next to
+  # it, which is what makes it a check on what a user actually installs.
+  demo-app:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v7
+      - uses: actions/setup-go@v7
+        with:
+          go-version-file: go.mod
+      - uses: actions/setup-node@v7
+        with:
+          node-version: "24"
+          cache: npm
+          cache-dependency-path: examples/demo-app/package-lock.json
+      - name: install
+        working-directory: examples/demo-app
+        run: npm ci
+      # Chromium only. The suite drives a form and reads a heading; a second
+      # engine would double the download and prove nothing new about the
+      # identity contract, which is what is under test here.
+      - name: install chromium
+        working-directory: examples/demo-app
+        run: npx playwright install --with-deps chromium
+      # The suite builds and starts the server from this checkout, so what it
+      # runs against is this commit rather than a published image.
+      - name: test
+        working-directory: examples/demo-app
+        run: npm test

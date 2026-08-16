@@ -376,6 +376,64 @@ curl -sX DELETE http://127.0.0.1:8925/api/v1/leases/$LEASE_ID \
 
 Releasing twice is not an error.
 
+## Giving the same contract to an agent (MCP, experimental)
+
+`authstunt mcp` serves the same four routes to an AI agent as Model Context
+Protocol tools, over stdio. The point is not that there is an MCP server; it is
+that an agent doing a signup gets the same reason codes a test does, instead of
+being asked to read an inbox and pick a code out by eye.
+
+Four tools, one per frozen route: `open_run`, `lease_identity`, `claim_code`,
+`release_lease`. There is no combined "sign this user up" tool, because that
+tool would have to decide on your behalf how long to wait and whether a claim
+that waited out its deadline is news or a failure - and it would flatten the
+middle step's reason code into one sentence.
+
+It is a proxy, not a server: point it at an instance that is already running,
+because your application has to be able to send mail there.
+
+```json
+{
+  "mcpServers": {
+    "authstunt": {
+      "command": "authstunt",
+      "args": ["mcp"],
+      "env": {
+        "AUTHSTUNT_URL": "http://127.0.0.1:8925",
+        "AUTHSTUNT_BEARER": "${AUTHSTUNT_BEARER}"
+      }
+    }
+  }
+}
+```
+
+The bearer travels through the process environment and nothing else. No tool
+takes a credential as a parameter, no result carries one, and the run token
+minted when a run opens is kept inside the server process - so none of it ever
+reaches a transcript. That matters more here than in most servers, because this
+agent reads text somebody else wrote: the body of an email your application
+sent. A credential that was never in the context window has nothing to offer a
+malicious message.
+
+What does cross is the claimed code or link itself, and saying otherwise would
+be overselling: typing it into your application is the whole job. It is a
+one-time secret, scoped to one lease, spent when it is handed over.
+
+Two more things worth knowing before you wire it up:
+
+- **You never write an idempotency key.** It is derived from the lease, the kind
+  and an `attempt` number, so calling `claim_code` again with the same `attempt`
+  replays the same answer instead of burning a second message. Raise `attempt`
+  only after the application has actually sent a new one - the resend case.
+- **A reason is a result.** `claim_timeout`, `claim_already_claimed` and
+  `claim_suspect_binding` come back as successful tool results carrying their
+  code, not as errors, so the agent branches on the code rather than retrying
+  blindly. Only a refused request is an error.
+
+Tool names and input shapes are experimental and may change; result bodies are
+the frozen `/api/v1` bodies and will not. `examples/demo-app` is a signup flow
+to point it at.
+
 ## Status and stability
 
 Early alpha, with a frozen core inside it.
@@ -401,8 +459,12 @@ means handing the same address to one run after another, which needs a cooldown
 policy that has no safe default; treat it as reserved surface rather than a
 feature.
 
-**Not written yet.** The dashboard, the YAML flow loader, the MCP server, and
-TOTP.
+**Experimental.** The MCP server (`authstunt mcp`). Its tool names and input
+shapes are not part of the freeze and may change; the bodies its tools return
+are the frozen `/api/v1` bodies. The names freeze once a real agent has been
+recorded completing a signup through them.
+
+**Not written yet.** The dashboard, the YAML flow loader, and TOTP.
 
 **No retention, and this is worth knowing before you point a long-running suite
 at an instance.** Nothing is ever deleted. Every message keeps its row, roughly
@@ -509,12 +571,12 @@ trusted, and the SMTP listener accepts every credential it is given.
 
 - `cmd/authstunt` - main binary
 - `internal/*` - server internals: smtp, extract, api, store, secrets,
-  personas, ledger, sse, relayconf, fsutil
+  personas, ledger, sse, relayconf, fsutil, mcp
 - `packages/client` - `@authstunt/client`, the typed TypeScript client
 - `packages/playwright` - `@authstunt/playwright`, the fixtures
+- `examples/demo-app` - a signup flow with an emailed code, to test against
 
-Planned, not yet written: `web/` dashboard · `internal/flows` · `internal/mcp` ·
-`examples/`, `docs/`
+Planned, not yet written: `web/` dashboard · `internal/flows` · `docs/`
 
 ## Development
 
