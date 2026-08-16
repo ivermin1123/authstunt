@@ -107,22 +107,39 @@ func New(cfg Config) (*Server, error) {
 // returned, and would conclude the server had hung.
 func (s *Server) Serve(ctx context.Context, in io.Reader, out io.Writer) error {
 	ctx, cancel := context.WithCancel(ctx)
+
+	var wg sync.WaitGroup
+	// Deferred calls run last in, first out, and the order matters:
+	// cancel runs first so a claim parked on a long-poll unwinds, then
+	// the wait lets the handlers finish. Waiting first would hold the
+	// session open for up to two minutes after the client had already
+	// gone away.
+	defer wg.Wait()
 	defer cancel()
 
-	r := newReader(in)
 	w := newWriter(out)
-	var wg sync.WaitGroup
-	// Waited on before returning so an in-flight response cannot be
-	// written to a stream the caller already considers finished.
-	defer wg.Wait()
+	lines, readErr := readLoop(ctx, in)
 
 	for {
-		line, err := r.next()
-		if err != nil {
-			if errors.Is(err, io.EOF) {
-				return nil
+		var line []byte
+		select {
+		case <-ctx.Done():
+			// A signal is an ordinary way for a stdio session to end,
+			// so it is not reported as a failure.
+			return nil
+		case next, open := <-lines:
+			if !open {
+				select {
+				case err := <-readErr:
+					if errors.Is(err, io.EOF) {
+						return nil
+					}
+					return err
+				default:
+					return nil
+				}
 			}
-			return err
+			line = next
 		}
 
 		var req request
@@ -150,13 +167,38 @@ func (s *Server) Serve(ctx context.Context, in io.Reader, out io.Writer) error {
 				s.logger.Error("mcp: write response", "method", req.Method, "error", err)
 			}
 		}()
-
-		select {
-		case <-ctx.Done():
-			return ctx.Err()
-		default:
-		}
 	}
+}
+
+// readLoop pumps messages off the input stream so the session can also
+// end on a signal.
+//
+// A read from stdin does not unblock when a context is canceled, so the
+// read has to happen somewhere the main loop is not waiting. On
+// cancellation this goroutine stays parked in that read until the process
+// exits, which is the right trade for a process whose whole lifetime is
+// one session: the alternative is a half-closed stdin the client did not
+// ask for.
+func readLoop(ctx context.Context, in io.Reader) (<-chan []byte, <-chan error) {
+	lines := make(chan []byte)
+	failed := make(chan error, 1)
+	go func() {
+		defer close(lines)
+		r := newReader(in)
+		for {
+			line, err := r.next()
+			if err != nil {
+				failed <- err
+				return
+			}
+			select {
+			case lines <- line:
+			case <-ctx.Done():
+				return
+			}
+		}
+	}()
+	return lines, failed
 }
 
 // handle dispatches one message. The second return reports whether

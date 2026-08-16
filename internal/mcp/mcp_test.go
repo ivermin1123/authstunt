@@ -10,6 +10,7 @@ import (
 	"strings"
 	"sync"
 	"testing"
+	"time"
 
 	"github.com/ivermin1123/authstunt/internal/store"
 )
@@ -723,5 +724,37 @@ func TestNewRefusesAMissingCredential(t *testing.T) {
 	_, err := New(Config{BaseURL: "http://127.0.0.1:8925", Bearer: "   "})
 	if err == nil || strings.Contains(err.Error(), "   ") {
 		t.Fatalf("the error must not carry the value, got %v", err)
+	}
+}
+
+// TestServeStopsOnCancellation covers the shutdown a signal produces.
+//
+// A read from stdin does not unblock when a context is canceled, so
+// without a reader goroutine the process would sit there holding a port
+// nobody is talking to until something killed it.
+func TestServeStopsOnCancellation(t *testing.T) {
+	fake := newFakeServer(t)
+	server, err := New(Config{BaseURL: fake.URL, Bearer: "pb_test", Version: "test"})
+	if err != nil {
+		t.Fatalf("new: %v", err)
+	}
+	// A pipe nobody writes to and nobody closes: the only way out is the
+	// cancellation.
+	inR, inW := io.Pipe()
+	defer func() { _ = inW.Close() }()
+
+	ctx, cancel := context.WithCancel(context.Background())
+	done := make(chan error, 1)
+	go func() { done <- server.Serve(ctx, inR, io.Discard) }()
+	cancel()
+
+	select {
+	case err := <-done:
+		// A signal is an ordinary end to a session, not a failure.
+		if err != nil {
+			t.Fatalf("Serve reported %v on a canceled context", err)
+		}
+	case <-time.After(5 * time.Second):
+		t.Fatal("Serve did not return when its context was canceled")
 	}
 }
