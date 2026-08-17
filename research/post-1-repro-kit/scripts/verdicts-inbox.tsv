@@ -1,0 +1,17 @@
+# Stage-3 hand verdicts for 22-inbox-capability.py.
+# Format: repo <TAB> REAL|NOT_REAL <TAB> reason
+#
+# Stage 3 cannot be scripted: it is a person opening the file and deciding whether the repository
+# really consumes a verification code out of a real inbox inside an identity flow. This file is that
+# decision, written down, one line per candidate, so the judgement is auditable even though it is
+# not automatable. Every verdict below was recorded in docs/verified-artifacts.md section 2a before
+# this script existed.
+#
+# If the script reports a stage-2 candidate that has no line here, it says so loudly and the
+# stage-3 count is incomplete. Do not add a line without opening the file.
+stytchauth/stytch-browser	REAL	real magic link through a real Mailosaur inbox, then the SDK authenticate button - the only one. services/e2e-tests/cypress/e2e/react-demo.cy.ts:62,68,81,83
+drifter089/orgOS	NOT_REAL	the Mailinator mention is inside the giving-up comment of a test.skip - a case of NOT doing it. tests/auth-unauthenticated.spec.ts:126
+embreymorton/CS-Grad-Tracker	NOT_REAL	reads real mail via ethereal.email but not in an identity flow. cypress/e2e/formTests/Nodemailer.cy.js:14
+liorwn/workscanner	NOT_REAL	ImapFlow is a product feature (mailbox ingestion), not authentication. tests/level5-scan/icloud-ingest.test.ts:2
+anietieakpan/kazuq	NOT_REAL	getMailhogEmails is defined and never called anywhere in the repository. services/notification-service/test/utils/test-utils.ts:179
+sebkopsi/Programsko-inzenjerstvo	NOT_REAL	false positive - test@testmail.com is a hardcoded login address, not the testmail.app service. frontend/cypress/e2e/auth/not_implemented_yet.cy.js:9

@@ -1,0 +1,21 @@
+TRUONG e NGHIEM NGAT (bo playwright-report/html/dist, 424242 phai la so 6 chu so doc lap)
+  tong: 53/284 = 18% (thô)
+  CO TRONG SO: 26.2%
+
+  theo hang:
+    clerk         20/ 39 = 51%
+    firebase      19/ 41 = 46%
+    supertokens    2/  8 = 25%
+    workos         8/ 75 = 10%
+    supabase       2/ 40 = 5%
+    kinde          1/ 23 = 4%
+    auth0          1/ 41 = 2%
+    stytch         0/  5 = 0%
+    descope        0/ 12 = 0%
+
+  loai backdoor:
+    clerk-otp-424242       22
+    firebase-emulator      17
+    clerk-testing-token    14
+    clerk_test             10
+    password-grant         4

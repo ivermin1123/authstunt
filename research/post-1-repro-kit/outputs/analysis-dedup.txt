@@ -1,0 +1,64 @@
+
+========================================================================
+### TOAN BO REPO DAT CHUAN (mau do)  (n=284)
+========================================================================
+vendor          n         d     d+dep    serial  backdoor    mail         g     pain
+------------------------------------------------------------------------------------
+auth0          41   14/ 34%   14/ 34%   17/ 41%    5/ 12%   2/ 4%   14/ 34%  13/ 31%
+clerk          39   17/ 43%   17/ 43%   25/ 64%   24/ 61%   5/12%   17/ 43%  13/ 33%
+descope        12    5/ 41%    5/ 41%    3/ 25%    0/  0%   2/16%    9/ 75%   1/  8%
+firebase       41    6/ 14%    6/ 14%   21/ 51%   19/ 46%   1/ 2%   15/ 36%  13/ 31%
+kinde          23    8/ 34%    8/ 34%   17/ 73%    2/  8%   1/ 4%    8/ 34%  12/ 52%
+stytch          5    2/ 40%    2/ 40%    1/ 20%    1/ 20%   1/20%    1/ 20%   0/  0%
+supabase       40    6/ 15%    6/ 15%   13/ 32%    4/ 10%   8/20%   21/ 52%   6/ 15%
+supertokens     8    2/ 25%    2/ 25%    4/ 50%    2/ 25%   1/12%    5/ 62%   3/ 37%
+workos         75   24/ 32%   24/ 32%   50/ 66%   16/ 21%   8/10%   45/ 60%  29/ 38%
+------------------------------------------------------------------------------------
+RAW           284   84/ 29%   84/ 29%  151/ 53%   73/ 25%  29/10%  135/ 47%  90/ 31%
+WEIGHTED              31.8%     31.8%     50.4%     33.9%    9.6%     41.3%    30.2%
+  dlogin (setup thuc su DANG NHAP): raw 65/284=22%  weighted 24.2%
+  co key `workers` trong config:    raw 169/284=59%
+  TRUONG c tach local/CI: serial ca hai=46 (16.3%) | serial CHI tren CI=103 (34.7%) | song song ca hai=135 (49.0%) | describe.configure serial=23 (8.8%)
+  TRUONG d ba muc: d_raw=84 (31.8%) | d_code=81 (31.1%) | d_cfg=47 (17.9%)
+
+--- BANG TIEU CHI v1.38, AP Y NGUYEN ---
+[1] storageState/globalSetup dang-nhap-mot-lan >=50%? (d_code, PREREG R11) 31.1%  -> khong
+[2] <20 repo dat chuan trong toan quan the?             679  -> khong
+[3] >=50% dung backdoor chinh hang?                     33.9%  -> khong
+[4] >=30% ghim serial VA >=5 repo co dau dau?           50.4% / 90 repo -> HIT (A MO LAI)
+[5] khoang giua 15-30% ghim serial?                     50.4%  -> khong
+
+O ROI VAO: ['A MO LAI (dong 4)']
+
+========================================================================
+### CHI SUBSTANTIVE (ntest>=3 va nauth>=1) — PREREG R9  (n=161)
+========================================================================
+vendor          n         d     d+dep    serial  backdoor    mail         g     pain
+------------------------------------------------------------------------------------
+auth0          21   10/ 47%   10/ 47%    7/ 33%    1/  4%   2/ 9%    9/ 42%   5/ 23%
+clerk          22   13/ 59%   13/ 59%   16/ 72%   16/ 72%   5/22%   13/ 59%  10/ 45%
+descope         7    3/ 42%    3/ 42%    2/ 28%    0/  0%   2/28%    5/ 71%   1/ 14%
+firebase       21    5/ 23%    5/ 23%   11/ 52%   12/ 57%   0/ 0%   12/ 57%   6/ 28%
+kinde          10    5/ 50%    5/ 50%    7/ 70%    2/ 20%   0/ 0%    6/ 60%   3/ 30%
+stytch          3    1/ 33%    1/ 33%    1/ 33%    1/ 33%   1/33%    1/ 33%   0/  0%
+supabase       22    4/ 18%    4/ 18%    7/ 31%    4/ 18%   5/22%   18/ 81%   5/ 22%
+supertokens     5    2/ 40%    2/ 40%    3/ 60%    2/ 40%   1/20%    5/100%   3/ 60%
+workos         50   21/ 42%   21/ 42%   38/ 76%   12/ 24%   8/16%   39/ 78%  22/ 44%
+------------------------------------------------------------------------------------
+RAW           161   64/ 39%   64/ 39%   92/ 57%   50/ 31%  24/14%  108/ 67%  55/ 34%
+WEIGHTED              43.7%     43.7%     51.1%     38.4%   14.8%     57.5%    32.5%
+  dlogin (setup thuc su DANG NHAP): raw 53/161=32%  weighted 33.3%
+  co key `workers` trong config:    raw 106/161=65%
+  TRUONG c tach local/CI: serial ca hai=33 (21.6%) | serial CHI tren CI=55 (29.2%) | song song ca hai=73 (49.2%) | describe.configure serial=19 (12.3%)
+  TRUONG d ba muc: d_raw=64 (43.7%) | d_code=61 (42.9%) | d_cfg=35 (23.7%)
+
+--- BANG TIEU CHI v1.38, AP Y NGUYEN ---
+[1] storageState/globalSetup dang-nhap-mot-lan >=50%? (d_code, PREREG R11) 42.9%  -> khong
+[2] <20 repo dat chuan trong toan quan the?             679  -> khong
+[3] >=50% dung backdoor chinh hang?                     38.4%  -> khong
+[4] >=30% ghim serial VA >=5 repo co dau dau?           51.1% / 55 repo -> HIT (A MO LAI)
+[5] khoang giua 15-30% ghim serial?                     51.1%  -> khong
+
+O ROI VAO: ['A MO LAI (dong 4)']
+
+>>> HAI MAU SO: ['A MO LAI (dong 4)']  ||  ['A MO LAI (dong 4)']

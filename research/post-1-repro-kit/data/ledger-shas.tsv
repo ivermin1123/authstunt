@@ -1,0 +1,38 @@
+# Repository SHAs recorded in docs/verified-artifacts.md on 2026-08-16, the measurement date.
+# Format: repo <TAB> sha_on_2026-08-16 <TAB> ledger reference
+#
+# WHAT THIS IS FOR, AND WHAT IT CANNOT DO
+# When a re-run classifies a repository differently from the published figures, there are two
+# possible causes and they call for opposite responses:
+#   - the repository changed since the measurement  -> drift, the scan is not in disagreement
+#   - the repository is unchanged                   -> the two measurements genuinely disagree
+# A recorded SHA is the only thing that separates them.
+#
+# The verification session recorded SHAs only for the repositories it quoted - 19 of 284. For every
+# other repository there is NO recorded 2026-08-16 SHA, so "unchanged" cannot be proven from this
+# file, and the comparison script reports those as NOT_IN_LEDGER rather than guessing. The weaker
+# but complete fallback is the commit date: 20-fetch-corpus.sh records the HEAD commit date, and
+# remain.tsv carries pushed_at from collection time, so a repository whose HEAD is newer than its
+# recorded pushed_at has certainly moved. That covers all 284, at lower resolution.
+#
+# Not having captured 284 SHAs at measurement time is a gap in the original work. It is recorded
+# here rather than papered over.
+yravan/cashlens	adf5e78c1cde745c3c359d7de6228604c57caaa9	1.1, 1.2
+drifter089/orgOS	a9073690f340168f3b3b65e7ad57ba2390d4a047	1.3, 1.23, A-1
+woody34/rescope	5cd773fd54ea768f29e72e752c672e5b1ba25a2e	1.4
+clerk/clerk-playwright-nextjs	858d186ca6b4854e1d8bb16c5384b75ba7f1ac30	1.5
+stytchauth/stytch-browser	4bceacb5c73bb4b6c75ed90eba9471b505490089	1.6-1.13
+Eliahhango/ai-assistant	fcfcc58dc283e2147265e22d6ce9886158236aa5	1.14
+Luigi-Faldetta/fit-log	9e1dcec731578de4a4aa10e9fb05e5e7f36b4917	1.15
+tensr-xyz/tensr-platform-web	6482dd0910fa8e46efe89ad12bfe74e4161f85bd	1.16, 1.16b, 1.16c
+gumacahin/mis-capstone	de3a62cc82ba49ed3b07f6945ba0f1420bff4f2e	1.17
+vandean25/auto-core-platform	2ecd3d409a72a17169a8eb0a8ea8546b720535f6	1.18
+dawi369/assistant-mk1	5c459abe244ffbd5ccb850966593e47349d21490	1.19
+RoleModel/betanxt-issuer-portal	afe92dab95291fe4be2cec63f6cdab3ee6f126be	1.20
+amirrudd/flyerboard	32a22a7c1f7f4a7bae15cdce659aacf1914ff7ea	1.21
+intelogroup/ugent	0724ab13ef962e98147c2263b189e27cabe6ee05	1.22
+ubcdiscovery/ubc-discovery	ef6a28f9252285b47f6a93f61b963a433f96f947	section 2b
+kil-dev/kil.dev	441e8a5edb0980a2a8f67a91b11144438027a380	section 2b
+SDG-AI-Lab/Digital_Technologies_Radar	1dcf308577a0617690b8548412e2b0a3ccc0babf	section 2b
+MCPJam/inspector	dd212decbd6db8b50348c9a543307928c7986857	section 2b, false positive
+microsoft/playwright	d5a185a894ab3ab17ff77a44e116a1339c6bdaed	6.1-6.5 (documentation, not in the 284)

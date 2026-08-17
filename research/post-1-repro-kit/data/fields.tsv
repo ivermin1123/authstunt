@@ -1,0 +1,310 @@
+3underscoreN/thevale	team	clerk	playwright	playwright.config.ts:23:  workers: 1, 	playwright.config.ts:17:  fullyParallel: true,	NO	NO	NO	NO			NO	YES	3	0	3	2026-07-16
+876-workspace/876	team	workos	playwright	playwright.config.ts:25:  workers: process.env.CI ? 2 : undefined, 	playwright.config.ts:21:  fullyParallel: true,	NO	NO	NO	YES	grant_type;		YES	YES	3	3	1	2026-08-16
+a-zahi2002/Capstone---URMS	team	firebase	playwright	playwright.config.ts:15:  workers: 1, 	playwright.config.ts:9:  fullyParallel: false,	NO	NO	NO	NO			NO	YES	18	2	1	2026-08-12
+aaron-howard/service-certify	team	workos	playwright	playwright.config.ts:21: workers: process.env.CI ? 1 : undefined, 	playwright.config.ts:15: fullyParallel: true,	NO	NO	NO	YES	424242;		NO	YES	8	2	1	2026-08-12
+Abdul-Razack/ecommerce	team	workos	playwright	playwright.config.ts:15:  workers: process.env.CI ? 1 : 2, playwright.config.ts:23:    /* Collect trace on CI only to prevent filesystem artifact collisions with parallel workers */ 	playwright.config.ts:12:  fullyParallel: false,	YES	YES	NO	NO			NO	YES	21	4	0	2026-08-14
+ADLenehan/battery	team	workos	playwright	apps/dashboard/playwright.config.ts:8:  workers: process.env.CI ? 1 : undefined, 	apps/dashboard/playwright.config.ts:5:  fullyParallel: true,	NO	NO	NO	NO		inbucket;	NO	NO	23	1	0	2026-01-13
+aliaksei-lyzo/github-copilot-workshop	team	auth0	playwright+cypress	playwright.config.ts:23:  workers: process.env.CI ? 1 : undefined, 	playwright.config.ts:17:  fullyParallel: true,	YES	YES	NO	NO			YES	YES	52	10	0	2025-12-04
+Amaxa-Impact/amaxa	team	workos	playwright	apps/platform/playwright.config.ts:52:  workers: process.env.CI ? 1 : 2, 	apps/platform/playwright.config.ts:46:  fullyParallel: true,	YES	YES	YES	NO			NO	YES	7	0	3	2026-04-05
+amirrudd/flyerboard	team	descope	playwright	playwright.config.ts:8:    workers: process.env.CI ? 1 : undefined, 	playwright.config.ts:5:    fullyParallel: true,	YES	YES	NO	NO			YES	NO	8	1	0	2026-08-14
+AnayDhawan/tourneyradar	team	firebase	playwright	ABSENT	playwright.config.ts:5:  fullyParallel: true,	NO	NO	NO	NO			NO	NO	2	0	23	2026-08-12
+anietieakpan/kazuq	team	supertokens	playwright+cypress	apps/web/playwright-visual.config.ts:16:  workers: process.env.CI ? 1 : undefined, 	apps/web/playwright-visual.config.ts:10:  fullyParallel: true,	YES	YES	NO	YES	424242;	mailhog;mailtrap;	YES	YES	8	2	0	2026-07-08
+annasvst/ecom-100125	team	auth0	playwright	playwright.config.ts:24:  workers: process.env.CI ? 1 : undefined, 	playwright.config.ts:18:  fullyParallel: true,	YES	YES	NO	NO			NO	YES	4	0	0	2025-12-11
+AnxForever/stylekit	team	supabase	playwright	tests/playwright.config.ts:32:  workers: process.env.CI ? 1 : undefined,  ||SERIALDECL|| ./tests/e2e/back-navigation.spec.ts:4:  test.describe.configure({ mode: "serial" });	tests/playwright.config.ts:28:  fullyParallel: true,	NO	NO	NO	NO			YES	NO	173	2	381	2026-08-16
+aravinth081/sabi-returns-gift	team	firebase	playwright	ABSENT	ABSENT	NO	NO	NO	NO			NO	NO	2	0	0	2026-08-08
+Ari-S-123/cable	team	workos	playwright	ABSENT	playwright.config.ts:8:  fullyParallel: false,	NO	NO	NO	NO			NO	NO	13	0	0	2026-07-24
+ariakit/ariakit	team	clerk	playwright	app/playwright.config.ts:34:  workers: HEADED || PERF ? 1 : CI ? "100%" : "80%", website/playwright.config.ts:19:  workers: HEADED ? 1 : CI ? "100%" : "80%", 	app/playwright.config.ts:33:  fullyParallel: !HEADED && !PERF,	NO	NO	NO	YES	+clerk_test;424242;		NO	YES	0	0	8596	2026-08-15
+arii/tech-dancer	team	firebase	playwright	playwright.config.ts:17:  workers: process.env.CI ? 1 : undefined, 	playwright.config.ts:11:  fullyParallel: true,	NO	NO	NO	NO			NO	YES	37	0	0	2026-08-16
+ARKlab/Ark.Starters.SPA	team	auth0	cypress	ABSENT	ABSENT	YES	NO	NO	NO			NO	NO	34	2	1	2026-08-15
+asherddesouza/CreditTree	team	supabase	cypress	ABSENT	ABSENT	NO	NO	NO	NO			YES	NO	10	10	0	2025-09-06
+Ashpan/NotionMaps	team	auth0	cypress	ABSENT	ABSENT	NO	NO	NO	NO			NO	NO	22	5	0	2025-09-25
+ast4rt3/it35-lab	team	supabase	cypress	ABSENT	ABSENT	NO	NO	NO	NO			NO	NO	2	0	1	2025-05-13
+auredentan/sport-meetup	team	workos	playwright	playwright.config.ts:11:  workers: process.env.CI ? 1 : undefined, 	playwright.config.ts:8:  fullyParallel: true,	NO	NO	NO	NO			NO	NO	5	3	0	2026-02-25
+auth0-samples/auth0-nextjs-samples	vendor	auth0	cypress	ABSENT	ABSENT	NO	NO	NO	NO			NO	NO	22	5	137	2026-08-11
+AutomationGods/career-os	team	workos	playwright	ABSENT	ABSENT	NO	NO	NO	NO			NO	NO	2	0	0	2026-07-09
+AvichalDwivedi2205/LoopLens	team	workos	playwright	ABSENT	ABSENT	NO	NO	NO	NO			NO	NO	1	1	0	2026-06-29
+awjh/home-automation-frontend-v2	team	stytch	cypress	ABSENT	ABSENT	YES	YES	NO	NO			NO	NO	4	4	0	2026-06-13
+AyushAgrawal-A2/quadratic	team	workos	playwright	test/e2e/playwright.config.ts:19:  /* Use 1 worker on CI since we parallelize via shards (36 shards), not workers */ test/e2e/playwright.config.ts:22:  workers: process.env.CI ? 1 : '50%',  ||SERIALDECL|| ./test/e2e/src/formatting.spec.ts:30:  test.describe.configure({ mode: 'serial' });	test/e2e/playwright.config.ts:14:  fullyParallel: true,	NO	NO	NO	YES	424242;		YES	YES	42	2	1	2026-04-20
+az9713/worldmonitor-tutorial	team	clerk	playwright	playwright.config.ts:5:  workers: 1,  ||SERIALDECL|| ./e2e/rag-vector-store.spec.ts:6:  test.describe.configure({ mode: 'serial' });	ABSENT	NO	NO	NO	YES	grant_type;		YES	NO	236	3	0	2026-05-28
+Barbienestar/frontend	team	firebase	cypress	ABSENT	ABSENT	NO	NO	NO	YES	connectAuthEmulator;		NO	NO	6	6	0	2026-06-13
+basilshine/cofi_client	team	auth0	playwright	ABSENT	ABSENT	YES	NO	NO	NO			NO	NO	3	1	0	2026-08-11
+ben-horner-dev/portfolio	team	auth0	playwright	apps/frontend/playwright.config.ts:16:  workers: process.env.CI ? 1 : undefined, 	apps/frontend/playwright.config.ts:13:  fullyParallel: true,	NO	NO	NO	NO			NO	NO	2	0	0	2026-02-13
+bforshoping4-ai/what-u-feel-wheel	team	clerk	playwright	ABSENT	ABSENT	NO	NO	NO	NO			NO	NO	1	0	1	2026-08-12
+blacktails2/BraceBracket	team	firebase	playwright	playwright.config.ts:8:  workers: process.env.CI ? 1 : undefined, 	playwright.config.ts:5:  fullyParallel: true,	NO	NO	NO	NO			NO	NO	0	0	13	2026-08-02
+BryanAM/sajeon	team	kinde	playwright	playwright.config.ts:21:  workers: process.env.CI ? 1 : undefined, 	playwright.config.ts:15:  fullyParallel: true,	NO	NO	NO	NO			NO	YES	6	0	2	2025-05-10
+BuiltByDennis/SkillFinder-ideas	team	clerk	playwright	frontend/playwright.config.ts:8:  workers: process.env.CI ? 1 : undefined, 	frontend/playwright.config.ts:5:  fullyParallel: true,	NO	NO	NO	YES	424242;		YES	NO	1	1	1	2026-06-19
+caioquirino/fullstack_template	team	stytch	playwright	ABSENT	ABSENT	YES	NO	NO	NO			NO	NO	1	0	2	2025-06-30
+catmando1990-hue/reconai-frontend-v2	team	clerk	playwright	playwright.config.ts:8:  workers: process.env.CI ? 4 : undefined, 	ABSENT	YES	YES	YES	YES	424242;		YES	NO	7	3	0	2026-04-16
+cdraarsh/fittrack-app	team	clerk+supabase	playwright	playwright.config.ts:8:  workers: process.env.CI ? 1 : undefined,  ||SERIALDECL|| ./e2e/weight.spec.ts:5:test.describe.configure({ mode: 'serial' });	playwright.config.ts:5:  fullyParallel: true,	YES	YES	YES	YES	clerkSetup;setupClerkTestingToken;		NO	NO	9	0	0	2026-04-22
+cedar-admin/cedar	team	workos	playwright	ABSENT	ABSENT	NO	NO	NO	NO			NO	NO	2	1	0	2026-03-26
+cgallati/everything-zen	team	auth0	cypress	ABSENT	ABSENT	NO	NO	NO	NO			NO	NO	2	0	0	2026-03-08
+cgpeterson/BeyondTheVale	team	firebase	playwright	ABSENT	playwright.config.js:6:    fullyParallel: true,	NO	NO	NO	NO			NO	NO	11	0	0	2026-08-06
+ChaiWithJai/queens-world-monitor	team	clerk	playwright	playwright.config.ts:5:  workers: 1,  ||SERIALDECL|| ./e2e/rag-vector-store.spec.ts:6:  test.describe.configure({ mode: 'serial' });	ABSENT	NO	NO	NO	YES	424242;grant_type;		YES	NO	954	23	0	2026-07-28
+chili-publish/studio-ui	team	auth0	playwright	playwright.config.ts:47:    workers: process.env.CI ? 4 : undefined, 	ABSENT	NO	NO	NO	NO			YES	NO	83	2	12	2026-08-14
+chirag127/omnijournal	team	firebase	playwright	apps/web/playwright.config.ts:8:  workers: process.env.CI ? 1 : undefined, 	apps/web/playwright.config.ts:5:  fullyParallel: true,	NO	NO	NO	NO			YES	NO	4	1	2	2026-08-14
+chirag127/oriz-me	team	clerk	playwright	playwright.config.ts:8:  workers: process.env.CI ? 2 : undefined, 	playwright.config.ts:5:  fullyParallel: true,	NO	NO	NO	NO			NO	NO	2	0	1	2026-08-16
+ChouquetteCorp/beerbet	team	supabase	cypress	ABSENT	ABSENT	NO	NO	NO	NO		inbucket;	NO	NO	7	3	13	2025-03-21
+chrisalexan06/SMBLCC-SOEN-341-Project-W26	team	clerk	playwright	nutrition-flow/playwright.config.ts:13:  workers: process.env.CI ? 1 : undefined, playwright.config.ts:8:  workers: process.env.CI ? 1 : undefined, 	nutrition-flow/playwright.config.ts:10:  fullyParallel: true,	NO	NO	NO	YES	+clerk_test;		NO	NO	1	1	0	2026-04-14
+chrisamador/unity-house	team	workos	playwright	playwright.config.ts:8:  workers: process.env.CI ? 1 : undefined, 	playwright.config.ts:5:  fullyParallel: true,	NO	NO	NO	NO			NO	NO	5	1	0	2025-09-28
+chrizzy-x/Agent-OS	team	supabase	playwright	playwright.config.ts:6:  workers: Number(process.env.PLAYWRIGHT_WORKERS ?? '1'), 	ABSENT	NO	NO	NO	NO			YES	YES	225	12	0	2026-08-15
+Cimpo1/SOEN341---DYEVRAQ	team	auth0	playwright	playwright.config.ts:23:  workers: process.env.CI ? 1 : undefined, 	playwright.config.ts:17:  fullyParallel: true,	NO	NO	NO	NO			YES	YES	1	1	1	2025-04-18
+clerk/clerk-playwright-nextjs	vendor	clerk	playwright	ABSENT ||SERIALDECL|| ./e2e/global.setup.ts:9:  mode: "serial",	ABSENT	YES	YES	YES	YES	+clerk_test;424242;setupClerkTestingToken;		YES	NO	2	1	24	2026-05-19
+Clvrwrk/fleetvolt	team	workos	playwright	apps/web/playwright.config.ts:12:  workers: 1, 	apps/web/playwright.config.ts:9:  fullyParallel: false,	NO	NO	NO	NO			NO	NO	11	0	0	2026-07-17
+Cnoyy/DOC-REVIEW	team	workos	playwright	playwright.config.ts:8:  workers: process.env.CI ? 1 : undefined, 	playwright.config.ts:5:  fullyParallel: true,	NO	NO	NO	YES	424242;		YES	NO	1	1	0	2026-06-16
+Coachb1/webapp_deep	team	kinde	cypress	ABSENT	ABSENT	YES	YES	NO	NO			YES	NO	8	8	0	2026-05-21
+codeabode101/robocode	team	workos	playwright	playwright.config.ts:8:  workers: process.env.CI ? 1 : undefined, playwright.config.ts:12:    baseURL: 'https://robocode.rahejaom.workers.dev', 	playwright.config.ts:5:  fullyParallel: true,	NO	NO	NO	YES	424242;		YES	YES	10	9	0	2026-08-09
+codelagoon/avarentdemo	team	workos	playwright	legacy/playwright.config.ts:12:  workers: process.env.CI ? 1 : undefined, 	legacy/playwright.config.ts:9:  fullyParallel: true,	NO	NO	NO	NO			NO	NO	6	1	0	2026-06-24
+connectionmz/connection-master	team	firebase	cypress	ABSENT	ABSENT	NO	NO	NO	YES			NO	NO	41	2	0	2026-07-27
+Connorbelez/AnswerThePublic	team	workos	playwright	playwright.config.ts:11:  workers: 1, 	playwright.config.ts:10:  fullyParallel: false,	NO	NO	NO	NO		inbucket;	YES	YES	24	1	0	2026-08-01
+coydevs/policyjar	team	supabase	playwright	ABSENT	playwright.config.ts:8:  fullyParallel: true,	NO	NO	NO	NO			YES	NO	178	9	3	2026-06-01
+Crazytieguy/calibrate	team	clerk	playwright	playwright.config.ts:5:  workers: 1, 	ABSENT	NO	NO	NO	YES	+clerk_test;424242;		YES	NO	1	1	1	2025-10-08
+Csyeoh/CariSkill	team	firebase	playwright	amls-root/apps/web/playwright.config.ts:23:  workers: process.env.CI ? 1 : undefined, 	amls-root/apps/web/playwright.config.ts:17:  fullyParallel: true,	NO	NO	NO	NO			NO	YES	0	0	0	2026-03-06
+CzarX86/OgniStore	team	firebase	cypress	ABSENT	ABSENT	NO	NO	NO	YES			YES	NO	18	7	0	2025-11-07
+DamienLove/pulselink	team	firebase	playwright	web/playwright.config.js:15:  workers: process.env.CI ? 1 : undefined, 	web/playwright.config.js:9:  fullyParallel: true,	NO	NO	NO	YES	424242;		YES	YES	18	1	1	2026-02-25
+dandyson/waygenie	team	auth0	cypress	ABSENT	ABSENT	NO	NO	NO	YES	grant_type;		NO	NO	6	6	0	2026-07-07
+Daryl-03/clean-url-shortener-ui	team	kinde	playwright	playwright.config.ts:23:  workers: process.env.CI ? 1 : undefined, 	playwright.config.ts:17:  fullyParallel: true,	NO	NO	NO	NO			YES	YES	2	1	0	2026-03-14
+DavidGarzon9580/secondbraind	team	supabase	playwright	ABSENT	playwright.config.ts:16:  fullyParallel: true,	NO	NO	NO	NO			YES	NO	12	4	0	2025-08-01
+dawi369/assistant-mk1	team	workos	playwright	playwright.config.ts:23:  workers: 1, 	playwright.config.ts:20:  fullyParallel: false,	NO	NO	NO	NO			NO	NO	14	2	0	2026-08-16
+Dec0dex/dcp-web	team	supertokens	cypress	ABSENT	ABSENT	NO	NO	NO	NO			NO	NO	2	0	0	2025-11-15
+DefinitionGroup/1sp-ProjectManager	team	clerk	playwright	playwright.config.ts:10:  // workers would race each other's reads/writes and make failures playwright.config.ts:13:  // no `workers` set, Playwright still ran multiple spec *files* in 	playwright.config.ts:11:  // nondeterministic. `fullyParallel: false` alone does NOT guarantee that:	YES	YES	NO	YES	+clerk_test;clerkSetup;setupClerkTestingToken;	inbucket;	YES	YES	22	4	0	2026-08-13
+descope-sample-apps/b2b-react-sample-app	vendor	descope	cypress	ABSENT	ABSENT	NO	NO	NO	NO			YES	NO	2	2	38	2026-08-12
+descope-sample-apps/b2c-retail-sample-app	vendor	descope	cypress	ABSENT	ABSENT	NO	NO	NO	NO			YES	NO	4	2	43	2026-08-12
+descope-sample-apps/descope-playwright-react-example	vendor	descope	playwright	ABSENT	ABSENT	YES	NO	NO	NO			YES	NO	1	0	40	2026-08-15
+descope-sample-apps/linkedin-sample-app	vendor	descope	cypress	ABSENT	ABSENT	NO	NO	NO	NO			YES	NO	2	2	31	2026-08-14
+descope-sample-apps/next-js-sample-app	vendor	descope	cypress	ABSENT	ABSENT	NO	NO	NO	NO			YES	NO	2	2	39	2026-08-14
+descope-sample-apps/peek-a-box-b2c-sample-app	vendor	descope	cypress	ABSENT	ABSENT	NO	NO	NO	NO			NO	NO	8	2	7	2026-07-29
+dev-pd/evercurrent	team	auth0	playwright	apps/web/playwright.config.ts:8:  workers: process.env.CI ? 1 : undefined, 	apps/web/playwright.config.ts:5:  fullyParallel: true,	NO	NO	NO	NO			YES	NO	5	1	0	2026-06-26
+DilanBernal/ticket_tracker	team	supabase	cypress	ABSENT	ABSENT	NO	NO	NO	NO			YES	NO	7	3	0	2026-02-26
+districtr/districtr-v2	team	auth0	playwright	app/playwright.config.ts:36:  workers: process.env.CI ? 1 : undefined, 	app/playwright.config.ts:27:  fullyParallel: true,	YES	NO	NO	NO			YES	YES	30	0	6	2026-08-14
+dolthead/vue-components	team	firebase	cypress	ABSENT	ABSENT	NO	NO	NO	YES	424242;		NO	NO	1	0	8	2026-04-21
+DoNhatNam1/e-commerce-linux-team	team	kinde	playwright	ABSENT	ABSENT	YES	NO	NO	NO			NO	NO	1	1	0	2025-04-19
+DoNhatNam1/nextjs-payload-mutitenant	team	kinde	playwright	playwright.config.ts:19:  workers: process.env.CI ? 1 : undefined, 	ABSENT	NO	NO	NO	NO			NO	YES	3	0	0	2025-12-23
+dot-do/registrars	team	workos	playwright	playwright.config.ts:19:  workers: process.env.CI ? 1 : undefined, 	ABSENT	NO	NO	NO	NO			NO	YES	3	0	0	2025-10-06
+douglasswmcst/teledoc	team	workos	playwright	playwright.config.ts:8:  workers: process.env.CI ? 1 : undefined, 	playwright.config.ts:5:  fullyParallel: true,	NO	NO	NO	NO			YES	NO	23	9	0	2025-10-17
+dr3amwavemedia/waveos-content-hub	team	supabase	playwright	ABSENT	playwright.config.ts:19:  fullyParallel: true,	YES	NO	NO	NO			NO	NO	6	4	0	2026-08-14
+drifter089/orgOS	team	workos	playwright	playwright.config.ts:29:  workers: process.env.CI ? 1 : undefined, 	playwright.config.ts:23:  fullyParallel: true,	YES	YES	NO	NO		mailtrap;	YES	YES	4	2	0	2026-01-11
+drmoyassine/frontbase-dbsync	team	supertokens	playwright	playwright.config.ts:23:  workers: process.env.CI ? 1 : undefined, 	playwright.config.ts:20:  fullyParallel: true,	NO	NO	NO	NO			YES	NO	4	1	0	2026-08-06
+DSamuelHodge/acceda-agents	team	workos	playwright	01_FRONTEND/playwright.config.ts:15:  // Number of workers 01_FRONTEND/playwright.config.ts:16:  workers: process.env.CI ? 1 : undefined, 	ABSENT	NO	NO	NO	NO			NO	YES	0	0	0	2026-02-23
+dtinth/auden	team	firebase	playwright	playwright.config.ts:23:  workers: process.env.CI ? 1 : undefined, 	playwright.config.ts:17:  fullyParallel: true,	NO	NO	NO	YES			NO	YES	5	0	33	2026-03-11
+EasyEyes/threshold	team	firebase	playwright	tests/mitmproxy/playwright.config.ts:5:  workers: 1, // run serially — each test owns mitmproxy on port 8080 	ABSENT	YES	NO	NO	NO			YES	YES	199	2	6	2026-08-15
+eduardoarantes/athlete-ai-analysis-e2e	team	descope	playwright	config/playwright.config.ts:32:  workers: process.env.CI ? 2 : undefined, 	config/playwright.config.ts:29:  fullyParallel: true,	NO	NO	NO	NO		mailpit;	YES	NO	4	3	0	2026-05-23
+EfeDurmaz16/aspendos-deploy	team	workos	playwright	apps/web/playwright.config.ts:17:    workers: process.env.CI ? 1 : undefined, 	apps/web/playwright.config.ts:14:    fullyParallel: true,	NO	NO	NO	NO			YES	NO	35	1	0	2026-05-06
+ekrolewicz6/portland-civic-lab	team	workos	playwright	ABSENT	ABSENT	NO	NO	NO	NO			NO	NO	1	1	0	2026-08-14
+Eliahhango/ai-assistant	team	workos	playwright	playwright.config.ts:16:  workers: 3, // Allow 3 concurrent workers (one per tier spec) 	playwright.config.ts:13:  fullyParallel: true, // Run spec files in parallel (each tier uses different user)	YES	YES	YES	NO			YES	YES	25	4	1	2026-07-28
+embreymorton/CS-Grad-Tracker	team	auth0	cypress	ABSENT	ABSENT	YES	YES	NO	NO		ethereal;	NO	NO	36	4	0	2025-03-28
+emiliorivera747/supabase-authentication-nextjs-starter	team	supabase	cypress	ABSENT	ABSENT	NO	NO	NO	NO			YES	NO	9	7	1	2025-12-16
+EndeavorEverlasting/AxTask	team	workos	playwright	playwright.config.ts:23:  /* One shared webServer + client navigations: multiple workers can starve the server and yield playwright.config.ts:25:  workers: process.env.CI ? 1 : undefined, 	playwright.config.ts:26:  fullyParallel: true,	NO	NO	NO	NO			YES	YES	22	1	0	2026-08-14
+engmsaleh/deploy-claw	team	workos	playwright	playwright.config.ts:8:  workers: process.env.CI ? 1 : undefined, 	playwright.config.ts:5:  fullyParallel: true,	NO	NO	NO	NO			NO	NO	7	0	0	2026-04-07
+eross0220/NextAuth-BoilerPlate	team	supabase	cypress	ABSENT	ABSENT	NO	NO	NO	NO			YES	NO	4	4	0	2025-06-18
+ethanmurray/ai-evangelizer	team	supabase	playwright	playwright.config.ts:8:  workers: process.env.CI ? 1 : undefined, 	playwright.config.ts:5:  fullyParallel: true,	NO	NO	NO	NO		inbucket;	YES	NO	1	1	0	2026-03-13
+f739/cook-and-keep	team	auth0	playwright	ABSENT	ABSENT	NO	NO	NO	NO			NO	NO	4	1	0	2025-05-25
+FairLendInc/flpilot	team	workos	playwright	playwright.config.ts:29: workers: process.env.CI ? 1 : undefined, 	playwright.config.ts:23: fullyParallel: true,	YES	YES	NO	NO			NO	YES	31	1	0	2026-04-28
+Flowminder/flowkit-ui	team	auth0	cypress	ABSENT	ABSENT	NO	NO	NO	NO			NO	NO	0	0	2	2026-07-27
+franktinana/vibelab-kids	team	supabase	playwright	playwright.config.ts:8:  workers: process.env.CI ? 1 : undefined, 	playwright.config.ts:5:  fullyParallel: true,	NO	NO	NO	NO			YES	NO	1	1	0	2026-01-03
+frontend-from-0/group181223-files	team	auth0	playwright	Lesson48/recipe-app-nextjs/playwright.config.ts:23:  workers: process.env.CI ? 1 : undefined, Lesson47/recipe-app-nextjs/playwright.config.ts:23:  workers: process.env.CI ? 1 : undefined, 	Lesson48/recipe-app-nextjs/playwright.config.ts:17:  fullyParallel: true,	NO	NO	NO	NO			NO	YES	4	0	4	2025-08-11
+fspiritosi/terra_energy	team	supabase	cypress	ABSENT	ABSENT	YES	YES	NO	NO			NO	NO	2	2	0	2026-01-27
+G-Jeffreys/friendly-computing-machine	team	clerk	playwright	ABSENT	playwright.config.ts:9:  fullyParallel: true,	NO	NO	NO	NO			NO	NO	0	0	0	2025-07-31
+genesiscz/GenesisTools	team	workos	playwright	src/dev-dashboard/tests/playwright.config.ts:13:    workers: 1, 	src/dev-dashboard/tests/playwright.config.ts:12:    fullyParallel: false,	YES	YES	NO	YES	424242;	inbucket;	YES	NO	31	2	7	2026-08-16
+GetClaimClam/Take-Home	team	auth0	playwright	playwright.config.ts:30:  workers: process.env.CI ? 1 : undefined, 	playwright.config.ts:24:  fullyParallel: true,	NO	NO	NO	NO			NO	YES	0	0	0	2025-05-13
+gg-mo/agent-tea	team	supabase	playwright	ABSENT	playwright.config.ts:6:  fullyParallel: true,	NO	NO	NO	NO			NO	NO	2	0	2	2026-04-21
+giacomoguidotto/blueprint	team	workos	playwright	playwright.config.ts:11:  workers: process.env.CI ? 1 : undefined,  ||SERIALDECL|| ./e2e/tasks.spec.ts:20:  test.describe.configure({ mode: "serial" });	playwright.config.ts:8:  fullyParallel: true,	YES	YES	YES	NO			YES	NO	4	2	5	2026-08-15
+Gimanh/taskview-community	team	firebase	playwright+cypress	web/playwright.config.ts:10:  workers: process.env.CI ? 1 : undefined, 	web/playwright.config.ts:7:  fullyParallel: true,	YES	YES	NO	NO			NO	NO	5	1	459	2026-08-04
+gumacahin/mis-capstone	team	auth0	playwright	ui/playwright.config.ts:19:  workers: process.env.CI ? 1 : undefined, ui/playwright.real-backend.config.ts:29:  workers: 1, 	ui/playwright.config.ts:13:  fullyParallel: true,	YES	YES	YES	NO			YES	YES	25	0	0	2026-07-06
+gurezo/portal	team	firebase	playwright	ABSENT	ABSENT	NO	NO	NO	NO			NO	NO	0	0	0	2026-08-01
+hackerai-tech/hackerai	team	workos	playwright	playwright.config.ts:24:  workers: 3, // Allow 3 concurrent workers (one per tier spec) 	playwright.config.ts:21:  fullyParallel: true, // Run spec files in parallel (each tier uses different user)	YES	YES	YES	NO			YES	YES	65	1	646	2026-08-16
+hakuramasam/base-ai-deployment	team	supabase	playwright	ABSENT	ABSENT	NO	NO	NO	NO			NO	NO	1	0	0	2026-04-08
+harvouscom/harvous	team	clerk	playwright	ABSENT ||SERIALDECL|| ./e2e/shared-spaces-ui.spec.ts:45:test.describe.configure({ mode: 'serial' });	ABSENT	YES	NO	NO	YES	clerkSetup;grant_type;setupClerkTestingToken;testing token;testing_token;TestingToken;	inbucket;	YES	NO	262	2	16	2026-08-15
+Hexinator12/Voice-Rag-Chat	team	firebase	playwright	frontend/playwright.config.ts:7:    workers: 1, 	frontend/playwright.config.ts:5:    fullyParallel: false,	NO	NO	NO	NO			NO	NO	1	0	0	2026-05-05
+Hive-Academy/ptah-extension	team	workos	playwright	libs/frontend/webview-e2e-harness/playwright.config.ts:26:  workers: isCI ? 2 : undefined, apps/ptah-electron-e2e/playwright.config.ts:20:  workers: 1, 	libs/frontend/webview-e2e-harness/playwright.config.ts:23:  fullyParallel: true,	YES	NO	NO	NO			YES	YES	14	0	29	2026-08-12
+humoyun-dev/filter-ai	team	clerk	playwright	ABSENT	ABSENT	NO	NO	NO	NO			NO	NO	8	0	0	2025-12-23
+IDpeace9527/nextjsbase-i18n	team	supabase	playwright	ABSENT	playwright.config.ts:17:  fullyParallel: true,	NO	NO	NO	NO			NO	NO	1	0	27	2025-07-03
+IGVF-DACC/igvf-ui	team	auth0	cypress	ABSENT	ABSENT	YES	YES	NO	NO			YES	NO	79	4	2	2026-08-15
+iiiamken/dokubot	team	kinde	playwright	playwright.config.ts:11:  workers: process.env.CI ? 1 : undefined, 	playwright.config.ts:8:  fullyParallel: true,	NO	NO	NO	NO			YES	NO	18	3	0	2025-08-25
+imnotannamaria/anna.maria.dev	team	workos	playwright	ABSENT ||SERIALDECL|| ./tests/e2e/admin-crud.spec.ts:5:test.describe.configure({ mode: "serial" })	playwright.config.ts:26:  fullyParallel: true,	YES	YES	NO	NO			NO	NO	6	4	1	2026-08-15
+Inanoky/worksRecorded	team	kinde	playwright	worksRecorded/playwright.config.ts:11:   workers: 1, 	worksRecorded/playwright.config.ts:10:  fullyParallel: false,	YES	NO	NO	NO			YES	YES	16	0	1	2026-08-14
+intelogroup/ugent	team	workos	playwright	playwright.config.ts:8:  workers: process.env.CI ? 1 : undefined, 	playwright.config.ts:5:  fullyParallel: true,	NO	NO	NO	NO			YES	NO	39	5	0	2026-03-31
+interval/server	team	workos	playwright	playwright.config.ts:31:  workers: getWorkers(), playwright.config.ts:51: * This can be overridden using the `--workers` command line argument if 	ABSENT	YES	YES	NO	NO			YES	YES	13	1	164	2026-05-28
+jamerson-mt/rotaverde-web	team	firebase	cypress	ABSENT	ABSENT	NO	NO	NO	NO			NO	NO	4	0	1	2026-06-25
+JarutKulthawaiphorn/ai-revenue-ops	team	supabase	playwright	playwright.config.ts:34:  workers: process.env.CI ? 1 : undefined, 	playwright.config.ts:31:  fullyParallel: true,	YES	YES	YES	NO			YES	YES	5	0	1	2026-06-30
+JasperBerton/where2pee	team	auth0	cypress	ABSENT	ABSENT	NO	NO	NO	NO			NO	NO	4	0	0	2025-03-22
+jax-a11y/skintwin-customer-portal	team	workos	playwright	ABSENT	playwright.config.ts:11:  fullyParallel: true,	NO	NO	NO	NO			NO	NO	4	3	0	2026-07-16
+jay-sahnan/signal	team	clerk	playwright	playwright.config.ts:11:  workers: 1, // sequential -- tests share DB state 	ABSENT	YES	NO	NO	YES	+clerk_test;424242;clerkSetup;setupClerkTestingToken;	inbucket;	YES	YES	137	2	308	2026-08-16
+JeffBaumgardt/ledgerline	team	clerk+supabase	playwright	playwright.config.ts:11: workers: 1, 	playwright.config.ts:8: fullyParallel: false,	YES	YES	YES	YES	clerkSetup;		NO	NO	4	1	0	2026-08-05
+JeremyLoh/xtal	team	supertokens	playwright	frontend/playwright.config.ts:31:  /* Run parallel tests with 3 workers for CI */ frontend/playwright.config.ts:32:  workers: process.env.CI ? 3 : undefined, 	frontend/playwright.config.ts:26:  fullyParallel: true,	NO	NO	NO	NO			YES	YES	85	10	1	2026-03-09
+JerryWu0519/my-ai-spreadsheet	team	workos	playwright	test/e2e/playwright.config.ts:19:  /* Use 1 worker on CI since we parallelize via shards (36 shards), not workers */ test/e2e/playwright.config.ts:22:  workers: process.env.CI ? 1 : '50%',  ||SERIALDECL|| ./test/e2e/src/formatting.spec.ts:30:  test.describe.configure({ mode: 'serial' });	test/e2e/playwright.config.ts:14:  fullyParallel: true,	NO	NO	NO	YES	424242;		YES	YES	42	2	0	2026-03-03
+JesusJC15/salud-de-una-web	team	auth0	playwright	ABSENT	playwright.config.ts:7:  fullyParallel: false,	NO	NO	NO	NO			NO	NO	4	2	0	2026-05-21
+jjohngrey/split	team	auth0	playwright	ABSENT	playwright.config.ts:5:  fullyParallel: false,	NO	NO	NO	NO			NO	NO	2	0	0	2026-07-19
+jmhumblet/candidate-schedule	team	firebase	playwright	playwright.config.ts:8:  workers: process.env.CI ? 1 : undefined, 	playwright.config.ts:5:  fullyParallel: true,	NO	NO	NO	NO			NO	NO	4	1	0	2026-06-02
+johnpolacek/vibecode-party-starter	team	clerk	playwright	starter/playwright.config.ts:26:  workers: 1, 	starter/playwright.config.ts:20:  fullyParallel: false,	YES	YES	NO	YES	clerkSetup;		YES	YES	4	1	3	2025-05-27
+joncoronel/skillbundle	team	clerk	playwright	playwright.config.ts:60:  workers: process.env.CI ? 1 : undefined, 	playwright.config.ts:57:  fullyParallel: true,	YES	YES	YES	YES	+clerk_test;424242;clerkSetup;Testing Token;		YES	NO	39	4	1	2026-08-16
+josh803316/lll-experience	team	clerk	playwright	ABSENT	ABSENT	NO	NO	NO	YES	+clerk_test;424242;		YES	NO	0	0	0	2026-08-15
+juanblas09/socios	team	auth0	cypress	ABSENT	ABSENT	NO	NO	NO	NO			NO	NO	2	2	0	2025-09-25
+JuanFelipep123/UNICONNECT_6_Dashboard_Frontend	team	auth0	playwright	playwright.config.ts:9:  workers: 1, 	playwright.config.ts:6:  fullyParallel: false,	NO	NO	NO	NO			NO	NO	4	1	0	2026-05-07
+JuniYadi/projects-green	team	workos	playwright	playwright.config.ts:93:  workers: 1,  ||SERIALDECL|| ./.agents/skills/playwright-best-practices/core/fixtures-hooks.md:410:| Shared `page` or `context` in `beforeAll` | Stat	playwright.config.ts:90:  fullyParallel: false,	YES	YES	NO	YES	424242;		YES	NO	38	2	0	2026-08-16
+justinmiller62/Parvus-Ordo	team	workos	playwright	apps/web/playwright.config.ts:11:  workers: 1, 	apps/web/playwright.config.ts:10:  fullyParallel: false,	NO	NO	NO	NO			NO	YES	1	1	0	2026-06-02
+Karthikkk-24/CareConnect	team	clerk	playwright	apps/web/playwright.config.ts:10:  workers: process.env.CI ? 1 : undefined, 	apps/web/playwright.config.ts:7:  fullyParallel: true,	NO	NO	NO	NO			YES	NO	3	2	0	2026-08-15
+katsugtgz/eduadmin-pro	team	workos	playwright	playwright.config.ts:22:  workers: process.env.CI ? 1 : undefined, 	playwright.config.ts:19:  fullyParallel: true,	NO	NO	NO	NO			NO	YES	2	2	0	2026-08-05
+kelvinhe04/healthora	team	clerk	playwright	frontend/playwright.config.ts:8:  workers: process.env.CI ? 1 : undefined, 	frontend/playwright.config.ts:5:  fullyParallel: true,	NO	NO	NO	NO			NO	NO	19	0	1	2026-08-11
+KevTiv/lumiere-v-1	team	workos	playwright	frontend/web/playwright.config.ts:16:  workers: process.env.E2E_WORKERS  ||SERIALDECL|| ./frontend/web/tests/e2e/auth-permission-enforcement.spec.ts:464:  test.describe.configure({ mode: "serial" })	frontend/web/playwright.config.ts:14:  fullyParallel: true,	YES	YES	YES	NO			YES	NO	56	3	0	2026-08-12
+kil-dev/kil.dev	team	workos	playwright	playwright.config.ts:44:  workers: undefined, 	playwright.config.ts:42:  fullyParallel: true,	NO	NO	NO	NO			NO	NO	50	0	1	2026-08-11
+Kompasmigracji/KompasMigracji	team	supabase	playwright	playwright.config.ts:8:  workers: process.env.CI ? 1 : undefined, 	playwright.config.ts:5:  fullyParallel: true,	NO	NO	NO	NO			YES	NO	24	1	0	2026-08-15
+KooshaPari/thegent	team	workos	playwright	docs/site/tests/playwright.config.ts:9:  workers: process.env.CI ? 1 : undefined, docs/demos/web/playwright.config.ts:12:  workers: 1,  ||SERIALDECL|| ./apps/byteport/frontend/web-next/e2e/auth/auth.setup.ts:58:setup.describe.configure({ mode: 'serial' })	docs/site/tests/playwright.config.ts:6:  fullyParallel: true,	YES	YES	NO	YES	424242;		NO	NO	0	0	1	2026-08-16
+kpunith8/learn-math-tables	team	kinde	playwright	playwright.config.ts:8:  workers: process.env.CI ? 1 : undefined, 	playwright.config.ts:5:  fullyParallel: true,	NO	NO	NO	YES	424242;		NO	NO	6	2	0	2026-08-15
+krishna1s/react-app	team	auth0	playwright+cypress	playwright.local.config.ts:15:  workers: process.env.CI ? 1 : undefined, playwright.config.ts:15:  workers: process.env.CI ? 1 : undefined, 	playwright.local.config.ts:9:  fullyParallel: true,	YES	YES	YES	NO			YES	YES	67	12	0	2025-08-08
+kudith/e-voting	team	kinde	cypress	ABSENT	ABSENT	YES	YES	NO	NO			YES	NO	36	3	0	2025-11-19
+kurosawa-kuro/enviroment	team	clerk		ABSENT	ABSENT	NO	NO	NO	NO			NO	NO	0	0	0	2026-05-31
+lassestilvang/dayflow-minimax-m2	team	workos	playwright	playwright.config.ts:8:  workers: process.env.CI ? 1 : undefined, 	playwright.config.ts:5:  fullyParallel: true,	NO	NO	NO	NO			YES	NO	24	2	0	2025-11-06
+lassestilvang/todo-gemini-3-pro-preview	team	workos	playwright	playwright.config.ts:24:  workers: process.env.CI ? 1 : undefined, 	playwright.config.ts:15:  fullyParallel: true,	NO	NO	NO	NO			YES	YES	53	7	0	2026-08-10
+leoogomez7/digital-commerce-hub-main	team	kinde	playwright	playwright.config.ts:8:  workers: process.env.CI ? 1 : undefined, 	playwright.config.ts:5:  fullyParallel: true,	NO	NO	NO	NO			NO	NO	1	0	0	2026-07-21
+liorwn/workscanner	team	clerk	playwright	ABSENT	ABSENT	NO	NO	NO	NO			YES	NO	60	1	0	2026-08-03
+lizardkingLK/alice	team	supabase	cypress	ABSENT	ABSENT	NO	NO	NO	NO			YES	YES	52	6	1	2026-08-16
+lleonori/gymnasium-ionic	team	auth0	playwright	playwright.config.ts:23:  workers: process.env.CI ? 1 : undefined, 	playwright.config.ts:17:  fullyParallel: true,	YES	YES	NO	NO			NO	YES	9	4	0	2026-07-22
+lucia-gomez/personal-website-v2	team	auth0	cypress	ABSENT	ABSENT	YES	YES	NO	NO			NO	NO	11	4	0	2025-06-24
+Luigi-Faldetta/fit-log	team	clerk		ABSENT	ABSENT	NO	NO	NO	NO			NO	NO	0	0	0	2026-03-24
+lukakh1/posts	team	supabase	playwright	playwright.config.ts:9:  workers: process.env.CI ? 1 : undefined, 	playwright.config.ts:6:  fullyParallel: true,	NO	NO	NO	NO			NO	NO	2	0	0	2025-10-27
+lukehodges/ironheart-platform	team	workos	playwright	playwright.config.ts:25:  workers: 1, 	playwright.config.ts:22:  fullyParallel: false, // sequential so we can observe state changes	YES	YES	YES	NO			YES	YES	18	1	0	2026-08-15
+macseem/wikismith	team	workos	playwright	apps/web/playwright.config.ts:15:  workers: 1,  ||SERIALDECL|| ./apps/web/e2e/wiki-flow.spec.ts:7:test.describe.configure({ mode: 'serial' });	apps/web/playwright.config.ts:12:  fullyParallel: false,	NO	NO	NO	NO			NO	YES	2	1	0	2026-02-26
+MadickAngeCesar/ama-fyp	team	clerk	cypress	ABSENT	ABSENT	NO	NO	NO	NO			NO	YES	41	2	0	2026-03-14
+Mahhen/rtms	team	firebase	playwright	playwright.config.ts:23:  workers: process.env.CI ? 1 : undefined, 	playwright.config.ts:17:  fullyParallel: true,	NO	NO	NO	NO			NO	YES	1	1	1	2026-02-03
+malek-abbassi/OtakuShelf	team	supertokens	playwright	ABSENT	ABSENT	NO	NO	NO	NO			YES	NO	11	3	1	2025-09-17
+MALOK142/cypress-realworld-app	team	auth0	cypress	ABSENT	ABSENT	YES	YES	NO	NO			YES	NO	65	10	0	2026-04-30
+manus42ppi/socialflow-pro	team	clerk	playwright	playwright.config.js:8:  workers: process.env.CI ? 1 : 3,  ||SERIALDECL|| ./e2e/post-history.spec.js:4:test.describe.configure({ mode: 'serial' });	playwright.config.js:5:  fullyParallel: true,	NO	NO	NO	YES	424242;		NO	YES	12	1	0	2026-06-25
+MarkKropf/payload-auth-workos	team	workos	playwright	dev/playwright.config.ts:19:  workers: process.env.CI ? 1 : undefined, playwright.config.ts:24:  workers: process.env.CI ? 1 : undefined, 	playwright.config.ts:18:  fullyParallel: true,	NO	NO	NO	NO			NO	YES	3	0	6	2026-05-12
+mateotiedra/next-boilerplate	team	kinde	playwright	playwright.config.ts:11:  workers: process.env.CI ? 1 : undefined, 	playwright.config.ts:8:  fullyParallel: true,	NO	NO	NO	NO			NO	NO	6	2	0	2026-04-10
+Math244244/Avantage-QUIZZ	team	firebase	playwright	playwright.config.js:24:  workers: process.env.CI ? 1 : undefined, 	playwright.config.js:21:  fullyParallel: true,	YES	YES	NO	YES	424242;		NO	YES	16	2	0	2025-11-21
+matheuscarp123/medical-appointment-saas	team	firebase	cypress	ABSENT	ABSENT	NO	NO	NO	YES	424242;		NO	NO	3	3	1	2025-05-21
+MatheusSimonaci/finorg-app	team	workos	playwright	finorg/playwright.config.ts:7:  workers: process.env.CI ? 2 : 1, 	ABSENT	YES	YES	NO	YES	424242;	inbucket;	YES	NO	12	5	0	2026-07-29
+MathiasVogel/hslu-techradar	team	auth0	cypress	ABSENT	ABSENT	NO	NO	NO	NO		ethereal;	YES	NO	16	14	0	2026-03-05
+MCPJam/inspector	team	workos	playwright	mcpjam-inspector/playwright.oauth-debugger.config.ts:19:  workers: 1, mcpjam-inspector/playwright.config.ts:20:  workers: process.env.CI ? 2 : undefined, 	mcpjam-inspector/playwright.oauth-debugger.config.ts:16:  fullyParallel: false,	NO	NO	NO	YES	424242;grant_type;		YES	NO	82	3	2139	2026-08-16
+Medirate/Medirate-Testing	team	kinde	playwright	playwright.config.ts:15:  workers: process.env.CI ? 1 : undefined, 	playwright.config.ts:9:  fullyParallel: true,	NO	NO	NO	NO			NO	YES	2	0	0	2025-12-11
+mejay4u/Medicare-portal-descope	team	descope	playwright	apps/web/playwright.config.ts:14:  workers: process.env.CI ? 1 : undefined, 	apps/web/playwright.config.ts:11:  fullyParallel: true,	YES	NO	NO	NO			NO	NO	0	0	0	2026-06-11
+mia-cx/maal	team	workos	playwright	ABSENT	ABSENT	NO	NO	NO	NO			NO	NO	0	0	0	2026-07-13
+MikeDev75015/mikeonline-cv	team	firebase	cypress	ABSENT	ABSENT	NO	NO	NO	YES	424242;		YES	YES	0	0	0	2026-03-07
+misterwhite44/ubeer	team	auth0	playwright	ABSENT	ABSENT	NO	NO	NO	NO			NO	NO	4	0	0	2025-06-30
+mnaoizy/wyssn	team	kinde	playwright	ABSENT	ABSENT	NO	NO	NO	NO			NO	NO	4	0	0	2025-12-14
+mohammed-shakir/webbase	team	auth0	playwright	ABSENT	ABSENT	NO	NO	NO	NO			NO	NO	6	0	0	2025-04-24
+moonklabs/sprintable	team	firebase	playwright	apps/web/playwright.config.ts:16:  workers: process.env['CI'] ? 1 : undefined,  ||SERIALDECL|| ./apps/web/e2e/onboarding.spec.ts:6:  test.describe.configure({ mode: 'serial' });	apps/web/playwright.config.ts:13:  fullyParallel: true,	YES	YES	NO	NO			YES	YES	18	2	14	2026-08-16
+mrkoonapp/mrkoon-audit	team	auth0	playwright	playwright.config.ts:11:  workers: process.env.CI ? 1 : undefined, 	playwright.config.ts:8:  fullyParallel: true,	NO	NO	NO	YES	424242;		NO	NO	3	0	0	2026-08-11
+muhamed1222/chrono	team	supabase	cypress	ABSENT	ABSENT	NO	NO	NO	NO			YES	NO	5	3	0	2025-06-06
+multicam/bush	team	workos	playwright	bp/playwright.config.ts:12:  workers: 1, src/web/playwright.config.ts:14:  workers: process.env.CI ? 1 : undefined, 	bp/playwright.config.ts:11:  fullyParallel: false,	NO	NO	NO	NO		mailpit;	YES	NO	37	2	0	2026-05-12
+muratariku0903/summary-training	team	descope	playwright	ABSENT	ABSENT	YES	YES	YES	NO		mailpit;	YES	NO	10	3	0	2025-12-20
+MyKhode/simple-online-shopping-khqr	team	supabase	cypress	ABSENT	ABSENT	NO	NO	NO	NO			NO	NO	2	1	5	2025-05-31
+naabu/naabu	team	firebase	playwright	playwright.config.mjs:11:  workers: 1, 	ABSENT	NO	NO	NO	YES			NO	NO	0	0	26	2026-02-13
+nanameru/AI-Agent-Taiyo	team	workos	playwright	playwright.config.ts:33:  /* Limit workers to prevent browser crashes */ playwright.config.ts:34:  workers: process.env.CI ? 2 : 2, 	playwright.config.ts:28:  fullyParallel: true,	NO	NO	NO	NO			YES	YES	8	2	2	2026-06-25
+nandaarafi/rag-llm-interface	team	kinde	playwright	playwright.config.ts:34:  workers: process.env.CI ? 1 : undefined, 	playwright.config.ts:28:  fullyParallel: true,	YES	YES	YES	NO			YES	YES	5	1	0	2026-01-14
+nathanjohnpayne/friends-and-family-billing	team	firebase	playwright	ABSENT	ABSENT	NO	NO	NO	YES	connectAuthEmulator;		YES	NO	49	1	0	2026-08-10
+neo4j/neo4j-browser	team	firebase	cypress	ABSENT	ABSENT	NO	NO	NO	NO			NO	YES	0	0	831	2026-08-06
+neu-cs4530/spring26-project-group-102	team	auth0	playwright	client/playwright.config.mjs:15:  workers: 1, 	ABSENT	NO	NO	NO	NO			YES	YES	43	4	1	2026-04-10
+NeuronaXSAS/MiAurora.App	team	workos	playwright	aurora-app/playwright.config.ts:8:  workers: process.env.CI ? 1 : undefined, 	aurora-app/playwright.config.ts:5:  fullyParallel: true,	NO	NO	NO	NO			YES	NO	3	2	1	2026-03-21
+nicoard12/Ticketing-system-front	team	auth0	cypress	ABSENT	ABSENT	NO	NO	NO	NO			NO	NO	8	0	0	2026-04-26
+Nishant1600/ORION_Jstreet	team	clerk	playwright	playwright.config.ts:5:  workers: 1,  ||SERIALDECL|| ./e2e/rag-vector-store.spec.ts:6:  test.describe.configure({ mode: 'serial' });	ABSENT	NO	NO	NO	YES	424242;grant_type;		YES	NO	669	16	0	2026-08-15
+NubiaGessi/cypress-realworld-app	team	auth0	cypress	ABSENT	ABSENT	YES	YES	NO	NO			YES	NO	59	12	0	2025-03-24
+nursyah21/chatai-app	team	kinde	playwright	playwright.config.ts:23:  workers: process.env.CI ? 1 : undefined, 	playwright.config.ts:17:  fullyParallel: true,	NO	NO	NO	NO			NO	YES	1	0	0	2025-05-20
+om-raheja/SDx	team	workos	playwright	ABSENT	ABSENT	NO	NO	NO	NO			YES	NO	21	1	0	2026-05-19
+OmGupta2473/moonznails	team	firebase+supabase	playwright	playwright.config.ts:8:  workers: process.env.CI ? 1 : undefined, 	playwright.config.ts:5:  fullyParallel: true,	NO	NO	NO	YES			YES	NO	2	2	0	2026-07-16
+OmuNaman/hackerai-local-selfhost	team	workos	playwright	playwright.config.ts:24:  workers: 3, // Allow 3 concurrent workers (one per tier spec) 	playwright.config.ts:21:  fullyParallel: true, // Run spec files in parallel (each tier uses different user)	YES	YES	YES	NO			YES	YES	45	2	0	2026-07-30
+ontoneio/popcorn-loop	team	supertokens	playwright	playwright.config.ts:8:  workers: process.env.CI ? 1 : undefined, 	playwright.config.ts:5:  fullyParallel: true,	NO	NO	NO	NO			NO	NO	0	0	0	2025-12-12
+openclimatefix/quartz-frontend	team	auth0	cypress	ABSENT	ABSENT	YES	YES	NO	YES	424242;		NO	YES	1	1	111	2026-08-15
+Orbital-InstaFood/InstaFood	team	firebase	cypress	ABSENT	ABSENT	NO	NO	NO	YES			YES	NO	11	4	0	2025-08-30
+ot-nemoto/daily-hub	team	clerk	playwright	playwright.config.ts:13: * - データ競合を避けるため直列実行（workers: 1） playwright.config.ts:18:  workers: 1, 	playwright.config.ts:17:  fullyParallel: false,	YES	YES	YES	YES	clerkSetup;setupClerkTestingToken;		NO	YES	13	1	0	2026-08-11
+OzGyptian/Mend	team	firebase	playwright	playwright.vercel.config.ts:11:  workers: 1, playwright.config.ts:23:  workers: process.env.CI ? 1 : undefined, 	playwright.config.ts:20:  fullyParallel: true,	YES	YES	NO	YES			YES	NO	43	3	0	2026-07-29
+PackmindHub/packmind	team	workos	playwright	ABSENT	ABSENT	NO	NO	NO	YES	424242;		NO	NO	0	0	307	2026-08-15
+PacMac-Mobile-LLC/P3-Lending-Protocol2	team	supabase	playwright	ABSENT	playwright.config.ts:9:  fullyParallel: true,	NO	NO	NO	NO		inbucket;	YES	NO	16	4	1	2026-02-17
+parkk27/spark-daily-digest	team	supabase	playwright	ABSENT	ABSENT	NO	NO	NO	NO			NO	NO	1	0	0	2026-08-10
+PBLIZZ/portfolio-tracker	team	clerk	playwright	playwright.config.ts:9:  workers: 1,  ||SERIALDECL|| ./e2e/auth.setup.ts:11:setup.describe.configure({ mode: "serial" });	playwright.config.ts:7:  fullyParallel: false,	YES	NO	YES	YES	+clerk_test;		NO	NO	16	1	0	2026-06-18
+permitio/permit-auth0-example-app	team	auth0	cypress	ABSENT	ABSENT	NO	NO	NO	NO			NO	NO	0	0	0	2025-07-10
+phkoenig/kessel-boilerplate	team	clerk	playwright	playwright.config.ts:11:  workers: process.env.CI ? "100%" : 1, 	playwright.config.ts:8:  fullyParallel: true,	NO	NO	NO	NO			NO	NO	21	1	0	2026-08-08
+pkunv/fitgather	team	kinde	playwright	playwright.config.ts:22:  workers: undefined, 	playwright.config.ts:16:  fullyParallel: false,	YES	YES	YES	NO			NO	YES	2	0	1	2025-11-02
+planetaryescape/blah.chat	team	clerk	playwright	apps/web/playwright.config.ts:13:  workers: process.env.CI ? 1 : undefined, apps/web/playwright.smoke.config.ts:16:  workers: 1, 	apps/web/playwright.config.ts:10:  fullyParallel: true,	YES	NO	NO	YES	424242;testing token;		YES	NO	34	1	7	2026-08-01
+Plant-for-the-Planet-org/planet-webapp	team	auth0	cypress	ABSENT	ABSENT	NO	NO	NO	YES	424242;		YES	NO	2	0	42	2026-08-14
+plural-reality/cartographer-oss	team	workos	playwright	playwright.config.ts:13:  workers: isCI ? 1 : undefined, 	playwright.config.ts:10:  fullyParallel: true,	NO	NO	NO	NO		inbucket;	NO	NO	27	1	0	2026-07-17
+pmfleming/MyStarQuest	team	firebase	playwright	playwright.config.ts:23:  workers: process.env.CI ? 1 : undefined, 	playwright.config.ts:17:  fullyParallel: true,	NO	NO	NO	YES			YES	YES	22	1	0	2026-06-17
+polubis/WebBlog	team	firebase	cypress	ABSENT	ABSENT	NO	NO	NO	YES			NO	NO	0	0	8	2025-03-21
+preciaaa/Scrummies-SPM	team	supabase	playwright	playwright.config.js:32:  workers: process.env.CI ? 1 : 1, // Use 1 worker to avoid database conflicts 	playwright.config.js:23:  fullyParallel: false, // Set to false for projects to avoid conflicts	YES	NO	NO	YES	424242;		YES	YES	30	3	0	2025-11-08
+procella-dev/procella	team	descope	playwright	ABSENT	playwright.config.ts:10: fullyParallel: false,	YES	YES	NO	NO			YES	NO	27	2	0	2026-08-14
+progress8080/next-fitness-dojo	team	kinde	playwright	playwright.config.js:22:  workers: process.env.CI ? 1 : undefined, 	playwright.config.js:16:  fullyParallel: true,	NO	NO	NO	NO			NO	YES	1	0	1	2025-06-08
+protoEvangelion/monai	team	clerk	playwright	ABSENT	playwright.config.ts:17:  fullyParallel: false,	YES	NO	NO	NO			NO	NO	2	0	0	2026-07-21
+Qbiak-code/stafford-thai-boxing-gym	team	supabase	cypress	ABSENT	ABSENT	NO	NO	NO	NO			NO	NO	2	0	0	2025-08-31
+QRun-IO/qqq-frontend-next	team	auth0	playwright	playwright.config.ts:8:  workers: process.env.CI ? 1 : undefined, 	playwright.config.ts:5:  fullyParallel: true,	NO	NO	NO	YES	424242;		YES	NO	21	0	0	2026-07-12
+Radit024/toorock.verse	team	supabase	playwright	ABSENT	ABSENT	NO	NO	NO	NO			NO	NO	1	0	0	2026-04-05
+rafay99-epic/envpilot.dev	team	workos	playwright	apps/web/playwright.config.ts:4:// into process.env for the config, the auth setup and the test workers. apps/web/playwright.config.ts:21:  // Parallel workers are safe because each worker mutates its OWN fixture  ||SERIALDECL|| ./apps/web/tests/e2e/authenticated/sharing-tags-export.spec.ts:28:test.describe.configure({ mode: "serial" });	apps/web/playwright.config.ts:18:  fullyParallel: true,	YES	YES	YES	NO		mailtrap;	YES	YES	52	38	0	2026-08-15
+rajnishkhatri/AgentsFramework	team	workos	playwright	frontend/playwright.config.ts:79:  workers: 1,  ||SERIALDECL|| ./frontend/e2e/integration/bff-thread-crud.spec.ts:12:test.describe.configure({ mode: "serial" });	frontend/playwright.config.ts:76:  fullyParallel: false,	YES	YES	NO	YES	424242;testing token;		YES	YES	98	2	0	2026-08-11
+rasendubi/oleksii.shmalko.com	team	firebase	playwright	playwright.config.ts:8:  workers: process.env.CI ? 1 : undefined, 	playwright.config.ts:5:  fullyParallel: true,	NO	NO	NO	NO			NO	NO	1	0	12	2026-02-22
+RegulomeDB/regulome-ui	team	auth0	cypress	ABSENT	ABSENT	NO	NO	NO	NO			NO	NO	22	1	0	2026-06-08
+RiploData/riplo-evals-battleground	team	workos	playwright	playwright.config.ts:8:  workers: process.env.CI ? 1 : undefined, 	playwright.config.ts:5:  fullyParallel: true,	YES	NO	NO	NO			YES	NO	28	1	0	2026-06-25
+Rise-Republic/Websets	team	workos	playwright	ABSENT	ABSENT	NO	NO	NO	NO			YES	NO	8	1	0	2025-10-27
+RishabhGupta19/two-hearts-chat	team	firebase	playwright	ABSENT	ABSENT	NO	NO	NO	NO			NO	NO	1	0	0	2026-05-05
+RoleModel/betanxt-issuer-portal	team	supabase	playwright	mock-api-server/playwright.config.ts:18:  workers: process.env.CI ? 1 : undefined, issuer-portal/playwright.config.ts:17:  workers: process.env.CI ? 1 : undefined, 	mock-api-server/playwright.config.ts:12:  fullyParallel: true,	YES	NO	NO	YES	424242;		YES	YES	40	2	0	2026-08-14
+RSSAgents/tandem	team	supabase	cypress	ABSENT	ABSENT	NO	NO	NO	NO			YES	NO	8	4	0	2026-04-09
+ruheni/discussions	team	workos	cypress	ABSENT	ABSENT	NO	NO	NO	NO			YES	NO	0	0	5	2026-04-08
+rush-shale/it35-lab	team	supabase	cypress	ABSENT	ABSENT	NO	NO	NO	NO			NO	NO	2	0	0	2025-06-05
+RUSTYBM7/shipnow-portal	team	supabase	playwright	playwright.config.ts:8:  workers: process.env.CI ? 1 : undefined, 	playwright.config.ts:5:  fullyParallel: true,	NO	NO	NO	YES	424242;		YES	NO	4	2	0	2026-05-28
+rvarbanov/saas-starter	team	workos	playwright	playwright.config.ts:83:  workers: playwrightWorkers, 	playwright.config.ts:80:  fullyParallel: true,	YES	YES	YES	NO			YES	NO	12	6	0	2026-08-15
+RyanLisse/rra-v2	team	kinde	playwright	playwright.config.standalone.ts:16:  workers: process.env.CI ? 1 : undefined, playwright.config.simple.ts:8:  workers: 1,  ||SERIALDECL|| ./tests/e2e/complete-system-test.spec.ts:4:  test.describe.configure({ mode: 'serial' }); // Run tests sequentially to a	playwright.config.standalone.ts:7:  fullyParallel: true,	YES	YES	YES	YES	424242;		YES	YES	112	16	0	2025-12-15
+saldanaj97/atlaris	team	clerk	playwright	playwright.config.ts:92:  workers: 1, playwright.config.ts:115:      workers: 1,  ||SERIALDECL|| ./tests/playwright/smoke/auth.settings-headings.spec.ts:3:test.describe.configure({ mode: 'serial' });	playwright.config.ts:102:  fullyParallel: false,	YES	YES	NO	YES	+clerk_test;clerkSetup;	inbucket;	YES	YES	322	14	1	2026-08-13
+samayhuf-star/Adiology-23Dec-New	team	clerk+supabase	playwright	playwright.lambdatest.config.ts:15: * - workers: '50%' - Uses 50% of CPU cores for parallel execution playwright.lambdatest.config.ts:16: *   - Set LT_WORKERS env var to override (e.g., LT_WORKERS=4 for 4 parallel worker	playwright.lambdatest.config.ts:14: * - fullyParallel: true - Enables parallel execution of tests	NO	NO	NO	NO			YES	YES	3	1	0	2026-01-18
+sanir321/hackerr	team	workos	playwright	playwright.config.ts:16:  workers: 3, // Allow 3 concurrent workers (one per tier spec) 	playwright.config.ts:13:  fullyParallel: true, // Run spec files in parallel (each tier uses different user)	YES	YES	YES	NO			NO	YES	32	6	1	2026-07-16
+sanspoof/SuperScale	team	supabase	cypress	ABSENT	ABSENT	NO	NO	NO	NO			NO	NO	2	2	0	2025-09-11
+SantiLopezLasheras/kotoba	team	kinde	playwright	playwright.config.ts:23:  workers: process.env.CI ? 1 : undefined, 	playwright.config.ts:17:  fullyParallel: true,	NO	NO	NO	NO			NO	YES	1	0	0	2025-05-16
+SchoolOfCode/final-project_front-end-untrodden	team	auth0	cypress	ABSENT	ABSENT	NO	NO	NO	NO			NO	NO	2	2	0	2025-03-06
+SDG-AI-Lab/Digital_Technologies_Radar	team	supabase	cypress	ABSENT	ABSENT	NO	NO	NO	NO			NO	NO	9	0	16	2025-12-16
+seandonn-boston/Atlas	team	workos	playwright	ABSENT	playwright.config.ts:6:  fullyParallel: true,	NO	NO	NO	NO			NO	NO	17	0	0	2026-05-27
+sebkopsi/Programsko-inzenjerstvo	team	descope	cypress	ABSENT	ABSENT	NO	NO	NO	NO			NO	NO	4	4	0	2026-01-29
+sefi-uzan/yanshuf-ai	team	kinde	playwright	playwright.config.ts:21:  workers: process.env.CI ? 1 : 1, 	playwright.config.ts:15:  fullyParallel: true,	YES	NO	NO	NO			NO	YES	8	6	0	2025-11-07
+Shadowfiend2504/consumo-servicios-pwa	team	firebase	playwright	ABSENT	ABSENT	NO	NO	NO	NO			NO	NO	7	6	0	2026-08-15
+shubhamsingh7905282843-cpu/VahanConnect	team	clerk	playwright	ABSENT	ABSENT	NO	NO	NO	NO			NO	NO	1	0	0	2026-07-26
+sikander1020/Forge-AI-Pentest-Assistant	team	workos	playwright	playwright.config.ts:16:  workers: 3, // Allow 3 concurrent workers (one per tier spec) 	playwright.config.ts:13:  fullyParallel: true, // Run spec files in parallel (each tier uses different user)	YES	YES	YES	NO			YES	YES	37	1	0	2026-08-03
+SIO-Delhi/sio-delhi.github.io	team	clerk	playwright	playwright.config.ts:8:  workers: process.env.CI ? 1 : undefined, 	playwright.config.ts:5:  fullyParallel: true,	NO	NO	NO	YES	424242;		NO	NO	14	4	1	2026-06-14
+sohail7946/Agency-tool	team	workos	playwright	ABSENT	agency-os/playwright.config.ts:5: fullyParallel: true,	NO	NO	NO	NO			YES	NO	15	2	0	2026-05-31
+sotomaque/eng-hub	team	clerk	playwright	apps/web/playwright.config.ts:14:  workers: process.env.CI ? 1 : undefined,  ||SERIALDECL|| ./apps/web/e2e/project-billets.spec.ts:4:  test.describe.configure({ mode: "serial" });	apps/web/playwright.config.ts:11:  fullyParallel: true,	YES	YES	YES	YES	clerkSetup;testing token;	inbucket;	NO	NO	37	1	4	2026-05-29
+spideryarn/hellozenno	team	supabase	playwright	ABSENT	ABSENT	NO	NO	NO	NO		inbucket;	YES	NO	3	3	1	2026-05-25
+srteerra/pitmydoro	team	firebase	playwright	playwright.config.ts:11:  workers: isCI ? '50%' : undefined, 	playwright.config.ts:8:  fullyParallel: true,	NO	NO	NO	NO			NO	YES	5	0	19	2026-07-05
+stevenbarash/steven-b2b-react-sample-app	team	descope	cypress	ABSENT	ABSENT	NO	NO	NO	NO			YES	NO	2	2	0	2025-11-27
+steveruizok/globs	team	supabase	cypress	ABSENT	ABSENT	NO	NO	NO	NO			NO	NO	0	0	249	2026-05-24
+stianglomsrod/klar	team	supabase	playwright	ABSENT	playwright.config.ts:9:  fullyParallel: true,	NO	NO	NO	NO			NO	NO	8	1	0	2026-07-19
+stytchauth/stytch-browser	vendor	stytch	cypress	ABSENT	ABSENT	NO	NO	NO	NO		mailosaur;	YES	NO	3	3	0	2026-08-14
+suleimanaidev/inference-logic	team	supabase	playwright	ABSENT	ABSENT	NO	NO	NO	NO			NO	NO	1	0	0	2026-05-25
+suntan-superman/worksideSupportConsole	team	firebase	playwright	ABSENT	ABSENT	NO	NO	NO	NO			NO	NO	17	1	0	2026-06-28
+superfaz/starfinder	team	kinde	playwright	playwright.service.config.ts:42:  workers: 20, 	playwright.config.ts:31:  fullyParallel: true,	YES	YES	YES	NO			NO	YES	4	0	1	2025-12-24
+swissmilo/bookrec	team	workos	playwright	tests/playwright.config.ts:8:  workers: 1, 	ABSENT	NO	NO	NO	NO			YES	YES	8	1	0	2026-07-14
+t-i-0414/music-practice-tracker	team	firebase		ABSENT	ABSENT	NO	NO	NO	YES	FIREBASE_AUTH_EMULATOR_HOST;		NO	NO	0	0	0	2026-08-14
+TAIRED1/hackerai	team	workos	playwright	playwright.config.ts:24:  workers: 3, // Allow 3 concurrent workers (one per tier spec) 	playwright.config.ts:21:  fullyParallel: true, // Run spec files in parallel (each tier uses different user)	YES	YES	YES	NO			YES	YES	47	1	0	2026-08-02
+talstilkol/svbooking.com	team	kinde	playwright	playwright.config.ts:22:  workers: 1, 	ABSENT	NO	NO	NO	NO			YES	NO	237	8	1	2026-08-12
+TanyaTandon/the-bulletin	team	clerk+stytch	cypress	ABSENT	ABSENT	NO	NO	NO	NO			NO	NO	0	0	0	2026-03-17
+tdiorio2323/my-creator-landing	team	supertokens	playwright	ABSENT	ABSENT	NO	NO	NO	NO			NO	NO	2	0	0	2025-11-07
+techybolek/10x-L4	team	supabase	playwright	playwright.config.ts:9:  workers: process.env.CI ? 1 : undefined, 	playwright.config.ts:5:  fullyParallel: true,	NO	NO	NO	NO		inbucket;	YES	YES	11	6	1	2025-06-12
+tensr-xyz/tensr-platform-web	team	stytch	playwright	playwright.launch.config.ts:18:  workers: process.env.CI ? 1 : undefined, playwright.config.ts:11:  workers: process.env.CI ? 1 : undefined, 	playwright.launch.config.ts:14:  fullyParallel: true,	NO	NO	NO	YES	424242;		NO	NO	8	1	0	2026-08-12
+THallerJ/tab-machine	team	auth0	playwright	playwright.config.ts:18:  workers: process.env.CI ? 1 : undefined, 	playwright.config.ts:14:  fullyParallel: true,	YES	YES	YES	NO			NO	YES	14	4	0	2025-06-01
+thefappybird/gallurio	team	workos	playwright	scripts/playwright-screenshots.config.ts:19:  workers: 1, playwright.config.ts:14:  workers: 1, 	scripts/playwright-screenshots.config.ts:18:  fullyParallel: false,	YES	YES	YES	YES	424242;		YES	NO	30	1	0	2026-08-02
+thePlaygroundCommerce/ThePlayground	team	clerk	cypress	ABSENT	ABSENT	NO	NO	NO	YES	424242;		NO	NO	1	0	0	2026-08-13
+TICIANOTAUP12/gestiona-misan	team	supabase	cypress	ABSENT	ABSENT	NO	NO	NO	NO			NO	NO	4	4	0	2026-06-09
+timfewi/freelancerino	team	clerk	playwright	playwright.config.ts:101:  /* Run tests in files in parallel (local only, CI uses workers: 1 for stability) */ playwright.config.ts:111:  workers: process.env.CI ? 1 : undefined,  ||SERIALDECL|| ./e2e/global.setup.ts:43:setup.describe.configure({ mode: "serial" });	playwright.config.ts:102:  fullyParallel: true,	YES	YES	YES	YES	clerkSetup;setupClerkTestingToken;testing token;		YES	YES	53	4	1	2026-01-25
+tindevelopers/equipmentbalkans	team	workos	playwright	smoke/playwright.config.ts:9:  workers: process.env.CI ? 2 : 4,  ||SERIALDECL|| ./smoke/marketplace-create.spec.ts:39:test.describe.configure({ mode: "serial" });	smoke/playwright.config.ts:8:  fullyParallel: true,	YES	YES	NO	NO			YES	NO	14	3	0	2026-08-08
+tommysullivan/deeporigin-takehome	team	clerk	playwright	playwright.config.ts:19:  workers: process.env.CI ? 1 : undefined, 	playwright.config.ts:13:  fullyParallel: true,	YES	YES	NO	NO			NO	YES	2	2	0	2026-01-19
+TonyRHouston/PyIntervalServ	team	workos	playwright	playwright.config.ts:31:  workers: getWorkers(), playwright.config.ts:51: * This can be overridden using the `--workers` command line argument if 	ABSENT	YES	YES	NO	NO			YES	YES	13	1	0	2026-02-13
+trainin-entrenamientos/Trainin	team	firebase	cypress	ABSENT	ABSENT	NO	NO	NO	NO			NO	NO	6	2	1	2025-07-10
+TravisJ33304/lithos	team	supabase	playwright	client/playwright.config.ts:10: workers: process.env.CI ? 1 : undefined, 	client/playwright.config.ts:7: fullyParallel: true,	NO	NO	NO	NO		inbucket;	NO	NO	2	2	0	2026-06-02
+ubcdiscovery/ubc-discovery	team	firebase	playwright	web/playwright.config.ts:6:  workers: 4, 	web/playwright.config.ts:5:  fullyParallel: true,	NO	NO	NO	NO			YES	NO	15	3	0	2026-08-15
+unityhubio/unityhubio	team	workos		ABSENT	ABSENT	NO	NO	NO	NO			YES	NO	0	0	0	2026-08-16
+Untrivial-ai/agent-orchestrator	team	workos	playwright	test/e2e-pod/playwright.electron.config.ts:12: workers: 1, 	ABSENT	NO	NO	NO	YES	424242;		YES	YES	21	1	9548	2026-08-16
+vandean25/auto-core-platform	team	firebase	playwright	apps/core-web/playwright.config.ts:15:  workers: process.env.CI ? 1 : undefined, 	apps/core-web/playwright.config.ts:9:  fullyParallel: true,	YES	YES	NO	NO			YES	YES	13	0	0	2026-08-16
+vanessavun/portfolio_v4	team	supabase	cypress	ABSENT	ABSENT	NO	NO	NO	NO			NO	NO	2	0	2	2025-09-04
+VansRouges/RBAC	team	auth0	cypress	ABSENT	ABSENT	NO	NO	NO	NO			NO	NO	22	22	0	2025-08-24
+velmuruganvelayutham/loan-app	team	clerk	cypress	ABSENT	ABSENT	NO	NO	NO	NO			NO	NO	10	10	0	2026-06-22
+victorlovescoding/dive-into-run	team	firebase	playwright	playwright.config.mjs:14:  workers: 1, 	playwright.config.mjs:13:  fullyParallel: false,	NO	NO	NO	YES			YES	NO	76	11	0	2026-06-22
+webthreeservices-bot/NSC	team	workos	playwright	playwright-continuous.config.ts:24:  workers: 1, playwright-simple.config.ts:16:  workers: process.env.CI ? 1 : 2, 	playwright-continuous.config.ts:15:  fullyParallel: false,	YES	YES	YES	NO			YES	YES	16	1	0	2025-11-20
+willl182/calaire-app	team	workos	playwright	playwright.config.ts:117:  workers: e2eEnv.isCI ? 1 : undefined,  ||SERIALDECL|| ./tests/e2e/sgc-fase2.auth.spec.ts:4:test.describe.configure({ mode: 'serial' })	playwright.config.ts:114:  fullyParallel: true,	YES	YES	NO	NO			NO	NO	14	12	3	2026-07-29
+woody34/rescope	team	descope	playwright	apps/sample-app/playwright.config.ts:8:  workers: 1, apps/ui/playwright.config.ts:6:  // parallel workers would reset each other's state mid-test. 	apps/sample-app/playwright.config.ts:9:  fullyParallel: false,	YES	YES	NO	NO			YES	YES	65	6	1	2026-07-07
+workos/authkit-electron	vendor	workos	playwright	playwright.config.ts:8: * per test, so we run serially (`workers: 1`) and retry once to absorb hosted- playwright.config.ts:16:  workers: 1, 	playwright.config.ts:15:  fullyParallel: false,	NO	NO	NO	NO			YES	YES	17	6	0	2026-08-14
+wyattowalsh/riso	team	workos	playwright	web/playwright.config.ts:8:  workers: process.env.CI ? 1 : undefined, 	web/playwright.config.ts:5:  fullyParallel: true,	NO	NO	NO	YES	424242;		YES	NO	9	0	0	2026-06-26
+y4my4my4m/harmony	team	supabase	playwright	playwright.config.ts:14:  workers: process.env.CI ? 1 : undefined, 	playwright.config.ts:11:  fullyParallel: true,	YES	YES	YES	YES	424242;		YES	NO	46	4	31	2026-08-16
+yeshwanthreddymula15/auto	team	supabase	playwright	ABSENT	ABSENT	NO	NO	NO	NO			NO	NO	1	1	0	2025-06-11
+ygzaydn/portfolio-nextjs	team	firebase	cypress	ABSENT	ABSENT	NO	NO	NO	NO			NO	NO	12	0	0	2025-12-30
+YosemiteCrew/Yosemite-Crew	team	supertokens	playwright	apps/frontend/playwright.config.ts:8:  workers: process.env.CI ? 1 : undefined, apps/desktop/playwright.config.ts:7:  workers: 1, 	apps/frontend/playwright.config.ts:5:  fullyParallel: true,	YES	YES	NO	YES	424242;		YES	YES	796	33	2038	2026-08-16
+youh4ck3dme/booking	team	supabase	playwright	playwright.config.ts:8:    workers: process.env.CI ? 1 : undefined, 	playwright.config.ts:5:    fullyParallel: true,	NO	NO	NO	NO		inbucket;	YES	NO	12	4	0	2026-02-21
+yravan/cashlens	team	clerk	playwright	apps/web/playwright.config.ts:27:  workers: 1, // parallel clerk.signIn is flaky (clerk/javascript#7891) 	ABSENT	YES	YES	YES	YES	clerkSetup;		NO	YES	5	2	0	2026-08-13
+zainsaeeed/rankerx	team	workos	playwright	apps/web/playwright.config.ts:8:  workers: process.env.CI ? 2 : undefined, 	apps/web/playwright.config.ts:5:  fullyParallel: true,	NO	NO	NO	NO			NO	NO	1	0	1	2026-04-25
+zekenewsom/highwater	team	auth0	playwright	packages/web/playwright.config.ts:15:  workers: process.env.CI ? 1 : undefined, 	packages/web/playwright.config.ts:9:  fullyParallel: true,	NO	NO	NO	NO			NO	YES	5	0	0	2025-07-28
+zenobia-pay/alphabook	team	workos	playwright	ABSENT	ABSENT	NO	NO	NO	NO			YES	NO	9	0	0	2026-04-24
+Znorlux/uquick	team	kinde	cypress	ABSENT	ABSENT	NO	NO	NO	NO			NO	NO	18	1	0	2025-05-20
+zulkeflrehman/TacticalHub	team	firebase	playwright	playwright.config.ts:6:  workers: 1, 	playwright.config.ts:5:  fullyParallel: false,	NO	NO	NO	YES			YES	NO	14	3	0	2026-08-03

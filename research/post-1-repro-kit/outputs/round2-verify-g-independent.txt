@@ -1,0 +1,47 @@
+repo=284  file test da quet=18573
+
+A  nhap ma doc tu MAIL THAT: 1 repo
+    stytchauth/stytch-browser :: services/e2e-tests/cypress/e2e/react-demo.cy.ts
+
+A2 doc mail that (khong phai luong danh tinh): 7 repo
+    DefinitionGroup/1sp-ProjectManager :: src/domain/tasks.test.ts
+    Untrivial-ai/agent-orchestrator :: frontend/e2e/chat-scroll-overflow.spec.ts
+    drifter089/orgOS :: tests/auth-unauthenticated.spec.ts
+    embreymorton/CS-Grad-Tracker :: cypress/e2e/formTests/Nodemailer.cy.js
+    genesiscz/GenesisTools :: src/macos/lib/mail/search-filters.test.ts
+    genesiscz/GenesisTools :: src/macos/lib/mail/spotlight.test.ts
+    liorwn/workscanner :: tests/level1-smoke/icloud-api.test.ts
+    liorwn/workscanner :: tests/level2-unit/imap.test.ts
+    stytchauth/stytch-browser :: services/e2e-tests/cypress/e2e/react-b2b-ui.cy.ts
+    stytchauth/stytch-browser :: services/e2e-tests/cypress/e2e/react-ui.cy.ts
+
+B  nhap ma BACKDOOR/emulator: 3 repo
+    Crazytieguy/calibrate :: e2e/app.spec.ts
+    clerk/clerk-playwright-nextjs :: e2e/app.spec.ts
+    woody34/rescope :: apps/integration-sdk-js/tests/workflow-1-passwordless.sdk.test.ts
+    woody34/rescope :: apps/integration-sdk-js/tests/workflow-2-mfa.sdk.test.ts
+
+C  nhap ma GIA / stub: 12 repo
+    876-workspace/876 :: apps/api/src/providers/workos/__tests__/adapter.test.ts
+    876-workspace/876 :: apps/api/src/services/__tests__/auth.test.ts
+    Abdul-Razack/ecommerce :: tests/integration/full-cycle.spec.ts
+    Abdul-Razack/ecommerce :: tests/store/checkout-authenticated.spec.ts
+    Hive-Academy/ptah-extension :: apps/ptah-electron-e2e/src/specs/thoth/gateway.spec.ts
+    JuniYadi/projects-green :: e2e/billing/admin/vpn-package-catalog-pricing.spec.ts
+    JuniYadi/projects-green :: test/whatsapp/template-sync-worker.test.ts
+    MCPJam/inspector :: sdk/tests/oauth-conformance/formatter.test.ts
+    anietieakpan/kazuq :: apps/web/tests/e2e/auth-flows.spec.ts
+    anietieakpan/kazuq :: services/user-service/test/integration/users.integration.spec.ts
+    arii/tech-dancer :: tests/seo.spec.ts
+    codelagoon/avarentdemo :: tests/login-context-regression.spec.ts
+    stytchauth/stytch-browser :: packages/web/src/ui/flows/b2b/Organization.spec.tsx
+    stytchauth/stytch-browser :: packages/web/src/ui/react/bindings/StytchSSRProxy.spec.ts
+    t-i-0414/music-practice-tracker :: packages/libs/eslint-plugins/tests/plugin-backend/utils/prisma-helpers.test.ts
+    ubcdiscovery/ubc-discovery :: web/e2e/auth-hydration.spec.ts
+    ubcdiscovery/ubc-discovery :: web/e2e/identity-convergence.spec.ts
+    webthreeservices-bot/NSC :: tests/e2e/user-journey.spec.ts
+
+D  viet ra rang KHONG test duoc: 3 repo
+    amirrudd/flyerboard :: e2e/messages.spec.ts
+    drifter089/orgOS :: tests/auth-unauthenticated.spec.ts
+    intelogroup/ugent :: e2e/auth-and-routes.spec.ts

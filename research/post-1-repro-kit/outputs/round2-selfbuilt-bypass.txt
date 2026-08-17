@@ -1,0 +1,46 @@
+backdoor HANG           53/284 =  18.7% tho    26.2% co trong so
+bypass TU DUNG          31/284 =  10.9% tho     8.0% co trong so
+HOP (mot trong hai)     77/284 =  27.1% tho    32.4% co trong so
+
+  clerk        hang= 20 tu-dung=  4 hop= 23/ 39 = 58%
+  firebase     hang= 19 tu-dung=  3 hop= 21/ 41 = 51%
+  workos       hang=  8 tu-dung= 15 hop= 20/ 75 = 26%
+  supertokens  hang=  2 tu-dung=  1 hop=  2/  8 = 25%
+  stytch       hang=  0 tu-dung=  1 hop=  1/  5 = 20%
+  supabase     hang=  2 tu-dung=  3 hop=  4/ 40 = 10%
+  kinde        hang=  1 tu-dung=  1 hop=  2/ 23 = 8%
+  descope      hang=  0 tu-dung=  1 hop=  1/ 12 = 8%
+  auth0        hang=  1 tu-dung=  2 hop=  3/ 41 = 7%
+
+--- danh sach bypass tu dung, path:line ---
+   ChouquetteCorp/beerbet :: tests/e2e/support/commands.ts :: localStorage.setItem('sb-localhost-auth-token
+   Eliahhango/ai-assistant :: e2e/helpers/mock-handlers.ts :: addCookies([ { name: "wos-session", value: "mock-session-token
+   Kompasmigracji/KompasMigracji :: e2e/agents.spec.ts :: addCookies([ { name: 'kompascrm_session', value: token
+   KooshaPari/thegent :: apps/byteport/frontend/web-next/e2e/visual-regression.spec.ts :: localStorage.setItem('auth-token
+   Luigi-Faldetta/fit-log :: client/cypress/support/commands.js :: localStorage.setItem('clerk
+   RoleModel/betanxt-issuer-portal :: issuer-portal/tests/e2e/login.spec.ts :: bypass_auth
+   Znorlux/uquick :: cypress/support/commands.ts :: localStorage.setItem("auth_token
+   anietieakpan/kazuq :: apps/web/cypress/e2e/booking-flow.cy.ts :: localStorage.setItem('authToken
+   dawi369/assistant-mk1 :: playwright.config.ts :: ALLOW_LOCAL_DEV_IDENTITY
+   genesiscz/GenesisTools :: src/dashboard/apps/web/playwright.config.ts :: AUTH_BYPASS
+   gumacahin/mis-capstone :: ui/playwright.config.ts :: BYPASS_AUTH
+   imnotannamaria/anna.maria.dev :: tests/e2e/helpers/authkit-session.ts :: addCookies([ { name: "wos-session
+   jax-a11y/skintwin-customer-portal :: e2e/fixtures/auth.fixture.ts :: x-e2e-
+   justinmiller62/Parvus-Ordo :: apps/web/e2e/auth.spec.ts :: AUTH_BYPASS
+   kelvinhe04/healthora :: frontend/e2e/profile.spec.ts :: localStorage.setItem('healthora-e2e-auth
+   lassestilvang/todo-gemini-3-pro-preview :: e2e/fixtures.ts :: x-e2e-
+   macseem/wikismith :: apps/web/playwright.config.ts :: BYPASS_AUTH
+   matheuscarp123/medical-appointment-saas :: frontend/cypress/e2e/appointment.cy.ts :: localStorage.setItem('auth
+   mrkoonapp/mrkoon-audit :: e2e/utils/auth.ts :: localStorage.setItem('accessToken
+   muratariku0903/summary-training :: frontend/test/e2e/global-teardown.ts :: x-e2e-
+   rafay99-epic/envpilot.dev :: apps/web/tests/e2e/authenticated/auth-error-boundary.spec.ts :: addCookies([ { name: "wos-session-test", value: "definitely-not-a-real
+   rajnishkhatri/AgentsFramework :: frontend/playwright.config.ts :: BYPASS_AUTH
+   ruheni/discussions :: cypress/support/commands.ts :: setCookie("__session
+   sikander1020/Forge-AI-Pentest-Assistant :: e2e/helpers/mock-handlers.ts :: addCookies([ { name: "wos-session", value: "mock-session-token
+   sotomaque/eng-hub :: apps/web/app/api/e2e/reset/route.ts :: x-e2e-
+   suntan-superman/worksideSupportConsole :: tests/e2e/support-console-smoke.spec.js :: localStorage.setItem("workside_support_auth_token
+   tensr-xyz/tensr-platform-web :: playwright.launch.config.ts :: AUTH_BYPASS
+   tindevelopers/equipmentbalkans :: smoke/auction-journeys.spec.ts :: addCookies([ { name: "eb_session
+   tommysullivan/deeporigin-takehome :: e2e/helpers/auth.ts :: localStorage.setItem("__clerk
+   unityhubio/unityhubio :: src/web/apps/webapp-teams/playwright.config.ts :: BYPASS_AUTH
+   vandean25/auto-core-platform :: apps/core-web/playwright.config.ts :: SKIP_AUTH

@@ -1,0 +1,131 @@
+Detection patterns and their self-test, frozen BEFORE any count existed.
+
+The corpus was still downloading while every line below was written. No result had been produced,
+so nothing here could have been shaped by one. "The patterns were not tuned until the number came
+out right" is only worth something if it can be checked, so here are the hashes and every change.
+
+CURRENT HASHES
+  sha256(21: FORGE,SWITCH,HEADER,VENDOR)        = 6e20406aaec9aec288b3c0b93bac33984eb929b700e0a2b13b9dbe15e99e85f4
+  sha256(22: CAP,IDENTITY,MANIFEST,CI,TESTFILE) = 26fee508cb8c6d07055ffa70ae1ee7c571605490fefc7ce757720d8b1e1eb9b4
+  sha256(24-pattern-selftest.py, whole file)    = 041736ae9f40b6fdebdbbffa20605100a3eaea35ff4665749547cb7dba7106c3
+
+CHANGE LOG - every edit, in order, all made before any count existed
+  1. script 21, DETECTION. Whole-text matching instead of line-by-line. Two documented true
+     positives are cookie object literals spanning several lines, so the `addCookies(` call and the
+     `name:` key are never on the same line and a line-oriented scan cannot see them. DF-4's own
+     regex matched across newlines for the same reason.
+  2. script 22, DETECTION. `mailinator` added to the test-inbox-sdk vocabulary. The ledger records
+     the orgOS stage-2 hit as a Mailinator mention, so it was plainly part of the original
+     vocabulary; the first transcription dropped it. Widens stage 1; can only raise the count.
+  3. script 24, TEST ONLY. Added an isolation layer and a control-fidelity layer (see below). The hashes of 21 and 22 are
+     unchanged by this edit, and that is the point: hash 21 has been
+     870eaa97...73273a0184 since the very first freeze, so the isolation layer was added without
+     touching a single detection pattern.
+  4. script 20, FETCHER ONLY. Also added SHARD_TAG so a retry writes its own output file instead of
+     colliding with a shard still running, and 20b now lets a later OK row supersede an earlier
+     failure for the same repository while still refusing any repository that has no OK row at all.
+     Neither touches detection.
+  5. script 21, DETECTION - AND THIS ONE WAS MADE AFTER SEEING A RESULT. Declared in full because
+     of that. The first complete run returned 36/284 and included `QRun-IO/qqq-frontend-next`,
+     whose only hit was `AUTH_META = { name: 'mockAuth', type: 'FULLY_ANONYMOUS' }` in a file of
+     Playwright route-interception mocks - a mocked API response, not a switch that turns
+     authentication off. It matched because the first transcription of SWITCH contained
+     `MOCK|FAKE`, which is absent from both the ledger's definition of this category ("a flag or
+     environment variable that turns authentication off") and DF-4's own regex
+     (ALLOW|SKIP|BYPASS|DISABLE). It was an interpretation added while re-writing from prose, and
+     it was not among the four changes declared before the run.
+
+     `MOCK|FAKE` was removed and everything re-run. The TOKEN was removed rather than the
+     REPOSITORY excluded, on purpose: excluding one repository is a judgement about a single case
+     that anyone may call cherry-picking, whereas deleting a token that was never in the definition
+     is systematic, checkable, and free to drop other repositories too. It dropped exactly one -
+     QRun-IO - and gained none. Both counts are published:
+         outputs/selfbuilt-bypass-with-mockfake.txt   36/284, with MOCK|FAKE
+         outputs/selfbuilt-bypass-v2.txt              35/284, without
+     The delta is one repository, and it is visible rather than argued.
+
+     The test that separates a method fix from a number fix: IS THE RULE BEING APPLIED OLDER THAN
+     THE DATA? "A flag or environment variable that turns authentication off" was written before
+     any of this was measured, and `mockAuth` fails that pre-existing definition. That is the only
+     reason this edit is defensible after seeing a number, and it is why the before-number and
+     after-number counts both ship.
+
+  6. script 24, TEST ONLY. Removed the MOCK and FAKE isolation samples, which no longer correspond
+     to anything in the pattern. Isolation coverage went from 72 tokens to 70.
+
+  7. script 23, REPORTING ONLY. Its own label was wrong: it printed "GAP 1 -> 2: same logic,
+     different corpus, so this is drift", but CONTROL runs THIS kit's patterns, not DF-4's, so that
+     gap always mixed drift with known regex and traversal differences. The tool built to attribute
+     causes mis-attributed its own. It was caught by opening the four divergent repositories by
+     hand rather than by trusting the label. Fixed to state the limit and to require each row to be
+     read individually.
+
+  4b. script 20, FETCHER ONLY. Count symlinks on the disk side (`-type f -o -type l`, and lstat
+     rather than getsize). Git tracks symlinks and GitHub's tree API lists them as blobs, so
+     counting only regular files made any repository containing a tracked symlink look short. This
+     produced one false FAIL_SHORT (`t-i-0414/music-practice-tracker`, 349 on disk vs 352 in tree,
+     the gap being three `.env.test` symlinks). It affects completeness checking, not detection. A
+     false alarm in a completeness check is expensive: it trains you to wave the check through.
+
+WHY THE SELF-TEST HAS TWO LAYERS
+  Layer 1, regression: real evidence from the ledger in, expected verdict out. It answers "does the
+  scanner still get the known cases right".
+
+  Layer 2, isolation: it answers a different question, and the difference is not academic. Change 2
+  above was found by reading the recorded evidence, NOT by the test - the orgOS regression case was
+  green the whole time `mailinator` was missing, because that same line names Mailtrap and matched
+  on that instead. The assertion was true, the mechanism under test never ran, and the test bought
+  confidence for nothing.
+
+  So layer 2 takes every token in every vocabulary, builds a sample containing that token and no
+  other token from the same vocabulary, asserts it matches, then MUTATES the pattern to disable
+  exactly that token and asserts the sample stops matching. The mutation is the proof that the token
+  was the reason. A token with no isolation sample is a failure, not a warning, so coverage cannot
+  rot as tokens are added. Layer 2 would have caught change 2 on the first run.
+
+  Adding layer 2 immediately exposed eleven defects. All eleven were in the TEST, not the patterns:
+  samples that were not actually isolating (a `clerk` sample whose key also contained `jwt`), token
+  names that did not appear in the pattern source, and a literal extractor that mined inside
+  character classes. No detection pattern was changed to make them pass - hash 21 proves it.
+
+  Layer 3, control fidelity: script 23 attributes part of any increase to "the declared changes",
+  by differencing the main run against a control run that reverts them. That attribution is only
+  meaningful if the control genuinely reverts the change rather than approximating it, so the
+  control is tested too. SCAN_MODE=line must MISS exactly the two multi-line forged cookies that
+  change 1 was made to catch, and must still catch every single-line case. CAP_MODE=legacy must
+  miss a Mailinator-only line while still catching the orgOS line that names both Mailinator and
+  Mailtrap - reproducing the exact reason the regression test stayed green while the token was
+  missing. Both hold.
+
+  Current: 22 regression cases, 72 isolated tokens, full coverage, 8 control-fidelity checks.
+  Run it yourself:
+      python3 scripts/24-pattern-selftest.py     # no corpus, no network needed
+
+RECOMPUTE THE PATTERN HASHES
+  python3 - <<'EOF'
+  import ast, hashlib
+  def block(p, names):
+      t = ast.parse(open(p).read())
+      return '\n'.join(ast.unparse(n) for n in t.body
+                        if isinstance(n, ast.Assign) and getattr(n.targets[0], 'id', '') in names)
+  print(hashlib.sha256(block('scripts/21-selfbuilt-bypass-v2.py',
+        {'FORGE','SWITCH','HEADER','VENDOR'}).encode()).hexdigest())
+  print(hashlib.sha256(block('scripts/22-inbox-capability.py',
+        {'CAP','IDENTITY','MANIFEST','CI','TESTFILE'}).encode()).hexdigest())
+  EOF
+
+If a hash differs from the value above, the patterns were edited after this freeze, and the change
+must be declared in the header of the affected script with what changed and why.
+
+--- script 21 patterns ---
+FORGE = re.compile('(\n    (local|session)Storage\\.setItem\\(\\s*["\'`][^"\'`]*(clerk|stytch|supabase|sb-|wos-|auth|session|token|jwt|user)\n  | addCookies\\(\\s*\\[?\\s*\\{?[^)]{0,120}(session|auth|token|jwt|user)\n  | (setCookie|cookies\\(\\)\\.set)\\(\\s*["\'`][^"\'`]*(session|auth|token|jwt|user)\n  | document\\.cookie\\s*=\\s*["\'`][^"\'`]*(session|auth|token|jwt)\n)', re.I | re.X)
+SWITCH = re.compile('(\n    (ALLOW|SKIP|BYPASS|DISABLE|MOCK|FAKE)_?(LOCAL_)?(DEV_)?(AUTH|IDENTITY|LOGIN|SESSION|USER)\n  | (AUTH|LOGIN|SESSION|IDENTITY)_(BYPASS|DISABLED|SKIP|MOCK|FAKE)\n  | (BYPASS|SKIP)_?(COOKIE|TOKEN)\n  | TEST_BYPASS\n  | E2E_(SESSION|AUTH)_(JWT|TOKEN)\n)', re.I | re.X)
+HEADER = re.compile('(x-e2e-|X-Test-User|TEST_USER_HEADER|DEV_USER_ID)', re.I)
+VENDOR = re.compile('(\n    \\+clerk_test | setupClerkTestingToken | clerkSetup | @clerk/testing\n  | FIREBASE_AUTH_EMULATOR_HOST | connectAuthEmulator | firebase\\s+emulators\n  | mailosaur | mailslurp | mailtrap\n  | \\+dynamic_test | descope[a-z-]*test | stytch[a-z_]*sandbox\n  | supabase[a-z_]*(test_helpers|admin_client)\n)', re.I | re.X)
+
+--- script 22 patterns ---
+CAP = {'test-inbox-sdk': re.compile('(mailosaur|mailslurp|mailtrap|mailinator|testmail\\.app|@testmail|1secmail|maildrop)', re.I), 'imap': re.compile('(imapflow|node-imap|imap-simple|mailparser|["\\\']imap["\\\']|@types/imap|poplib)', re.I), 'mail-catcher': re.compile('(mailpit|mailhog|maildev|inbucket|greenmail|ethereal\\.email|createTestAccount)', re.I), 'provider-api': re.compile('(gmail\\.users\\.messages|googleapis[^\\n]{0,40}gmail|graph\\.microsoft\\.com[^\\n]{0,40}messages|@microsoft/microsoft-graph-client)', re.I)}
+MANIFEST = re.compile('(^|/)(package\\.json|docker-compose[^/]*\\.ya?ml|compose\\.ya?ml)$')
+CI = re.compile('(^|/)\\.github/workflows/[^/]+\\.ya?ml$')
+TESTFILE = re.compile('(^|/)(e2e|cypress|playwright|tests?|specs?|__tests__)/|\\.(spec|test|cy|e2e)\\.[jt]sx?$', re.I)
+IDENTITY = re.compile('(sign\\s?up|signUp|register|createAccount|verif(y|ication)\\s?code|\\botp\\b|magic\\s?link|one[\\s-]?time\\s?(code|password)|confirm(ation)?\\s?(code|email)|sign\\s?in|signIn|log\\s?in|logIn)', re.I)

@@ -1,0 +1,9 @@
+# Machine hits that a human opened and overruled, for 21-selfbuilt-bypass-v2.py.
+# Format: repo <TAB> reason <TAB> the evidence that was read
+#
+# This file is the whole of the hand adjudication. It is deliberately separate from the detection
+# logic so that the difference between "what the regex found" and "what a person decided" is a file
+# you can read, not a branch buried in a script. Delete a line and the count goes up by one.
+#
+# Each entry below was recorded in docs/verified-artifacts.md section 2b before this script existed.
+MCPJam/inspector	run marker, not a credential - the regex matched only because "oauth" contains "auth"	mcpjam-inspector/e2e/oauth-debugger.spec.ts:255 sessionStorage.setItem("oauth-debugger-e2e-started", "true")

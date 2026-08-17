@@ -1,0 +1,203 @@
+==============================================================================
+SELF-BUILT BACKDOOR - independent re-derivation
+==============================================================================
+run                        : SCAN_MODE=whole   (main)
+corpus                     : 284 repositories, all fetched and length-verified
+file selection             : copied verbatim from 10-selfbuilt-bypass.py
+detection                   : SWITCH + FORGE + HEADER, vendor mechanisms subtracted by name
+
+repositories with >=1 hit  : 37/284 = 13.0%
+hand-excluded (see exclusions-selfbuilt.tsv) : 1
+    - MCPJam/inspector :: run marker, not a credential - the regex matched only because "oauth" contains "auth" :: mcpjam-inspector/e2e/oauth-debugger.spec.ts:255 sessionStorage.setItem("oauth-debugger-e2e-started", "true")
+
+>>> SELF-BUILT BACKDOOR COUNT : 36/284 = 12.7%
+
+DF-4 published set         : 31
+both                       : 31
+only this script           : 5   ['QRun-IO/qqq-frontend-next', 'SDG-AI-Lab/Digital_Technologies_Radar', 'kil-dev/kil.dev', 'sefi-uzan/yanshuf-ai', 'ubcdiscovery/ubc-discovery']
+only DF-4                  : 0   []
+this set is a superset     : YES
+
+--- every hit, path:line ---
+ChouquetteCorp/beerbet  sha=6bf3a7e47432165252543f5b37e1bd689e275839
+    FORGE  tests/e2e/support/commands.ts:44  localStorage.setItem('sb-localhost-auth-token
+Eliahhango/ai-assistant  sha=fcfcc58dc283e2147265e22d6ce9886158236aa5
+    FORGE  e2e/helpers/mock-handlers.ts:62  addCookies([ { name: "wos-session", value: "mock-session-token
+Kompasmigracji/KompasMigracji  sha=34d1f5433143a4adf7b73135be913d915143a3c4
+    FORGE  e2e/agents.spec.ts:30  addCookies([ { name: 'kompascrm_session', value: token
+    FORGE  e2e/admin-interactions.spec.ts:37  addCookies([{ name: 'kompascrm_session', value: token
+KooshaPari/thegent  sha=58f4aefdbb2f248e946187f7b4d2b3e82394084a
+    FORGE  apps/byteport/frontend/web-next/e2e/visual-regression.spec.ts:7  localStorage.setItem('auth-token
+    FORGE  apps/byteport/frontend/web-next/e2e/deployments.spec.ts:7  localStorage.setItem('auth-token
+    FORGE  apps/byteport/frontend/web-next/e2e/dashboard.spec.ts:7  localStorage.setItem('auth-token
+    FORGE  apps/byteport/frontend/web-next/e2e/accessibility.spec.ts:29  localStorage.setItem('auth-token
+    SWITCH apps/byteport/frontend/web-next/e2e/accessibility.spec.ts:27  mockAuth
+    SWITCH apps/byteport/frontend/web-next/e2e/accessibility.spec.ts:65  mockAuth
+    FORGE  apps/byteport/frontend/web-next/e2e/auth/auth.setup.ts:37  localStorage.setItem('workos-user
+    FORGE  apps/byteport/frontend/web-next/e2e/auth/auth.setup.ts:45  localStorage.setItem('workos-token
+    FORGE  apps/byteport/frontend/web-next/e2e/auth/auth-flow.spec.ts:155  localStorage.setItem('workos-token
+    FORGE  apps/byteport/frontend/web-next/e2e/auth/auth-flow.spec.ts:156  localStorage.setItem('workos-token
+    FORGE  apps/byteport/frontend/web-next/e2e/auth/auth-flow.spec.ts:173  localStorage.setItem('workos-token
+    FORGE  apps/byteport/frontend/web-next/e2e/auth/auth-flow.spec.ts:208  localStorage.setItem('workos-token
+    FORGE  apps/byteport/frontend/web-next/e2e/auth/auth-flow.spec.ts:209  localStorage.setItem('workos-user
+    FORGE  apps/byteport/frontend/web-next/e2e/auth/auth-flow.spec.ts:251  localStorage.setItem('workos-token
+    FORGE  apps/byteport/frontend/web-next/e2e/auth/auth-flow.spec.ts:252  localStorage.setItem('workos-token
+Luigi-Faldetta/fit-log  sha=9e1dcec731578de4a4aa10e9fb05e5e7f36b4917
+    FORGE  client/cypress/support/commands.js:12  localStorage.setItem('clerk-db-jwt
+    FORGE  client/cypress/support/commands.js:13  localStorage.setItem('clerk-session
+    SWITCH client/cypress/support/commands.js:7  mockAuth
+    SWITCH client/cypress/support/commands.js:9  mockAuth
+    SWITCH client/cypress/e2e/navigation.cy.js:9  mockAuth
+    SWITCH client/cypress/e2e/profile.cy.js:9  mockAuth
+    SWITCH client/cypress/e2e/dashboard.cy.js:9  mockAuth
+    SWITCH client/cypress/e2e/ai-workout-generator.cy.js:9  mockAuth
+    SWITCH client/cypress/e2e/workout-details.cy.js:9  mockAuth
+    SWITCH client/cypress/e2e/workouts.cy.js:10  mockAuth
+MCPJam/inspector  sha=c092eee7a9b572fd31c95a4062e1a2b8d763b477  [EXCLUDED]
+    FORGE  mcpjam-inspector/e2e/oauth-debugger.spec.ts:255  sessionStorage.setItem("oauth
+QRun-IO/qqq-frontend-next  sha=a8b4b653735876c992270995651526a6e77a9c1f
+    SWITCH tests/e2e/api-mocks.ts:11  mockAuth
+RoleModel/betanxt-issuer-portal  sha=afe92dab95291fe4be2cec63f6cdab3ee6f126be
+    SWITCH issuer-portal/tests/e2e/login.spec.ts:7  MOCK_USER
+    SWITCH issuer-portal/tests/e2e/login.spec.ts:52  MOCK_USER
+    SWITCH issuer-portal/tests/e2e/login.spec.ts:92  MOCK_USER
+    SWITCH issuer-portal/tests/e2e/login.spec.ts:94  MOCK_USER
+    SWITCH issuer-portal/tests/e2e/login.spec.ts:119  bypass_auth
+SDG-AI-Lab/Digital_Technologies_Radar  sha=1dcf308577a0617690b8548412e2b0a3ccc0babf
+    FORGE  cypress/e2e/create-disaster.cy.ts:4  localStorage.setItem('drr-current-user
+    FORGE  cypress/e2e/create-technology.cy.ts:4  localStorage.setItem('drr-current-user
+    FORGE  cypress/e2e/create-disaster-event.cy.ts:4  localStorage.setItem('drr-current-user
+    FORGE  cypress/e2e/create-project.cy.ts:4  localStorage.setItem('drr-current-user
+Znorlux/uquick  sha=93e38405ab3c506be1357bee6e194d59c11ac464
+    FORGE  cypress/support/commands.ts:65  localStorage.setItem("auth_token
+    FORGE  cypress/support/commands.ts:68  localStorage.setItem("user
+    FORGE  cypress/support/commands.ts:69  localStorage.setItem("user
+anietieakpan/kazuq  sha=b370a6359e1a0849b00203b0c43fcced3c30e016
+    FORGE  apps/web/cypress/e2e/booking-flow.cy.ts:702  localStorage.setItem('authToken
+dawi369/assistant-mk1  sha=5c459abe244ffbd5ccb850966593e47349d21490
+    SWITCH playwright.config.ts:15  ALLOW_LOCAL_DEV_IDENTITY
+    SWITCH playwright.config.ts:16  ALLOW_LOCAL_DEV_IDENTITY
+    HEADER playwright.config.ts:16  DEV_USER_ID
+genesiscz/GenesisTools  sha=5758fe846527692a43a76230caa86f3018dbf683
+    SWITCH src/dashboard/apps/web/playwright.config.ts:6  AUTH_BYPASS
+    SWITCH src/dashboard/apps/web/playwright.config.ts:6  AUTH_BYPASS
+    SWITCH src/dashboard/apps/web/playwright.config.ts:32  AUTH_BYPASS
+    SWITCH src/dashboard/apps/web/playwright.config.ts:33  AUTH_BYPASS
+gumacahin/mis-capstone  sha=de3a62cc82ba49ed3b07f6945ba0f1420bff4f2e
+    SWITCH ui/playwright.config.ts:64  BYPASS_AUTH
+    SWITCH ui/playwright.real-backend.config.ts:65  BYPASS_AUTH
+imnotannamaria/anna.maria.dev  sha=c28cf54e1408b809273ad4f716345f6a780ab633
+    FORGE  tests/e2e/helpers/authkit-session.ts:49  addCookies([ { name: "wos-session
+jax-a11y/skintwin-customer-portal  sha=a033850cc279b245a7958a2e557bc10720c86fae
+    HEADER e2e/fixtures/auth.fixture.ts:11  x-e2e-
+justinmiller62/Parvus-Ordo  sha=4b5b6d4176ec23e4031607d9ac012e8f1287bf5f
+    SWITCH apps/web/e2e/auth.spec.ts:22  AUTH_BYPASS
+kelvinhe04/healthora  sha=22aab622299922d3805462060cc3b10384844c83
+    FORGE  frontend/e2e/profile.spec.ts:5  localStorage.setItem('healthora-e2e-auth
+    FORGE  frontend/e2e/checkout.spec.ts:30  localStorage.setItem('healthora-e2e-auth
+    FORGE  frontend/e2e/orders-returns.spec.ts:25  localStorage.setItem('healthora-e2e-auth
+    FORGE  frontend/e2e/helpers/adminAuth.ts:5  localStorage.setItem('healthora-e2e-auth
+kil-dev/kil.dev  sha=441e8a5edb0980a2a8f67a91b11144438027a380
+    SWITCH tests/e2e/pages/admin-ask-kilian.spec.ts:2  TEST_BYPASS
+    SWITCH tests/e2e/pages/admin-ask-kilian.spec.ts:2  TEST_BYPASS
+    SWITCH tests/e2e/pages/admin-ask-kilian.spec.ts:14  TEST_BYPASS
+    SWITCH tests/e2e/pages/admin-ask-kilian.spec.ts:15  TEST_BYPASS
+    SWITCH tests/e2e/pages/admin-pet-gallery.spec.ts:2  TEST_BYPASS
+    SWITCH tests/e2e/pages/admin-pet-gallery.spec.ts:2  TEST_BYPASS
+    SWITCH tests/e2e/pages/admin-pet-gallery.spec.ts:15  TEST_BYPASS
+    SWITCH tests/e2e/pages/admin-pet-gallery.spec.ts:16  TEST_BYPASS
+lassestilvang/todo-gemini-3-pro-preview  sha=2c3afd90cc142944405e17aafa6be86368c4cd8a
+    HEADER e2e/fixtures.ts:42  x-e2e-
+    HEADER e2e/fixtures.ts:111  x-e2e-
+macseem/wikismith  sha=e919fdb0c7bf42bd3d5a6c35e2a7e3e5fa455cef
+    SWITCH apps/web/playwright.config.ts:41  BYPASS_AUTH
+matheuscarp123/medical-appointment-saas  sha=71336ef5305c914364028b73b30c95e30032c206
+    FORGE  frontend/cypress/e2e/appointment.cy.ts:10  localStorage.setItem('authUser
+    FORGE  frontend/cypress/e2e/appointment.cy.ts:11  localStorage.setItem('authToken
+    FORGE  temp_check/frontend/cypress/e2e/appointment.cy.ts:10  localStorage.setItem('authUser
+    FORGE  temp_check/frontend/cypress/e2e/appointment.cy.ts:11  localStorage.setItem('authToken
+mrkoonapp/mrkoon-audit  sha=dc39040cdce7713824d1d95a9f2d1de6e5ae935d
+    FORGE  e2e/utils/auth.ts:25  localStorage.setItem('persist:user
+    FORGE  e2e/utils/auth.ts:26  localStorage.setItem('accessToken
+muratariku0903/summary-training  sha=07389ceee8ba8fb7c42a5e434236fa6229b972f9
+    HEADER frontend/test/e2e/global-teardown.ts:11  x-e2e-
+    HEADER frontend/test/e2e/helpers/helpers.ts:12  x-e2e-
+    HEADER frontend/test/e2e/helpers/helpers.ts:30  x-e2e-
+    HEADER frontend/src/app/api/e2e/auth/generate-link/route.ts:17  x-e2e-
+    HEADER frontend/src/app/api/e2e/users/delete/route.ts:16  x-e2e-
+rafay99-epic/envpilot.dev  sha=8d98d8fa8b0da27c04d01418d767653aa493d0aa
+    FORGE  apps/web/tests/e2e/authenticated/auth-error-boundary.spec.ts:73  addCookies([ { name: "wos-session-test", value: "definitely-not-a-real-session
+rajnishkhatri/AgentsFramework  sha=35f65653a76cd6d43869df0a682e532e28e2d43c
+    SWITCH frontend/playwright.config.ts:29  BYPASS_AUTH
+    SWITCH frontend/playwright.config.ts:29  BYPASS_AUTH
+    SWITCH frontend/playwright.config.ts:47  BYPASS_AUTH
+    SWITCH frontend/playwright.config.ts:49  BYPASS_AUTH
+    SWITCH frontend/playwright.config.ts:53  BYPASS_AUTH
+    SWITCH frontend/playwright.config.ts:53  BYPASS_AUTH
+    SWITCH frontend/e2e/global-setup.ts:6  FAKE_SESSION
+    SWITCH frontend/e2e/global-setup.ts:25  FAKE_SESSION
+    SWITCH frontend/e2e/global-setup.ts:81  FAKE_SESSION
+    SWITCH frontend/e2e/global-setup.ts:106  FakeSession
+    SWITCH frontend/e2e/global-setup.ts:127  mockUser
+    SWITCH frontend/e2e/global-setup.ts:144  mockUser
+    SWITCH frontend/e2e/global-setup.ts:236  fakeSession
+    SWITCH frontend/e2e/global-setup.ts:240  FAKE_SESSION
+    SWITCH frontend/e2e/global-setup.ts:251  FakeSession
+    SWITCH frontend/e2e/global-setup.ts:256  fakeSession
+    SWITCH frontend/e2e/global-setup.ts:260  fakeSession
+    SWITCH frontend/e2e/global-setup.ts:305  FAKE_SESSION
+    SWITCH frontend/e2e/global-setup.ts:306  fakeSession
+    SWITCH frontend/e2e/global-setup.ts:318  FAKE_SESSION
+    SWITCH frontend/e2e/coach-auth-guard.spec.ts:4  BYPASS_AUTH
+    SWITCH frontend/e2e/coach-auth-guard.spec.ts:19  BYPASS_AUTH
+    SWITCH frontend/e2e/coach-auth-guard.spec.ts:25  BYPASS_AUTH
+    SWITCH frontend/e2e/learn/quiz-commit-first-v3-spec.spec.ts:12  BYPASS_AUTH
+    SWITCH frontend/e2e/learn/validate_e1b_d0_d1_d2.spec.ts:11  BYPASS_AUTH
+    SWITCH frontend/e2e/learn/quiz-commit-first.spec.ts:5  BYPASS_AUTH
+    SWITCH frontend/e2e/learn/validate_epic_ab.spec.ts:20  BYPASS_AUTH
+    SWITCH frontend/e2e/learn/validate_d2_taxonomy.spec.ts:8  BYPASS_AUTH
+    SWITCH frontend/e2e/full-stack/coach-workos-local.spec.ts:5  BYPASS_AUTH
+    SWITCH frontend/e2e/full-stack/coach-workos-local.spec.ts:16  BYPASS_AUTH
+    SWITCH frontend/e2e/full-stack/coach-workos-local.spec.ts:73  BYPASS_AUTH
+    SWITCH frontend/e2e/full-stack/phaseb-recall-reject.spec.ts:14  BYPASS_AUTH
+    SWITCH frontend/e2e/full-stack/fix-probes.spec.ts:19  FAKE_SESSION
+    SWITCH frontend/e2e/full-stack/engine-persistence-probe.spec.ts:15  FAKE_SESSION
+    SWITCH frontend/e2e/full-stack/engine-persistence-probe.spec.ts:95  FAKE_SESSION
+ruheni/discussions  sha=44acb323bfd94fd878b3b935ea9935b05d995bbb
+    FORGE  cypress/support/commands.ts:46  setCookie("__session
+sefi-uzan/yanshuf-ai  sha=26638529ef61e906e8a61d24edc8d1176d5023d3
+    FORGE  tests/e2e/pages/website.ts:13  addCookies(user
+sikander1020/Forge-AI-Pentest-Assistant  sha=28f3df88cdb83d4911b33b856364b874aa42510d
+    FORGE  e2e/helpers/mock-handlers.ts:50  addCookies([ { name: "wos-session", value: "mock-session-token
+sotomaque/eng-hub  sha=fadcc356ed960eaf653a7c44aa16e4cb3e04ef60
+    HEADER apps/web/app/api/e2e/reset/route.ts:16  x-e2e-
+suntan-superman/worksideSupportConsole  sha=a9f50193e343702b2fa6ed72b8fa53883b56c826
+    FORGE  tests/e2e/support-console-smoke.spec.js:109  localStorage.setItem("workside_support_auth_token
+tensr-xyz/tensr-platform-web  sha=9a2f10b66811abffb67f7e5c97eb7810b57746d8
+    SWITCH playwright.workspace.config.ts:11  AUTH_BYPASS
+    SWITCH playwright.workspace.config.ts:31  AUTH_BYPASS
+    SWITCH playwright.workspace.config.ts:37  AUTH_BYPASS
+    SWITCH playwright.launch.config.ts:33  AUTH_BYPASS
+    SWITCH playwright.config.ts:34  AUTH_BYPASS
+    SWITCH playwright.auth.config.ts:4  AUTH_BYPASS
+    SWITCH playwright.auth.config.ts:28  AUTH_BYPASS
+tindevelopers/equipmentbalkans  sha=1aea0f3187bf8ce1eac3f9fe0bc2dc910e43e1e6
+    FORGE  smoke/auction-journeys.spec.ts:191  addCookies([ { name: "eb_session
+    FORGE  apps/website/e2e/full-dealer-flow.spec.ts:83  localStorage.setItem("eb_auth_token
+tommysullivan/deeporigin-takehome  sha=84c08bee1f2504655ad2325b62bf126ae008c707
+    FORGE  e2e/helpers/auth.ts:88  localStorage.setItem("__clerk_db_jwt
+ubcdiscovery/ubc-discovery  sha=ef6a28f9252285b47f6a93f61b963a433f96f947
+    FORGE  web/e2e/identity-convergence.spec.ts:104  sessionStorage.setItem( "ubc-discovery-test-google-user
+    FORGE  web/e2e/auth-hydration.spec.ts:17  sessionStorage.setItem("ubc-discovery-test-firebase-user
+    FORGE  web/e2e/pending-save.spec.ts:60  sessionStorage.setItem( "ubc-discovery-auth
+    FORGE  web/e2e/pending-save.spec.ts:79  sessionStorage.setItem( "ubc-discovery-test-firebase-user
+    FORGE  web/e2e/onboarding-draft.spec.ts:20  sessionStorage.setItem( "ubc-discovery-test-firebase-user
+    FORGE  web/e2e/support/auth.ts:261  sessionStorage.setItem( "ubc-discovery-test-firebase-user
+unityhubio/unityhubio  sha=e03c0d886fe59c78cbf6fb5bac4187d8afbd7131
+    SWITCH src/web/apps/webapp-teams/playwright.config.ts:33  TEST_BYPASS
+    SWITCH src/web/apps/webapp-spaces/playwright.config.ts:33  TEST_BYPASS
+    SWITCH src/web/apps/webapp-host/playwright.config.ts:32  TEST_BYPASS
+    SWITCH src/web/apps/webapp-host/playwright.config.ts:33  TEST_BYPASS
+vandean25/auto-core-platform  sha=2ecd3d409a72a17169a8eb0a8ea8546b720535f6
+    SWITCH apps/core-web/playwright.config.ts:37  SKIP_AUTH
+    SWITCH apps/core-web/e2e/dashboard.spec.ts:22  SKIP_AUTH

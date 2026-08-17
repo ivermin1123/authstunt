@@ -1,0 +1,48 @@
+==============================================================================
+INBOX CAPABILITY FUNNEL - independent re-derivation of the "1 of 284"
+==============================================================================
+run                                           : CAP_MODE=legacy   (CONTROL - without mailinator)
+corpus                                        : 284 repositories, length-verified
+stage 1  any inbox capability anywhere        : 14/284
+stage 2  capability in a test file with identity context : 6/284
+stage 3  hand verdict REAL (see verdicts-inbox.tsv)      : 1/284
+
+--- stage 2 candidates, all of them, with the recorded verdict ---
+anietieakpan/kazuq  sha=b370a6359e1a0849b00203b0c43fcced3c30e016
+    verdict: NOT_REAL - getMailhogEmails is defined and never called anywhere in the repository. services/notification-service/test/utils/test-utils.ts:179
+    mail-catcher    services/notification-service/test/utils/test-utils.ts:179  static async getMailhogEmails(): Promise<any[]> {
+drifter089/orgOS  sha=a9073690f340168f3b3b65e7ad57ba2390d4a047
+    verdict: NOT_REAL - the Mailinator mention is inside the giving-up comment of a test.skip - a case of NOT doing it. tests/auth-unauthenticated.spec.ts:126
+    test-inbox-sdk  tests/auth-unauthenticated.spec.ts:126  // 3. Integrate with an email testing service (e.g., Mailinator, Mailtrap)
+embreymorton/CS-Grad-Tracker  sha=dbceff2e5c24732fc17220b992e1405fccebe301
+    verdict: NOT_REAL - reads real mail via ethereal.email but not in an identity flow. cypress/e2e/formTests/Nodemailer.cy.js:14
+    mail-catcher    cypress/e2e/formTests/Nodemailer.cy.js:14  cy.visit('https://ethereal.email/login')
+liorwn/workscanner  sha=aa98d1d1154b684a6abb9bec7b624f4977ad7d97
+    verdict: NOT_REAL - ImapFlow is a product feature (mailbox ingestion), not authentication. tests/level5-scan/icloud-ingest.test.ts:2
+    imap            tests/level5-scan/icloud-ingest.test.ts:2  import { ImapFlow } from "imapflow";
+sebkopsi/Programsko-inzenjerstvo  sha=813ff441fc234f91e6366781816454dbfb8dfefc
+    verdict: NOT_REAL - false positive - test@testmail.com is a hardcoded login address, not the testmail.app service. frontend/cypress/e2e/auth/not_implemented_yet.cy.js:9
+    test-inbox-sdk  frontend/cypress/e2e/auth/login.cy.js:35  cy.get('input[name="email"]').type("test@testmail.com")
+    test-inbox-sdk  frontend/cypress/e2e/auth/not_implemented_yet.cy.js:9  cy.get('input[name="email"]').as("input-user").type("test@testmail.com")
+stytchauth/stytch-browser  sha=4bceacb5c73bb4b6c75ed90eba9471b505490089
+    verdict: REAL - real magic link through a real Mailosaur inbox, then the SDK authenticate button - the only one. services/e2e-tests/cypress/e2e/react-demo.cy.ts:62,68,81,83
+    test-inbox-sdk  services/e2e-tests/cypress/support/commands.ts:26  import 'cypress-mailosaur';
+    test-inbox-sdk  services/e2e-tests/cypress/e2e/react-demo.cy.ts:14  MAILOSAUR_SERVER_ID,
+    test-inbox-sdk  services/e2e-tests/cypress/e2e/react-ui.cy.ts:3  import { Link } from 'cypress-mailosaur';
+    test-inbox-sdk  services/e2e-tests/cypress/e2e/react-b2b-ui.cy.ts:4  import type { Message } from 'cypress-mailosaur';
+
+--- stage 1, repositories with any capability anywhere ---
+  AyushAgrawal-A2/quadratic                               test-inbox-sdk                 in manifest
+  DefinitionGroup/1sp-ProjectManager                      mail-catcher                   in test
+  JerryWu0519/my-ai-spreadsheet                           test-inbox-sdk                 in manifest
+  Kompasmigracji/KompasMigracji                           imap                           in manifest
+  anietieakpan/kazuq                                      mail-catcher,test-inbox-sdk    in manifest,test
+  drifter089/orgOS                                        test-inbox-sdk                 in test
+  drmoyassine/frontbase-dbsync                            imap                           in test
+  embreymorton/CS-Grad-Tracker                            mail-catcher                   in test
+  genesiscz/GenesisTools                                  imap                           in manifest
+  jay-sahnan/signal                                       imap                           in manifest,test
+  liorwn/workscanner                                      imap                           in manifest,test
+  lukehodges/ironheart-platform                           imap                           in manifest
+  sebkopsi/Programsko-inzenjerstvo                        test-inbox-sdk                 in test
+  stytchauth/stytch-browser                               test-inbox-sdk                 in manifest,test

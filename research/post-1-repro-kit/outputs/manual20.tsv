@@ -1,0 +1,20 @@
+clerk	YES	planetaryescape/blah.chat	apps/web/playwright.config.ts:13:  workers: process.env.CI ? 1 : undef	NO	NO
+clerk	NO	manus42ppi/socialflow-pro	playwright.config.js:8:  workers: process.env.CI ? 1 : 3,  ||SERIALDEC	NO	NO
+auth0	YES	openclimatefix/quartz-frontend	ABSENT	YES	NO
+auth0	NO	JesusJC15/salud-de-una-web	ABSENT	NO	NO
+firebase	YES	moonklabs/sprintable	apps/web/playwright.config.ts:16:  workers: process.env['CI'] ? 1 : un	YES	YES
+firebase	NO	pmfleming/MyStarQuest	playwright.config.ts:23:  workers: process.env.CI ? 1 : undefined, 	NO	NO
+supabase	YES	y4my4my4m/harmony	playwright.config.ts:14:  workers: process.env.CI ? 1 : undefined, 	YES	YES
+supabase	NO	AnxForever/stylekit	tests/playwright.config.ts:32:  workers: process.env.CI ? 1 : undefine	NA	NO
+workos	YES	tindevelopers/equipmentbalkans	smoke/playwright.config.ts:9:  workers: process.env.CI ? 2 : 4,  ||SER	YES	NO
+workos	NO	ruheni/discussions	ABSENT	NO	NO
+kinde	YES	sefi-uzan/yanshuf-ai	playwright.config.ts:21:  workers: process.env.CI ? 1 : 1, 	NO	NO
+kinde	NO	iiiamken/dokubot	playwright.config.ts:11:  workers: process.env.CI ? 1 : undefined, 	NO	NO
+descope	YES	amirrudd/flyerboard	playwright.config.ts:8:    workers: process.env.CI ? 1 : undefined, 	YES	NO
+descope	NO	descope-sample-apps/next-js-sample-app	ABSENT	NO	NO
+supertokens	YES	anietieakpan/kazuq	apps/web/playwright-visual.config.ts:16:  workers: process.env.CI ? 1 	YES	YES
+supertokens	NO	ontoneio/popcorn-loop	playwright.config.ts:8:  workers: process.env.CI ? 1 : undefined, 	NO	NO
+stytch	YES	caioquirino/fullstack_template	ABSENT	NO	NO
+stytch	NO	stytchauth/stytch-browser	ABSENT	NO	NO
+clerk	YES	yravan/cashlens	apps/web/playwright.config.ts:27:  workers: 1, // parallel clerk.signI	YES	YES
+clerk	NO	ariakit/ariakit	app/playwright.config.ts:34:  workers: HEADED || PERF ? 1 : CI ? "100%	NO	NO
