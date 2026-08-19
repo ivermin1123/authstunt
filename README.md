@@ -7,7 +7,7 @@
 **The `acquireAccount()` the Playwright docs tell you to write yourself.**
 
 Playwright's authentication guide hands you the shape for one account per
-parallel worker and then stops:
+parallel worker in an end-to-end (E2E) test suite, and then stops:
 
 ```ts
 // Acquire a unique account, for example create a new one.
@@ -16,6 +16,13 @@ parallel worker and then stops:
 // can run tests at the same time without interference.
 const account = await acquireAccount(id);
 ```
+
+Said outside the code block, because that comment is the requirement: your tests
+have to run **at the same time without interference**. One test must not leave
+another one logged out, and two must not burn the same code. AuthStunt does not
+manage your application's sessions - it removes the shared thing those failures
+need, so that **every worker and every test gets its own identity, and they do
+not step on each other**.
 
 The function is yours to build. [Issue #18062][pw18062] asked Playwright for
 exactly that handout, in the words of somebody whose parallel workers were
@@ -30,6 +37,13 @@ AuthStunt is that function, packaged. One self-hosted binary owns the test
 identities, catches their mail over real SMTP, extracts the code, and hands it
 to exactly one claimant. `@authstunt/playwright` wires it in as fixtures: **one
 run per worker, one identity per test, released even when the test fails**.
+
+Why bother, as one measurement: across **284** public repositories that use a
+hosted identity provider and have end-to-end tests, exactly **1** reads a real
+verification code out of a real inbox, and **35** build their own way around the
+flow instead. The write-up is at [authstunt.com](https://authstunt.com/); the
+corpus, the detection scripts and the per-case verdicts ship in
+[`research/post-1-repro-kit`](research/post-1-repro-kit).
 
 Two benefits come with that, in the order most suites need them:
 
@@ -46,8 +60,9 @@ exclusivity and everything from the mail being real.**
 
 You never write Go. You run a container and install a package.
 
-Scope, said narrowly: this covers the **signup and verification** half of
-`acquireAccount()`, where each worker needs a fresh identity nobody else holds.
+Scope, said narrowly: this covers the **signup and email-verification** half of
+`acquireAccount()` in an **end-to-end (E2E) test suite**, where each parallel
+worker needs a fresh identity nobody else holds.
 Leasing accounts that already exist inside your application is pooled mode, and
 pooled mode is accepted but unsupported today.
 
@@ -129,6 +144,24 @@ ends, pass or fail.
 > the right call for a smoke test and the wrong one for the bug you are actually
 > hunting, which lives in the template, the relay, the link, or the inbox. A
 > green test on `424242` proves the form posts.
+
+Most suites do not read the message at all. Across 284 public repositories that
+use a hosted identity provider and have end-to-end tests, thirty-five **bypass**
+the flow instead, and exactly one reads a real verification code out of a real
+inbox. The shapes repeat: a **forged** session cookie, a **mock** JWT
+**hardcoded** into a fixture, or a switch in the harness's own
+`webServer.command` named for the job - `VITE_E2E_SKIP_AUTH`,
+`NEXT_PUBLIC_BYPASS_AUTH`. Teams reach for those because the alternatives look
+worse: disable email verification in a test instance and assert on a fixed code,
+or write the inbox plumbing yourself.
+
+That **backdoor** is usually the right trade, and this README is not here to
+argue otherwise. AuthStunt is for when it stops being one - because a bypass
+removes the template, the relay, the link and the inbox from the test, and those
+are exactly where auth-mail bugs live. The repositories, the detection scripts
+and the per-case verdicts are in
+[`research/post-1-repro-kit`](research/post-1-repro-kit); the write-up is at
+[authstunt.com](https://authstunt.com/).
 
 ### Four mail paths, and which one you are on
 
