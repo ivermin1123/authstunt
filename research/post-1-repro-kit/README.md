@@ -258,7 +258,7 @@ python3 scripts/23-classify-divergence.py  > outputs/divergence-classification.t
 ```
 
 **Why there is a control run.** Two of the declared changes to the re-derivation loosen detection,
-so either can only raise the count. That makes any result above DF-4's 34 ambiguous between three
+so either can only raise the count. That makes any result above the ledger's 34 ambiguous between three
 causes: repository drift, a genuine difference in measurement, and the loosening we introduced
 ourselves. The control run is the old logic on the new corpus: it holds the corpus fixed and reverts
 only the declared changes, which turns the third cause from an estimate into a measurement. Script

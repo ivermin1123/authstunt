@@ -304,7 +304,7 @@ for kind, rx in CAP.items():
 # =================================================================================================
 # LAYER 3 - IS THE CONTROL RUN ACTUALLY A CONTROL?
 #
-# Script 23 attributes part of any increase over DF-4's 34 to "the declared changes", and it does so
+# Script 23 attributes part of any increase over the ledger's 34 to "the declared changes", and it does so
 # by differencing the main run against a control run that reverts them. That attribution is only
 # meaningful if the control genuinely reverts the change rather than approximating it. So the
 # control is tested too:

@@ -3,7 +3,7 @@
 
 WHY FOUR NUMBERS AND NOT ONE
     Two of the declared changes to the re-derivation (whole-text matching, and adding `mailinator`)
-    both LOOSEN detection: each can only raise the count. So a result above DF-4's 34 has three
+    both LOOSEN detection: each can only raise the count. So a result above the ledger's 34 has three
     possible causes that a single number cannot separate:
 
         (a) repository drift    - the corpus is a day younger than the measurement
@@ -15,7 +15,7 @@ WHY FOUR NUMBERS AND NOT ONE
     the OLD logic, on the NEW corpus. It holds the corpus constant and reverts only the declared
     changes, which turns (c) from an estimate into a measurement.
 
-        1. DF-4        old corpus, old logic     the published 34
+        1. DF-4        old corpus, old logic     the published 31
         2. CONTROL     new corpus, old logic     differs from 1 only by drift and by DF-4's own
                                                  file-selection, so 1 vs 2 isolates (a)
         3. MAIN        new corpus, new logic     the number the post would use

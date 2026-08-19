@@ -132,7 +132,7 @@ SIGNALS = (('FORGE', FORGE), ('SWITCH', SWITCH), ('HEADER', HEADER))
 
 # ---------------------------------------------------------------- control run
 # SCAN_MODE=line reverts declared change 1 (whole-text matching) and nothing else. Its purpose is
-# to measure, rather than guess, how much of any increase over DF-4's 34 is caused by that change
+# to measure, rather than guess, how much of any increase over the ledger's 34 is caused by that change
 # as opposed to by repository drift or by a genuine difference in measurement. The detection
 # patterns are identical in both modes - only the traversal differs - so the frozen pattern hash is
 # unaffected by this switch existing.

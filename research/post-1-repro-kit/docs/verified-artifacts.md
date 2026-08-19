@@ -108,7 +108,8 @@ lỗi bộ lọc — trích lại cùng lệnh trên bản tải đủ ra đúng
   SES**, không phải mail-catcher; `tests/paid-signup.spec.ts` (14KB) **không đụng OTP / mã xác
   thực / cookie giả** ở bất kỳ dòng nào.
 
-⇒ **`1/284` và `34/284` đứng nguyên sau khi vá.**
+⇒ **`1/284` và `34/284` đứng nguyên sau khi vá.** *(Số `34` ở dòng này là con số của lượt 16/08.
+Lượt chạy lại 17/08 nâng nó lên `35` — xem §6bis. `1/284` không đổi.)*
 
 ### 2a. `1/284` — repo có test signup tiêu thụ mã xác thực
 
@@ -148,6 +149,17 @@ pipeline. Bản đồ phần còn lại cũng khớp với DF-4: các ca đọc 
 tính (`CS-Grad-Tracker`, `workscanner`) đúng là nhóm A2 mà DF-4 đã tách riêng.
 
 ### 2b. `31/284` — repo tự dựng backdoor
+
+> ### ⚠️ MỤC NÀY ĐÃ BỊ THAY THẾ. Giữ lại làm sử liệu — không trích số từ đây.
+> Mục này chốt `34/284` và **cấm dùng `35`**. Cả hai phán quyết đã bị **§6bis (2026-08-17)** thay
+> thế, và lý do thay thế nằm trong chính phương pháp: lượt xác minh 16/08 để lại **văn xuôi mà
+> không để lại script**, nên `34` không ai chạy lại được, kể cả người viết ra nó. Khi phép đo được
+> dựng lại thành script và chạy trên corpus tải mới, kết quả là **`35/284`**; ca thứ 35
+> (`sefi-uzan/yanshuf-ai`) vào sổ ở §6bis với path:line + SHA, và false positive của lượt đó
+> (`QRun-IO/qqq-frontend-next`) được khai kèm thay vì lặng lẽ loại.
+>
+> **Con số dùng khi viết bài: `35/284`.** `1/284` không đổi. Mọi thứ dưới đây đọc như bản ghi ngày
+> 2026-08-16, không phải như phán quyết đang có hiệu lực.
 
 **Tín hiệu độc lập: tách đôi khái niệm, quét toàn repo, giữ mọi hit.**
 `10-selfbuilt-bypass.py` chỉ đọc file có **đường dẫn** giống E2E, lấy **hit đầu tiên rồi dừng**.
@@ -204,9 +216,16 @@ tên cookie là **hằng số import**, nên trong file spec không hề có chu
    kiểm của DF-4 (tự khai 17/20 đúng ở mẫu 20 repo). Nếu bài viết cần con số chắc hơn nữa thì
    phải mở tay cả 34, và đó là việc chưa làm.
 
-**Con số được phép dùng khi viết bài:** giữ **31/284** như báo cáo cũ (bảo thủ, đã tay kiểm), hoặc
+~~**Con số được phép dùng khi viết bài:** giữ **31/284** như báo cáo cũ (bảo thủ, đã tay kiểm), hoặc
 dùng **34/284** kèm ba ca mới có path:line ở bảng trên. **Không được dùng 35** (chứa false
-positive), và **không được dùng 51 hay 98** (thang khác, phạm vi khác).
+positive), và **không được dùng 51 hay 98** (thang khác, phạm vi khác).~~
+
+> **↑ ĐÃ BỊ THAY THẾ bởi §6bis (2026-08-17).** Câu cấm `35` ở trên đứng trên giả định rằng `35`
+> chứa false positive. Giả định đó đã được kiểm: false positive có thật, nhưng là
+> `QRun-IO/qqq-frontend-next`, và nó đến từ một token `MOCK|FAKE` **chép nhầm vào regex**, không
+> có trong định nghĩa hạng lẫn regex gốc của DF-4. Gỡ token rồi chạy lại toàn bộ (chứ không loại
+> riêng repo đó) rụng đúng một repo: `36 → 35`. Con số đang có hiệu lực là **`35/284`**, công bố
+> trong kit ở `outputs/selfbuilt-bypass-v2.txt`. Ràng buộc **không dùng 51 hay 98** vẫn giữ nguyên.
 
 ---
 
